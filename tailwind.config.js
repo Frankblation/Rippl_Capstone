@@ -1,14 +1,19 @@
-/** @type {import('tailwindcss').Config} */
+ /** @type {import('tailwindcss').Config} */
+const glob = require('glob');
+
 module.exports = {
   content: [
-    "./index.{js,ts,tsx}",
-    "./app/**/*.{js,ts,tsx}",
-    "./components/**/*.{js,ts,tsx}",
+    './app/**/*.{js,ts,tsx}',
+    './components/**/*.{js,ts,tsx}',
   ],
 
-  presets: [require("nativewind/preset")],
+  presets: [require('nativewind/preset')],
   theme: {
     extend: {},
   },
   plugins: [],
 };
+
+// Debugging: Log the files being scanned
+const files = glob.sync('./app/**/*.{js,ts,tsx}');
+console.log('Files being scanned by TailwindCSS:', files);
