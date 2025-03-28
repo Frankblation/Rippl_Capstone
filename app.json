@@ -3,7 +3,7 @@
     "name": "rippl",
     "slug": "rippl",
     "version": "1.0.0",
-      "newArchEnabled": true,
+    "newArchEnabled": true,
 
     "scheme": "rippl",
     "web": {
