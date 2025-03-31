@@ -17,6 +17,7 @@
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
     "@react-native-masked-view/masked-view": "0.3.2",
+    "@react-navigation/bottom-tabs": "^7.3.3",
     "@react-navigation/native": "^7.0.14",
     "@shopify/flash-list": "1.7.3",
     "@supabase/supabase-js": "^2.38.4",
@@ -24,6 +25,7 @@
     "expo": "~52.0.41",
     "expo-blur": "~14.0.3",
     "expo-constants": "~17.0.8",
+    "expo-haptics": "~14.0.1",
     "expo-image-picker": "~16.0.6",
     "expo-linking": "~7.0.5",
     "expo-router": "~4.0.19",
@@ -46,6 +48,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/react": "~18.3.12",
+    "@types/react-native-vector-icons": "^6.4.18",
     "@typescript-eslint/eslint-plugin": "^7.7.0",
     "@typescript-eslint/parser": "^7.7.0",
     "eslint": "^8.57.0",

@@ -1,52 +1,20 @@
+import Feather from '@expo/vector-icons/Feather';
 import { FlashList } from '@shopify/flash-list';
 import React, { useRef, useState } from 'react';
-import { Alert, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import CommentsBottomSheet, {
-  type CommentsBottomSheetRef,
-  type PostComment,
-} from '../../components/CommentsBottomSheet';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import EventCard from '../../components/EventCard';
 import PostCard from '../../components/PostCard';
 import EventCarousel from '../../components/UpcomingEventsCarousel';
-
-import type { ImageSourcePropType } from 'react-native';
-
-type PostItem = {
-  id: string;
-  interest: string;
-  username: string;
-  userAvatar: ImageSourcePropType;
-  timePosted: string;
-  postText?: string;
-  title?: string;
-  postImage?: ImageSourcePropType;
-  likesCount: number;
-  commentsCount: number;
-  type: 'post';
-};
-
-type EventItem = {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  description?: string;
-  image: ImageSourcePropType;
-  attendeeAvatars?: ImageSourcePropType[];
-  totalAttendees?: number;
-  status?: 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
-  type: 'event';
-};
-
-type CarouselItem = {
-  type: 'carousel';
-};
-
-type FeedItem = PostItem | EventItem | CarouselItem;
+import CommentsBottomSheet, {
+  CommentsBottomSheetRef,
+  PostComment,
+} from '../../components/CommentsBottomSheet';
 
 const HomeScreen = () => {
+  const insets = useSafeAreaInsets();
   const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
   const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
   const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
@@ -58,7 +26,15 @@ const HomeScreen = () => {
   };
 
   const handleAddComment = (text: string) => {
-    console.log('New comment:', text);
+    const newComment: PostComment = {
+      id: Date.now().toString(),
+      username: 'current_user',
+      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/68.jpg' },
+      text,
+      timePosted: 'Just now',
+    };
+    setSelectedComments((prev) => [...prev, newComment]);
+    setSelectedCommentsCount((prev) => prev + 1);
   };
 
   const avatars2 = [
@@ -76,24 +52,7 @@ const HomeScreen = () => {
     { uri: 'https://randomuser.me/api/portraits/men/79.jpg' },
   ];
 
-  const sampleComments: PostComment[] = [
-    {
-      id: '1',
-      username: 'alex_dev',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/men/42.jpg' },
-      text: 'This is awesome!',
-      timePosted: '2h ago',
-    },
-    {
-      id: '2',
-      username: 'jane_smith',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/33.jpg' },
-      text: 'Love the colors in this photo!',
-      timePosted: '1h ago',
-    },
-  ];
-
-  const posts: PostItem[] = [
+  const posts = [
     {
       id: '1',
       interest: 'Books',
@@ -121,7 +80,7 @@ const HomeScreen = () => {
     },
   ];
 
-  const events: EventItem[] = [
+  const events = [
     {
       id: 'e1',
       title: 'Pottery Workshop',
@@ -137,70 +96,64 @@ const HomeScreen = () => {
     },
   ];
 
-  const feed: FeedItem[] = [{ type: 'carousel' }, ...posts, ...events];
+  const sampleComments: PostComment[] = [
+    {
+      id: '1',
+      username: 'alex_dev',
+      userAvatar: { uri: 'https://randomuser.me/api/portraits/men/42.jpg' },
+      text: 'This is awesome!',
+      timePosted: '2h ago',
+    },
+  ];
 
-  const renderItem = ({ item }: { item: FeedItem }) => {
+  const feed = [{ type: 'carousel' }, ...posts, ...events];
+
+  const renderItem = ({ item }: { item: any }) => {
     if (item.type === 'post') {
       return (
         <PostCard
-          interest={item.interest}
-          username={item.username}
-          userAvatar={item.userAvatar}
-          timePosted={item.timePosted}
-          postText={item.postText}
-          postImage={item.postImage}
-          title="My trip to the mountains"
-          likesCount={item.likesCount}
-          commentsCount={item.commentsCount}
+          {...item}
           onLikePress={() => console.log('Like pressed')}
           onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
           onCommentPress={() => handleOpenComments(sampleComments, item.commentsCount)}
         />
       );
-    }
-
-    if (item.type === 'event') {
+    } else if (item.type === 'event') {
       return (
         <EventCard
-          title={item.title}
-          date={item.date}
-          time={item.time}
-          location={item.location}
-          description={item.description}
-          image={item.image}
-          attendeeAvatars={item.attendeeAvatars}
-          status={item.status}
-          onPress={() => Alert.alert('Event Details', 'View full event details')}
-          onRegisterPress={() => Alert.alert('Register', 'Registration form would open here')}
+          {...item}
+          onLikePress={() => console.log('Like pressed')}
+          onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
+          onCommentPress={() => handleOpenComments(sampleComments, item.commentsCount)}
         />
       );
+    } else if (item.type === 'carousel') {
+      return <EventCarousel />;
     }
-
-    if (item.type === 'carousel') return <EventCarousel />;
-
     return null;
   };
 
   return (
-    <SafeAreaView className="flex-1">
-      <View className="flex-1">
-        <FlashList
-          data={feed}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => ('id' in item ? item.id : `carousel-${index}`)}
-          estimatedItemSize={300}
-        />
-
-        <CommentsBottomSheet
-          ref={commentsSheetRef}
-          comments={selectedComments}
-          commentsCount={selectedCommentsCount}
-          onAddComment={handleAddComment}
-        />
-      </View>
-    </SafeAreaView>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <FlashList
+            data={feed}
+            renderItem={renderItem}
+            keyExtractor={(item, index) => ('id' in item ? item.id : `carousel-${index}`)}
+            estimatedItemSize={300}
+            contentContainerStyle={{ paddingBottom: 16 + insets.bottom }}
+          />
+          <CommentsBottomSheet
+            ref={commentsSheetRef}
+            comments={selectedComments}
+            commentsCount={selectedCommentsCount}
+            onAddComment={handleAddComment}
+          />
+        </View>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
 export default HomeScreen;
-
