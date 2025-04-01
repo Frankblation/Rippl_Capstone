@@ -1,10 +1,7 @@
 import { supabase } from './supabase';
 
 // Data Types
-import { UsersTable } from './db';
-import { PostsTable } from './db';
-import { MessagesTable } from './db';
-import { ChatsTable } from './db';
+import { UsersTable, ChatsTable, MessagesTable, PostsTable } from './db';
 
 
 /* ------ USERS CRUD ------ */
@@ -124,6 +121,16 @@ export const createPost = async (
   const { data, error } = await supabase.from('posts').insert([postData]).select().single();
 
   if (error) throw error;
+
+  // Insert a row into post_popularity for the new post
+  const { error: popularityError } = await supabase
+    .from('post_popularity')
+    .insert({ post_id: data.id, comments: 0, likes: 0, reposts: 0, total_engagement: 0 });
+
+  if (popularityError) {
+    console.error('Error creating post popularity entry:', popularityError);
+  }
+
   return data as PostsTable;
 };
 
