@@ -119,18 +119,7 @@ export const createPost = async (
   postData: Omit<PostsTable, 'id' | 'created_at'>
 ): Promise<PostsTable> => {
   const { data, error } = await supabase.from('posts').insert([postData]).select().single();
-
   if (error) throw error;
-
-  // Insert a row into post_popularity for the new post
-  const { error: popularityError } = await supabase
-    .from('post_popularity')
-    .insert({ post_id: data.id, comments: 0, likes: 0, reposts: 0, total_engagement: 0 });
-
-  if (popularityError) {
-    console.error('Error creating post popularity entry:', popularityError);
-  }
-
   return data as PostsTable;
 };
 
