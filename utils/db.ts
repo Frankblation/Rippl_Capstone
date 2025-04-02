@@ -20,7 +20,7 @@ export interface Database {
     chats: ChatsTable;
     attendees: AttendeesTable;
     chat_participants: ChatParticipantsTable;
-    event_interests: EventInterestsTable;
+    post_interests: PostInterestsTable;
     interest_categories: InterestCategoriesTable;
     post_popularity: PostPopularityTable;
     user_interests: UserInterestsTable;
@@ -106,8 +106,8 @@ export interface ChatParticipantsTable {
 }
 
 // Event Interests Data Type
-export interface EventInterestsTable {
-    event_id: string;
+export interface PostInterestsTable {
+    post_id: string;
     interest_id: string;
 }
 

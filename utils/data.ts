@@ -1,12 +1,21 @@
 import { supabase } from './supabase';
 
 // Data Types
+import { PostType } from './db';
 import { UsersTable } from './db';
 import { PostsTable } from './db';
 import { MessagesTable } from './db';
 import { ChatsTable } from './db';
+import { InterestsTable } from './db';
+import { InterestCategoriesTable } from './db';
+import { UserInterestsTable } from './db';
+import { FriendshipsTable } from './db';
+import { UserMatchesTable } from './db';
+import { PostInterestsTable } from './db';
+import { AttendeesTable } from './db';
 
 /* ------ USERS CRUD ------ */
+
 // CREATE
 /**
  * Creates a new user in the database
@@ -111,6 +120,7 @@ export const deleteUser = async (userId: string): Promise<UsersTable | null> => 
 };
 
 /* ------ POSTS CRUD ------ */
+
 // CREATE
 /**
  * Creates a new post in the database
@@ -382,4 +392,575 @@ export const removeUserFromChat = async (chatId: string, userId: string): Promis
     .eq('user_id', userId);
 
   if (error) throw error;
+};
+
+/* ------ POST INTERESTS CRUD ------ */
+
+// CREATE
+/**
+ * Associates an interest with a post
+ * @param postInterest The post interest data to create
+ * @returns Promise with the created post interest
+ */
+export const createPostInterest = async (
+  postInterest: PostInterestsTable
+): Promise<PostInterestsTable> => {
+  const { error } = await supabase.from('event_interests').insert(postInterest);
+  if (error) throw error;
+
+  return postInterest;
+};
+
+// READ
+/**
+ * Gets all posts with a specific interest
+ * @param interestId The ID of the interest
+ * @returns Promise with an array of post interests with post details
+ */
+export const getPostsByInterest = async (
+  interestId: string
+): Promise<(PostInterestsTable & PostsTable)[]> => {
+  const { data, error } = await supabase
+    .from('post_interests')
+    .select('*, posts(*)')
+    .eq('interest_id', interestId)
+    .eq('posts.post_type', PostType);
+
+  if (error) throw error;
+  return data.map((item) => ({
+    ...item,
+    ...item.posts,
+  }));
+};
+
+// DELETE
+/**
+ * Removes an interest from a post
+ * @param eventId The ID of the post
+ * @param interestId The ID of the interest
+ * @returns Promise with the deleted post interest or null if not found
+ */
+export const deletePostInterest = async (
+  postId: string,
+  interestId: string
+): Promise<PostInterestsTable | null> => {
+  const { data, error: selectError } = await supabase
+    .from('post_interests')
+    .select('*')
+    .eq('event_id', postId)
+    .eq('interest_id', interestId)
+    .maybeSingle();
+
+  if (selectError) throw selectError;
+  if (!data) return null;
+
+  const { error } = await supabase
+    .from('event_interests')
+    .delete()
+    .eq('event_id', postId)
+    .eq('interest_id', interestId);
+
+  if (error) throw error;
+  return data;
+};
+
+/* ------ INTERESTS + INTEREST CATEGORIES CRUD ------ */
+
+// CREATE
+/**
+ * Creates a new interest
+ * @param interest The interest data to create
+ * @returns Promise with the created interest
+ */
+export const createInterest = async (
+  interest: Omit<InterestsTable, 'id'>
+): Promise<InterestsTable> => {
+  const id = crypto.randomUUID();
+  const newInterest: InterestsTable = {
+    id,
+    name: interest.name,
+    category_id: interest.category_id,
+  };
+
+  const { error } = await supabase.from('interests').insert(newInterest);
+  if (error) throw error;
+
+  return newInterest;
+};
+
+/**
+ * Creates a new interest category
+ * @param category The category data to create
+ * @returns Promise with the created category
+ */
+export const createInterestCategory = async (
+  category: Omit<InterestCategoriesTable, 'id'>
+): Promise<InterestCategoriesTable> => {
+  const id = crypto.randomUUID();
+  const newCategory: InterestCategoriesTable = {
+    id,
+    name: category.name,
+  };
+
+  const { error } = await supabase.from('interest_categories').insert(newCategory);
+  if (error) throw error;
+
+  return newCategory;
+};
+
+// READ
+/**
+ * Gets all interests
+ * @returns Promise with an array of all interests
+ */
+export const getAllInterests = async (): Promise<InterestsTable[]> => {
+  const { data, error } = await supabase.from('interests').select('*');
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Gets interests by category
+ * @param categoryId The category ID to filter by
+ * @returns Promise with an array of interests in the category
+ */
+export const getInterestsByCategory = async (categoryId: string): Promise<InterestsTable[]> => {
+  const { data, error } = await supabase
+    .from('interests')
+    .select('*')
+    .eq('category_id', categoryId);
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Gets an interest by ID
+ * @param id The ID of the interest to retrieve
+ * @returns Promise with the interest or null if not found
+ */
+export const getInterestById = async (id: string): Promise<InterestsTable | null> => {
+  const { data, error } = await supabase.from('interests').select('*').eq('id', id).single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Record not found
+    throw error;
+  }
+
+  return data;
+};
+
+/**
+ * Gets an interest category by ID
+ * @param id The ID of the interest category to retrieve
+ * @returns Promise with the interest category or null if not found
+ */
+export const getInterestCategoryById = async (
+  id: string
+): Promise<InterestCategoriesTable | null> => {
+  const { data, error } = await supabase
+    .from('interest_categories')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Record not found
+    throw error;
+  }
+
+  return data;
+};
+
+/**
+ * Gets all interest categories
+ * @returns Promise with an array of all interest categories
+ */
+export const getAllInterestCategories = async (): Promise<InterestCategoriesTable[]> => {
+  const { data, error } = await supabase.from('interest_categories').select('*');
+
+  if (error) throw error;
+  return data;
+};
+
+// DELETE
+/**
+ * Deletes an interest
+ * @param id The ID of the interest to delete
+ * @returns Promise with the deleted interest or null if not found
+ */
+export const deleteInterest = async (id: string): Promise<InterestsTable | null> => {
+  const interest = await getInterestById(id);
+  if (!interest) return null;
+
+  const { error } = await supabase.from('interests').delete().eq('id', id);
+
+  if (error) throw error;
+  return interest;
+};
+
+/* ------ USER INTERESTS CRUD ------ */
+
+// CREATE
+/**
+ * Creates a user interest connection
+ * @param userInterest The user interest data to create
+ * @returns Promise with the created user interest
+ */
+export const createUserInterest = async (
+  userInterest: UserInterestsTable
+): Promise<UserInterestsTable> => {
+  const { error } = await supabase.from('user_interests').insert(userInterest);
+  if (error) throw error;
+
+  return userInterest;
+};
+
+// READ
+/**
+ * Gets all interests for a specific user
+ * @param userId The ID of the user
+ * @returns Promise with an array of user interests with interest details
+ */
+export const getUserInterests = async (
+  userId: string
+): Promise<(UserInterestsTable & InterestsTable)[]> => {
+  const { data, error } = await supabase
+    .from('user_interests')
+    .select('*, interests(*)')
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return data.map((item) => ({
+    ...item,
+    ...item.interests,
+  }));
+};
+
+/**
+ * Gets all users with a specific interest
+ * @param interestId The ID of the interest
+ * @returns Promise with an array of user interests with user details
+ */
+export const getUsersByInterest = async (
+  interestId: string
+): Promise<(UserInterestsTable & UsersTable)[]> => {
+  const { data, error } = await supabase
+    .from('user_interests')
+    .select('*, users(*)')
+    .eq('interest_id', interestId);
+
+  if (error) throw error;
+  return data.map((item) => ({
+    ...item,
+    ...item.users,
+  }));
+};
+
+/**
+ * Checks if a user has a specific interest
+ * @param userId The ID of the user
+ * @param interestId The ID of the interest
+ * @returns Promise with a boolean indicating if the user has the interest
+ */
+export const userHasInterest = async (userId: string, interestId: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('user_interests')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('interest_id', interestId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data !== null;
+};
+
+// DELETE
+/**
+ * Deletes a user interest connection
+ * @param userId The ID of the user
+ * @param interestId The ID of the interest
+ * @returns Promise with the deleted user interest or null if not found
+ */
+export const deleteUserInterest = async (
+  userId: string,
+  interestId: string
+): Promise<UserInterestsTable | null> => {
+  const { data, error: selectError } = await supabase
+    .from('user_interests')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('interest_id', interestId)
+    .maybeSingle();
+
+  if (selectError) throw selectError;
+  if (!data) return null;
+
+  const { error } = await supabase
+    .from('user_interests')
+    .delete()
+    .eq('user_id', userId)
+    .eq('interest_id', interestId);
+
+  if (error) throw error;
+  return data;
+};
+
+/* ------ FRIENDSHIP CRUD ------ */
+
+// CREATE
+/**
+ * Creates a friendship request
+ * @param friendship The friendship data to create
+ * @returns Promise with the created friendship
+ */
+export const createFriendship = async (
+  friendship: FriendshipsTable & { status: 'pending' | 'accepted' | 'blocked' }
+): Promise<FriendshipsTable & { status: string }> => {
+  const { error } = await supabase.from('friendships').insert(friendship);
+  if (error) throw error;
+
+  return friendship;
+};
+
+// READ
+/**
+ * Gets all friendships for a user
+ * @param userId The ID of the user
+ * @param status Optional status filter
+ * @returns Promise with an array of friendships
+ */
+export const getUserFriendships = async (
+  userId: string,
+  status?: 'pending' | 'accepted' | 'blocked'
+): Promise<(FriendshipsTable & { status: string })[]> => {
+  let query = supabase
+    .from('friendships')
+    .select('*')
+    .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Gets pending friend requests for a user
+ * @param userId The ID of the user
+ * @returns Promise with an array of pending friend requests
+ */
+export const getPendingFriendRequests = async (
+  userId: string
+): Promise<(FriendshipsTable & { status: string })[]> => {
+  const { data, error } = await supabase
+    .from('friendships')
+    .select('*')
+    .eq('friend_id', userId)
+    .eq('status', 'pending');
+
+  if (error) throw error;
+  return data;
+};
+
+// UPDATE
+/**
+ * Updates friendship status
+ * @param userId The ID of the user
+ * @param friendId The ID of the friend
+ * @param status The new status
+ * @returns Promise with the updated friendship or null if not found
+ */
+export const updateFriendshipStatus = async (
+  userId: string,
+  friendId: string,
+  status: 'pending' | 'accepted' | 'blocked'
+): Promise<(FriendshipsTable & { status: string }) | null> => {
+  const { data: friendship, error: selectError } = await supabase
+    .from('friendships')
+    .select('*')
+    .or(
+      `and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`
+    )
+    .maybeSingle();
+
+  if (selectError) throw selectError;
+  if (!friendship) return null;
+
+  const { data, error } = await supabase
+    .from('friendships')
+    .update({ status })
+    .eq('user_id', friendship.user_id)
+    .eq('friend_id', friendship.friend_id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+// DELETE
+/**
+ * Deletes a friendship
+ * @param userId The ID of the user
+ * @param friendId The ID of the friend
+ * @returns Promise with the deleted friendship or null if not found
+ */
+export const deleteFriendship = async (
+  userId: string,
+  friendId: string
+): Promise<(FriendshipsTable & { status: string }) | null> => {
+  const { data: friendship, error: selectError } = await supabase
+    .from('friendships')
+    .select('*')
+    .or(
+      `and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`
+    )
+    .maybeSingle();
+
+  if (selectError) throw selectError;
+  if (!friendship) return null;
+
+  const { error } = await supabase
+    .from('friendships')
+    .delete()
+    .eq('user_id', friendship.user_id)
+    .eq('friend_id', friendship.friend_id);
+
+  if (error) throw error;
+  return friendship;
+};
+
+/* ------ USER MATCHES CRUD ------ */
+
+// CREATE
+/**
+ * Creates a user match
+ * @param match The match data to create
+ * @returns Promise with the created match
+ */
+export const createUserMatch = async (
+  match: UserMatchesTable
+): Promise<UserMatchesTable & { matched_at: string }> => {
+  // Ensure user_id < matched_user_id to enforce the CHECK constraint
+  let userId = match.user_id;
+  let matchedUserId = match.matched_user_id;
+
+  if (userId > matchedUserId) {
+    [userId, matchedUserId] = [matchedUserId, userId];
+  }
+
+  const newMatch: UserMatchesTable & { matched_at: string } = {
+    user_id: userId,
+    matched_user_id: matchedUserId,
+    matched_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from('user_matches').insert(newMatch);
+  if (error) throw error;
+
+  return newMatch;
+};
+
+// READ
+/**
+ * Gets all matches for a user
+ * @param userId The ID of the user
+ * @returns Promise with an array of user matches
+ */
+export const getUserMatches = async (
+  userId: string
+): Promise<(UserMatchesTable & { matched_at: string })[]> => {
+  const { data, error } = await supabase
+    .from('user_matches')
+    .select('*')
+    .or(`user_id.eq.${userId},matched_user_id.eq.${userId}`);
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Checks if a match exists between two users
+ * @param userId1 The ID of the first user
+ * @param userId2 The ID of the second user
+ * @returns Promise with a boolean indicating if the match exists
+ */
+export const matchExists = async (userId1: string, userId2: string): Promise<boolean> => {
+  // Ensure user_id < matched_user_id to match the stored order
+  let userId = userId1;
+  let matchedUserId = userId2;
+
+  if (userId > matchedUserId) {
+    [userId, matchedUserId] = [matchedUserId, userId];
+  }
+
+  const { data, error } = await supabase
+    .from('user_matches')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('matched_user_id', matchedUserId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data !== null;
+};
+
+// DELETE
+/**
+ * Deletes a user match
+ * @param userId The ID of the user
+ * @param matchedUserId The ID of the matched user
+ * @returns Promise with the deleted match or null if not found
+ */
+export const deleteUserMatch = async (
+  userId: string,
+  matchedUserId: string
+): Promise<(UserMatchesTable & { matched_at: string }) | null> => {
+  // Ensure user_id < matched_user_id to match the stored order
+  let userId1 = userId;
+  let userId2 = matchedUserId;
+
+  if (userId1 > userId2) {
+    [userId1, userId2] = [userId2, userId1];
+  }
+
+  const { data, error: selectError } = await supabase
+    .from('user_matches')
+    .select('*')
+    .eq('user_id', userId1)
+    .eq('matched_user_id', userId2)
+    .maybeSingle();
+
+  if (selectError) throw selectError;
+  if (!data) return null;
+
+  const { error } = await supabase
+    .from('user_matches')
+    .delete()
+    .eq('user_id', userId1)
+    .eq('matched_user_id', userId2);
+
+  if (error) throw error;
+  return data;
+};
+
+/* ------ ATTENDEES CRUD ------ */
+
+// CREATE
+/**
+ * Creates a new attendee record
+ * @param attendee The attendee data to create
+ * @returns Promise with the created attendee
+ */
+export const createAttendee = async (attendee: AttendeesTable): Promise<AttendeesTable> => {
+  const { error } = await supabase.from('attendees').insert(attendee);
+  if (error) throw error;
+  
+  return attendee;
 };
