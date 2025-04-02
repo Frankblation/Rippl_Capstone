@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 // Data Types
-import { PostType } from './db';
+import { PostType, Status } from './db';
 import { UsersTable } from './db';
 import { PostsTable } from './db';
 import { MessagesTable } from './db';
@@ -13,6 +13,7 @@ import { FriendshipsTable } from './db';
 import { UserMatchesTable } from './db';
 import { PostInterestsTable } from './db';
 import { AttendeesTable } from './db';
+import { CommentsTable } from './db';
 
 /* ------ USERS CRUD ------ */
 
@@ -961,6 +962,214 @@ export const deleteUserMatch = async (
 export const createAttendee = async (attendee: AttendeesTable): Promise<AttendeesTable> => {
   const { error } = await supabase.from('attendees').insert(attendee);
   if (error) throw error;
-  
+
   return attendee;
+};
+
+// READ
+/**
+ * Gets all attendees for a specific post
+ * @param postId The ID of the post
+ * @param status Optional status filter
+ * @returns Promise with an array of attendees with user details
+ */
+export const getAttendeesByPost = async (
+  postId: string,
+  status?: Status
+): Promise<(AttendeesTable & UsersTable)[]> => {
+  let query = supabase.from('attendees').select('*, users(*)').eq('post_id', postId);
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data.map((item) => ({
+    ...item,
+    ...item.users,
+  }));
+};
+
+/**
+ * Gets all posts a user is attending
+ * @param userId The ID of the user
+ * @param status Optional status filter
+ * @returns Promise with an array of attendees with post details
+ */
+export const getAttendeesByUser = async (
+  userId: string,
+  status?: Status
+): Promise<(AttendeesTable & PostsTable)[]> => {
+  let query = supabase.from('attendees').select('*, posts(*)').eq('user_id', userId);
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data.map((item) => ({
+    ...item,
+    ...item.posts,
+  }));
+};
+
+/**
+ * Gets attendee count for a post
+ * @param postId The ID of the post
+ * @param status Optional status filter
+ * @returns Promise with the count of attendees
+ */
+export const getAttendeeCount = async (postId: string, status?: Status): Promise<number> => {
+  let query = supabase
+    .from('attendees')
+    .select('*', { count: 'exact', head: true })
+    .eq('post_id', postId);
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  const { count, error } = await query;
+
+  if (error) throw error;
+  return count || 0;
+};
+
+// UPDATE
+/**
+ * Updates an attendee's status
+ * @param postId The ID of the post
+ * @param userId The ID of the user
+ * @param status The new status
+ * @returns Promise with the updated attendee or null if not found
+ */
+export const updateAttendeeStatus = async (
+  postId: string,
+  userId: string,
+  status: Status
+): Promise<AttendeesTable | null> => {
+  const { data: attendee, error: selectError } = await supabase
+    .from('attendees')
+    .select('*')
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (selectError) throw selectError;
+  if (!attendee) return null;
+
+  const { data, error } = await supabase
+    .from('attendees')
+    .update({ status })
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+// DELETE
+/**
+ * Deletes an attendee record
+ * @param postId The ID of the post
+ * @param userId The ID of the user
+ * @returns Promise with the deleted attendee or null if not found
+ */
+export const deleteAttendee = async (
+  postId: string,
+  userId: string
+): Promise<AttendeesTable | null> => {
+  const { data, error: selectError } = await supabase
+    .from('attendees')
+    .select('*')
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (selectError) throw selectError;
+  if (!data) return null;
+
+  const { error } = await supabase
+    .from('attendees')
+    .delete()
+    .eq('post_id', postId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return data;
+};
+
+/* ------ COMMENTS CRUD ------ */
+
+//CREATE
+/**
+ * Creates a new comment
+ * @param comment The comment data to create
+ * @returns Promise with the created comment
+ */
+export const createComment = async (
+  comment: Omit<CommentsTable, 'id' | 'likes' | 'replies' | 'sent_at'>
+): Promise<CommentsTable> => {
+  const id = crypto.randomUUID();
+  const newComment: CommentsTable = {
+    id,
+    post_id: comment.post_id,
+    user_id: comment.user_id,
+    content: comment.content,
+    likes: 0,
+    replies: 0,
+    sent_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from('comments').insert(newComment);
+  if (error) throw error;
+
+  return newComment;
+};
+
+// READ
+/**
+ * Gets all comments for a post
+ * @param postId The ID of the post
+ * @returns Promise with an array of comments with user details
+ */
+export const getCommentsByPost = async (
+  postId: string
+): Promise<(CommentsTable & { user: UsersTable })[]> => {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*, user:users(*)')
+    .eq('post_id', postId)
+    .order('sent_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Gets a specific comment
+ * @param id The ID of the comment
+ * @returns Promise with the comment with user details or null if not found
+ */
+export const getCommentById = async (
+  id: string
+): Promise<(CommentsTable & { user: UsersTable }) | null> => {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*, user:users(*)')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Record not found
+    throw error;
+  }
+
+  return data;
 };
