@@ -1,4 +1,3 @@
-
 // ENUM Types
 export enum PostType {
     NOTE = 'note',
