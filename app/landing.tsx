@@ -1,4 +1,4 @@
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, Button, StyleSheet, Image, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function LandingScreen() {
@@ -6,10 +6,25 @@ export default function LandingScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Landing Screen</Text>
-      <Button title="Login" onPress={() => router.push('/login')} />
-      <Button title="Sign Up" onPress={() => router.push('/signup')} />
-      <Button title="Go to App" onPress={() => router.push('/(tabs)/home')} />
+      <Image
+        source={require('../assets/rippl2.png')}
+        style={{ width: '90%', height: 200, resizeMode: 'contain' }}
+      />
+      <Pressable
+        onPress={() => router.push('/login')}
+        className="h-12 w-1/4 items-center justify-center rounded-full bg-teal-500">
+        <Text className="text-md text-[20px] text-white">Log In</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => router.push('/signup')}
+        className="h-12 w-1/4 items-center justify-center rounded-full bg-teal-500">
+        <Text className="text-md text-[20px] text-white">Sign up</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => router.push('/(tabs)/home')}
+        className="h-12 w-1/4 items-center justify-center rounded-full bg-teal-500">
+        <Text className="text-md text-[20px] text-white">Go to app</Text>
+      </Pressable>
     </View>
   );
 }

@@ -25,6 +25,7 @@ interface EventCardProps {
   likesCount?: number;
   commentsCount?: number;
   timePosted?: string;
+  onCommentPress?: () => void;
 }
 
 const EventCard: React.FC<EventCardProps> = ({
@@ -38,6 +39,7 @@ const EventCard: React.FC<EventCardProps> = ({
   status = 'upcoming',
   onPress,
   onRegisterPress,
+  onCommentPress,
   likesCount = 0,
   commentsCount = 0,
   timePosted = '2h ago',
@@ -60,7 +62,9 @@ const EventCard: React.FC<EventCardProps> = ({
     setIsLiked(!isLiked);
   };
 
-  const handleCommentPress = () => {};
+  const handleCommentPress = () => {
+    if (onCommentPress) onCommentPress();
+  };
 
   const getStatusColor = () => {
     switch (status) {
@@ -174,14 +178,15 @@ const EventCard: React.FC<EventCardProps> = ({
             <TouchableOpacity style={styles.actionButton} onPress={handleLikePress}>
               <Feather
                 name="heart"
-                size={20}
                 color={isLiked ? '#ed4956' : '#262626'}
+                fill={isLiked ? '#ed4956' : 'none'}
+                stroke={isLiked ? '#ed4956' : '#262626'}
                 style={styles.actionIcon}
               />
               <Text style={[styles.actionText, isLiked && styles.likedText]}>Like</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={handleCommentPress}>
-              <Feather name="message-circle" size={20} color="#262626" style={styles.actionIcon} />
+              <Feather name="message-circle" color="#262626" style={styles.actionIcon} />
               <Text style={styles.actionText}>Comment</Text>
             </TouchableOpacity>
             <Text style={styles.timePosted}>{timePosted}</Text>
@@ -229,13 +234,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   contentContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 12,
+    paddingTop: 16,
   },
   detailsContainer: {
     marginBottom: 0,
@@ -301,8 +307,8 @@ const styles = StyleSheet.create({
   },
   likesText: {
     fontSize: 14,
-    color: '#666',
     marginRight: 16,
+    color: '#666',
   },
   commentsText: {
     fontSize: 14,
@@ -312,24 +318,26 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#efefef',
-    marginVertical: 8,
+    marginTop: 8,
+    paddingHorizontal: 16,
   },
   actionButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   actionIcon: {
     marginRight: 4,
   },
   actionText: {
     fontSize: 14,
+    fontWeight: '500',
     color: '#262626',
   },
   likedText: {
@@ -338,6 +346,7 @@ const styles = StyleSheet.create({
   timePosted: {
     fontSize: 12,
     color: '#8e8e8e',
+    alignSelf: 'center',
   },
 });
 

@@ -1,21 +1,52 @@
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import { useColorScheme } from '~/hooks/useColorScheme';
 
 import 'global.css';
 
-export default function RootLayout() {
-  return (
-    <GestureHandlerRootView>
-      <Stack initialRouteName="landing">
-        <Stack.Screen name="landing" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ title: 'Login' }} />
-        <Stack.Screen name="signup" options={{ title: 'Sign Up' }} />
-        <Stack.Screen name="customize-profile" options={{ title: 'Customize Profile' }} />
-        <Stack.Screen name="create-interests" options={{ title: 'Your Interests' }} />
-        <Stack.Screen name="welcome" options={{ title: 'Welcome' }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </GestureHandlerRootView>
+SplashScreen.preventAutoHideAsync();
 
+export default function RootLayout() {
+  const [loaded] = useFonts({
+    SFProTextRegular: require('../assets/fonts/SF-Pro-Text-Regular.otf'),
+    SFProTextBold: require('../assets/fonts/SF-Pro-Text-Bold.otf'),
+    SFProTextSemiBold: require('../assets/fonts/SF-Pro-Text-Semibold.otf'),
+    SFProTextMedium: require('../assets/fonts/SF-Pro-Text-Medium.otf'),
+
+    SujectivityBold: require('../assets/fonts/Subjectivity-Bold.otf'),
+    rlAqva: require('../assets/fonts/rlAqva.otf'),
+    PoppinsRegular: require('../assets/fonts/Poppins-Regular.ttf'),
+  });
+  const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return null;
+  }
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack initialRouteName="landing">
+          <Stack.Screen name="landing" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="signup" options={{ headerShown: false }} />
+          <Stack.Screen name="customize-profile" options={{ headerShown: false }} />
+          <Stack.Screen name="create-interests" options={{ headerShown: false }} />
+          <Stack.Screen name="welcome" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

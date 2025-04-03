@@ -1,24 +1,26 @@
-'use client';
-
-import Feather from '@expo/vector-icons/Feather';
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import React, { useRef, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  type ImageSourcePropType,
-} from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import BottomSheet, {
+  BottomSheetScrollView,
+  BottomSheetBackdrop,
+  BottomSheetTextInput,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
+import React, {
+  useRef,
+  forwardRef,
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  useImperativeHandle,
+} from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Keyboard, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface PostComment {
   id: string;
   username: string;
-  userAvatar: ImageSourcePropType;
+  userAvatar: any;
   text: string;
   timePosted: string;
 }
@@ -35,11 +37,33 @@ export interface CommentsBottomSheetRef {
 }
 
 const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomSheetProps>(
-  ({ comments, commentsCount, onAddComment }, ref) => {
+  ({ comments, onAddComment }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
-    const [newCommentText, setNewCommentText] = React.useState('');
+    const inputRef = useRef<any>(null);
+    const [newCommentText, setNewCommentText] = useState('');
+    const snapPoints = useMemo(() => ['75%'], []);
+    const insets = useSafeAreaInsets();
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-    const snapPoints = useMemo(() => ['70%'], []);
+    useEffect(() => {
+      const keyboardWillShowListener = Keyboard.addListener(
+        Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+        (e) => {
+          setKeyboardHeight(e.endCoordinates.height);
+        }
+      );
+      const keyboardWillHideListener = Keyboard.addListener(
+        Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+        () => {
+          setKeyboardHeight(0);
+        }
+      );
+
+      return () => {
+        keyboardWillShowListener.remove();
+        keyboardWillHideListener.remove();
+      };
+    }, []);
 
     useImperativeHandle(ref, () => ({
       open: () => {
@@ -55,16 +79,14 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
       []
     );
 
-    const handleCloseBottomSheet = useCallback(() => {
-      bottomSheetRef.current?.close();
-    }, []);
-
     const handleAddComment = () => {
       if (newCommentText.trim()) {
         onAddComment(newCommentText);
         setNewCommentText('');
       }
     };
+
+    const bottomPadding = Math.max(insets.bottom, 10);
 
     return (
       <BottomSheet
@@ -73,77 +95,118 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
-        handleIndicatorStyle={styles.bottomSheetIndicator}>
-        <View style={styles.bottomSheetHeader}>
-          <Text style={styles.bottomSheetTitle}>Comments ({commentsCount})</Text>
-          <TouchableOpacity onPress={handleCloseBottomSheet}>
-            <Feather name="x" size={24} color="#262626" />
-          </TouchableOpacity>
-        </View>
+        keyboardBehavior="interactive"
+        android_keyboardInputMode="adjustResize"
+        handleIndicatorStyle={styles.bottomSheetIndicator}
+        style={styles.bottomSheet}
+        keyboardBlurBehavior="restore"
+        bottomInset={bottomPadding}
+        detached
+        enableContentPanningGesture={false}
+        enableHandlePanningGesture>
+        <BottomSheetView style={styles.contentContainer}>
+          <View style={styles.bottomSheetHeader}>
+            <Text style={styles.bottomSheetTitle}>Comments</Text>
+          </View>
 
-        <BottomSheetScrollView contentContainerStyle={styles.commentsScrollViewContent}>
-          {/* COMMENTS LIST */}
-          {comments.length > 0 ? (
-            comments.map((comment) => (
+          <BottomSheetScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.commentsScrollViewContent,
+              { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 80 : 80 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            {comments.map((comment) => (
               <View key={comment.id} style={styles.commentContainer}>
                 <Image source={comment.userAvatar} style={styles.commentAvatar} />
                 <View style={styles.commentContent}>
-                  <View style={styles.commentBubble}>
-                    <Text style={styles.commentUsername}>{comment.username}</Text>
-                    <Text style={styles.commentText}>{comment.text}</Text>
-                  </View>
+                  <Text style={styles.commentUsername}>{comment.username}</Text>
+                  <Text style={styles.commentText}>{comment.text}</Text>
                   <Text style={styles.commentTime}>{comment.timePosted}</Text>
                 </View>
               </View>
-            ))
-          ) : (
-            <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
-          )}
-        </BottomSheetScrollView>
+            ))}
+          </BottomSheetScrollView>
+        </BottomSheetView>
 
-        {/* FORM TO ADD COMMENT */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.commentForm}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
-          <View style={styles.commentInputContainer}>
-            <TextInput
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              paddingBottom: Math.max(insets.bottom, 8),
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: 'white',
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: '#dbdbdb',
+            },
+          ]}>
+          <Image
+            source={{ uri: 'https://randomuser.me/api/portraits/women/68.jpg' }}
+            style={styles.commentInputAvatar}
+          />
+          <View style={styles.inputWrapper}>
+            <BottomSheetTextInput
+              ref={inputRef}
               style={styles.commentInput}
-              placeholder="Add a comment..."
+              placeholder="Add comment..."
               value={newCommentText}
               onChangeText={setNewCommentText}
               multiline
+              maxLength={1000}
+              placeholderTextColor="#8e8e8e"
             />
-            <TouchableOpacity
-              style={[styles.postButton, !newCommentText.trim() && styles.postButtonDisabled]}
-              onPress={handleAddComment}
-              disabled={!newCommentText.trim()}>
-              <Text style={styles.postButtonText}>Post</Text>
-            </TouchableOpacity>
+            {newCommentText.trim() && (
+              <TouchableOpacity style={styles.sendButton} onPress={handleAddComment}>
+                <Feather name="arrow-up" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </BottomSheet>
     );
   }
 );
 
 const styles = StyleSheet.create({
+  bottomSheet: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  contentContainer: {
+    flex: 1,
+  },
   bottomSheetIndicator: {
     width: 40,
     backgroundColor: '#d1d1d1',
   },
   bottomSheetHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#efefef',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#dbdbdb',
   },
   bottomSheetTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+  },
+  scrollView: {
+    flex: 1,
   },
   commentsScrollViewContent: {
     paddingHorizontal: 16,
@@ -151,78 +214,67 @@ const styles = StyleSheet.create({
   },
   commentContainer: {
     flexDirection: 'row',
-    marginVertical: 8,
+    marginVertical: 12,
   },
   commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
   },
-  commentContent: {
-    flex: 1,
-  },
-  commentBubble: {
-    backgroundColor: '#f1f1f1',
-    borderRadius: 18,
-    padding: 10,
-  },
+  commentContent: { flex: 1 },
   commentUsername: {
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 14,
     marginBottom: 2,
   },
-  commentText: {
-    fontSize: 14,
-  },
-  commentTime: {
-    fontSize: 11,
-    color: '#8e8e8e',
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  noCommentsText: {
-    fontSize: 14,
-    color: '#8e8e8e',
-    textAlign: 'center',
-    padding: 16,
-  },
-  commentForm: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#efefef',
-    backgroundColor: 'white',
-  },
-  commentInputContainer: {
+  commentText: { fontSize: 14, marginBottom: 4 },
+  commentTime: { fontSize: 12, color: '#8e8e8e' },
+  inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    zIndex: 10,
+    elevation: 10,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DBDBDB',
+    borderWidth: 1,
+    borderRadius: 20,
   },
   commentInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#efefef',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 30,
     maxHeight: 100,
     fontSize: 14,
-  },
-  postButton: {
-    marginLeft: 8,
-    paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#0095f6',
-    borderRadius: 4,
+    paddingVertical: 12,
+    paddingRight: 40,
+    color: '#000000',
+  },
+  sendButton: {
+    position: 'absolute',
+    right: 10,
     justifyContent: 'center',
+    alignItems: 'center',
+    height: '70%',
+    paddingHorizontal: 8,
+    backgroundColor: '#0098FD',
+    borderRadius: 20,
   },
-  postButtonDisabled: {
-    backgroundColor: '#b2dffc',
-  },
-  postButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
+  commentInputAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 12,
   },
 });
 

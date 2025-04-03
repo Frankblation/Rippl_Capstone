@@ -71,9 +71,8 @@ const EventCard: React.FC<{ event: Event }> = ({ event }) => {
         <Text style={styles.cardTitle} numberOfLines={1}>
           {event.title}
         </Text>
-        <Text style={styles.cardDate}>
-          {event.date} • {event.time}
-        </Text>
+        <Text style={styles.cardDate}>{event.date}</Text>
+        <Text style={styles.cardDate}>{event.time}</Text>
         <Text style={styles.cardLocation} numberOfLines={1}>
           {event.location}
         </Text>
@@ -104,7 +103,7 @@ const EventCarousel: React.FC<EventCarouselProps> = ({ events = upcomingEvents }
 };
 
 const { width } = Dimensions.get('window');
-const cardWidth = width * 0.7;
+const cardWidth = width * 0.35;
 
 const styles = StyleSheet.create({
   container: {
