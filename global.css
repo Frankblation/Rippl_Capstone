@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@font-face {
+  font-family: 'SF Pro Text';
+  src: url('/fonts/sf-pro/SFProText-Regular.woff2') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Subjectivity Bold';
+  src: url('/fonts/Subjectivity/Subjectivity-Bold.woff2') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}

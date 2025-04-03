@@ -85,6 +85,13 @@ export default function TabsLayout() {
           },
         }}
       />
+      <Tabs.Screen
+        name="matched-users"
+        options={{
+          title: 'My Profile',
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

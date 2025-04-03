@@ -1,12 +1,38 @@
-import { Stack } from 'expo-router';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useColorScheme } from '~/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import { useColorScheme } from '~/hooks/useColorScheme';
 
 import 'global.css';
 
+SplashScreen.preventAutoHideAsync();
+
 export default function RootLayout() {
+  const [loaded] = useFonts({
+    SFProTextRegular: require('../assets/fonts/SF-Pro-Text-Regular.otf'),
+    SFProTextBold: require('../assets/fonts/SF-Pro-Text-Bold.otf'),
+    SFProTextSemiBold: require('../assets/fonts/SF-Pro-Text-Semibold.otf'),
+    SFProTextMedium: require('../assets/fonts/SF-Pro-Text-Medium.otf'),
+
+    SujectivityBold: require('../assets/fonts/Subjectivity-Bold.otf'),
+    rlAqva: require('../assets/fonts/rlAqva.otf'),
+    PoppinsRegular: require('../assets/fonts/Poppins-Regular.ttf'),
+  });
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return null;
+  }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

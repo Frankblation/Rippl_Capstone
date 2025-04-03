@@ -11,7 +11,12 @@ export function SettingsProfile() {
 
   return (
     <Pressable onPress={settings}>
-      <Feather name="settings" size={24} color="black" style={{ marginRight: 16 }} />
+      <Feather
+        name="settings"
+        size={24}
+        color="black"
+        style={{ marginRight: 16, paddingBottom: 12 }}
+      />
     </Pressable>
   );
 }

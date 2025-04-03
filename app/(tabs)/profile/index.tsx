@@ -105,7 +105,7 @@ const CurrentUser: React.FC = () => {
           <View style={styles.interestsContainer}>
             {INTERESTS.map((interest) => (
               <View key={interest.id} style={styles.interestChip}>
-                <Text>{interest.name}</Text>
+                <Text style={styles.interestText}>{interest.name}</Text>
               </View>
             ))}
           </View>
@@ -170,11 +170,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     padding: 8,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
+    opacity: 75,
+    backgroundColor: '#14b8a6',
     width: '48%',
     alignItems: 'center',
+  },
+  interestText: {
+    color: '#fff',
+    fontSize: 14,
   },
 });
 
