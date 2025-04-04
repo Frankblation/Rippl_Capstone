@@ -1,6 +1,7 @@
 import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 dotenv.config(); // Get variables from .env file
 
@@ -16,21 +17,21 @@ if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
 let supabaseKey: string;
 let storage: any;
 
-if (typeof window === 'undefined') {
-  // Node.js environment
-  supabaseKey = supabaseServiceRoleKey; // Use service role key in Node.js
-  const { LocalStorage } = require('node-localstorage');
-  storage = new LocalStorage('./scratch');
-} else {
-  // Mobile or browser environment
-  supabaseKey = supabaseAnonKey; // Use anon key in mobile/browser
-  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  storage = AsyncStorage;
-}
+// if (typeof window === 'undefined') {
+//   // Node.js environment
+//   supabaseKey = supabaseServiceRoleKey; // Use service role key in Node.js
+//   const { LocalStorage } = require('node-localstorage');
+//   storage = new LocalStorage('./scratch');
+// } else {
+//   // Mobile or browser environment
+//   supabaseKey = supabaseAnonKey; // Use anon key in mobile/browser
+//   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+//   storage = AsyncStorage;
+// }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage,
+    storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
