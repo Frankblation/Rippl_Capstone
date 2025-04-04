@@ -17,10 +17,9 @@ export default function RootLayout() {
     SFProTextBold: require('../assets/fonts/SF-Pro-Text-Bold.otf'),
     SFProTextSemiBold: require('../assets/fonts/SF-Pro-Text-Semibold.otf'),
     SFProTextMedium: require('../assets/fonts/SF-Pro-Text-Medium.otf'),
+    SFProDisplayRegular: require('../assets/fonts/SF-Pro-Display-Regular.otf'),
 
-    SujectivityBold: require('../assets/fonts/Subjectivity-Bold.otf'),
     rlAqva: require('../assets/fonts/rlAqva.otf'),
-    PoppinsRegular: require('../assets/fonts/Poppins-Regular.ttf'),
   });
   const colorScheme = useColorScheme();
 
