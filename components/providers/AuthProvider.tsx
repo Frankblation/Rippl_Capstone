@@ -1,8 +1,19 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '~/utils/supabase';
 
+interface AuthContextType {
+  email: string;
+  setEmail: (email: string) => void;
+  password: string;
+  setPassword: (password: string) => void;
+  authLoading: boolean;
+  signInWithEmail: () => Promise<{error: any}>;
+  signUpWithEmail: () => Promise<{error: any}>;
+  // other properties and methods
+}
+
 // Create context
-const AuthContext = createContext(null);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 // Hook to use the auth context
 export const useAuth = () => {

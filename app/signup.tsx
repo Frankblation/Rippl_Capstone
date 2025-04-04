@@ -1,16 +1,74 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '~/components/providers/AuthProvider'; // Update this path if needed
 
 export default function SignupScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { email, setEmail, password, setPassword, signUpWithEmail, authLoading } = useAuth();
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSignup = () => {
-    router.replace('/customize-profile');
+  const validateInputs = () => {
+    // Reset error message
+    setErrorMessage('');
+
+    // Validate email
+    if (!email || !email.includes('@')) {
+      setErrorMessage('Please enter a valid email address');
+      return false;
+    }
+
+    // Validate password
+    if (!password || password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters');
+      return false;
+    }
+
+    // Validate password match
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSignup = async () => {
+    // First validate inputs
+    if (!validateInputs()) {
+      return;
+    }
+
+    // Call the signup function from our auth context
+    const { data, error } = await signUpWithEmail();
+
+    if (error) {
+      // Show error from Supabase
+      setErrorMessage(error.message);
+      return;
+    }
+
+    if (!data.session) {
+      // If email confirmation is required
+      Alert.alert(
+        'Check your email',
+        'We sent you a confirmation link. Please check your email to complete signup.',
+        [{ text: 'OK', onPress: () => router.replace('/login') }]
+      );
+    } else {
+      // Email confirmation not required, go to onboarding
+      router.replace('/customize-profile');
+    }
   };
 
   return (
@@ -21,6 +79,12 @@ export default function SignupScreen() {
           <Text className="mb-2 text-3xl font-bold">Create Account</Text>
           <Text className="text-gray-600">Sign up to get started with our app</Text>
         </View>
+
+        {errorMessage ? (
+          <View className="mb-4 rounded-lg bg-red-100 p-3">
+            <Text className="text-red-700">{errorMessage}</Text>
+          </View>
+        ) : null}
 
         <View className="mb-8 gap-y-4">
           <View className="gap-y-2">
@@ -33,6 +97,7 @@ export default function SignupScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!authLoading}
             />
           </View>
 
@@ -44,6 +109,7 @@ export default function SignupScreen() {
               onChangeText={setPassword}
               placeholder="Create a password"
               secureTextEntry
+              editable={!authLoading}
             />
           </View>
 
@@ -55,19 +121,27 @@ export default function SignupScreen() {
               onChangeText={setConfirmPassword}
               placeholder="Confirm your password"
               secureTextEntry
+              editable={!authLoading}
             />
           </View>
         </View>
 
         <TouchableOpacity
           onPress={handleSignup}
-          className="mb-6 w-full items-center rounded-xl bg-teal-500 py-4">
-          <Text className="text-lg font-semibold text-white">Sign Up</Text>
+          disabled={authLoading}
+          className={`mb-6 w-full items-center rounded-xl py-4 ${
+            authLoading ? 'bg-teal-300' : 'bg-teal-500'
+          }`}>
+          {authLoading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-lg font-semibold text-white">Sign Up</Text>
+          )}
         </TouchableOpacity>
 
         <View className="flex-row justify-center">
           <Text className="text-gray-600">Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/login')}>
+          <TouchableOpacity onPress={() => router.push('/login')} disabled={authLoading}>
             <Text className="font-medium text-teal-500">Log In</Text>
           </TouchableOpacity>
         </View>
