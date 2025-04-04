@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   type ImageSourcePropType,
   Dimensions,
 } from 'react-native';
-
+import LottieView from 'lottie-react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 interface PostCardProps {
   interest: string;
   username: string;
@@ -44,16 +45,25 @@ const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
+  const animationRef = useRef<LottieView>(null);
 
   const handleLikePress = () => {
     setIsLiked(!isLiked);
-    setLikesCount(isLiked ? likesCount - 1 : likesCount + 1);
+    setLikesCount(!isLiked ? likesCount + 1 : likesCount - 1);
     if (onLikePress) onLikePress();
   };
 
   const handleCommentPress = () => {
     if (onCommentPress) onCommentPress();
   };
+
+  useEffect(() => {
+    if (isLiked) {
+      animationRef.current?.play();
+    } else {
+      animationRef.current?.reset();
+    }
+  }, [isLiked]);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
@@ -78,27 +88,34 @@ const PostCard: React.FC<PostCardProps> = ({
         {postText && <Text style={styles.postText}>{postText}</Text>}
         {/* NUM OF LIKES AND COMMENTS */}
         <View style={styles.engagementStats}>
-          <Text style={styles.likesText}>{likesCount} likes</Text>
-          <Text style={styles.commentsText}>{commentsCount} comments</Text>
+          <Text style={styles.numLikesText}>{likesCount} likes</Text>
+          <Text style={styles.numCommentsText}>{commentsCount} comments</Text>
         </View>
         {/* LIKE AND COMMENT */}
-        <View style={styles.contentContainer}>
+        <View style={styles.heartCommentTimeContainer}>
           <View style={styles.divider} />
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleLikePress}>
-              <Feather
-                name="heart"
-                color={isLiked ? '#ed4956' : '#262626'}
-                fill={isLiked ? '#ed4956' : 'none'}
-                stroke={isLiked ? '#ed4956' : '#262626'}
-                style={styles.actionIcon}
-              />
-              <Text style={[styles.actionText, isLiked && styles.likedText]}>Like</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={handleCommentPress}>
-              <Feather name="message-circle" color="#262626" style={styles.actionIcon} />
-              <Text style={styles.actionText}>Comment</Text>
-            </TouchableOpacity>
+          <View style={styles.footerRow}>
+            <View style={styles.containerHeartComment}>
+              <TouchableOpacity style={styles.actionIcon} onPress={handleLikePress}>
+                <LottieView
+                  ref={animationRef}
+                  source={require('../assets/animations/heart.json')}
+                  loop={false}
+                  autoPlay={false}
+                  style={{ width: 70, height: 70 }}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleCommentPress}>
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={22}
+                  color="#262626"
+                  style={styles.actionIcon}
+                />
+              </TouchableOpacity>
+            </View>
+
             <Text style={styles.timePosted}>{timePosted}</Text>
           </View>
         </View>
@@ -138,6 +155,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   avatar: {
     width: 40,
     height: 40,
@@ -181,35 +199,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  likesText: {
+  numLikesText: {
     fontSize: 14,
     marginRight: 16,
     color: '#666',
   },
-  commentsText: {
+  numCommentsText: {
     fontSize: 14,
     color: '#666',
   },
-  contentContainer: {
+  heartCommentTimeContainer: {
     paddingHorizontal: 16,
   },
   divider: {
     height: 1,
     backgroundColor: '#efefef',
-    marginTop: 8,
+    marginTop: 5,
+    top: 12,
     paddingHorizontal: 16,
   },
-
-  actionButtons: {
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+
+  containerHeartComment: {
+    flexDirection: 'row',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
   },
   actionIcon: {
     marginRight: 4,
@@ -219,13 +240,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#262626',
   },
-  likedText: {
-    color: '#ed4956',
+
+  containerTimePosted: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignSelf: 'center',
   },
   timePosted: {
     fontSize: 12,
     color: '#8e8e8e',
     alignSelf: 'center',
+    marginRight: 16,
   },
 });
 
