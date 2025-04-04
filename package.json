@@ -5,7 +5,7 @@
   "scripts": {
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "start": "expo start",
+    "start": "expo start --tunnel",
     "prebuild": "expo prebuild",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
+    "@faker-js/faker": "^9.6.0",
     "@gorhom/bottom-sheet": "^5.1.2",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
@@ -22,8 +23,8 @@
     "@react-navigation/native": "^7.0.14",
     "@shopify/flash-list": "1.7.3",
     "@supabase/supabase-js": "^2.38.4",
-    "dotenv": "^16.4.7",
     "date-fns": "^4.1.0",
+    "dotenv": "^16.4.7",
     "expo": "^52.0.42",
     "expo-av": "~15.0.2",
     "expo-blur": "~14.0.3",
