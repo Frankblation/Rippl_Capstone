@@ -77,24 +77,23 @@ export default function WelcomeScreen() {
       </View>
 
       {/* BlurView Overlay */}
-      <View style={styles.blurOverlay} />
-      <WavyTop />
+      <BlurView intensity={8} tint="dark" style={styles.blurOverlay} />
+
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <Image source={require('../assets/rippl3.png')} style={styles.logo} />
+        <Image source={require('../assets/rippl-logo.png')} style={styles.logo} />
         <Text style={styles.missionText}>Where small connections make big waves.</Text>
       </View>
 
-      {/* Buttons Container 
       <View style={styles.buttonContainer}>
         <View style={styles.blurButtonContainer}>
           <View style={styles.buttonsRow}>
             <Pressable onPress={() => router.push('/login')} style={styles.button}>
-              <Text style={styles.buttonText}>Log In</Text>
+              <Text style={styles.buttonText}>LOGIN</Text>
             </Pressable>
 
             <Pressable onPress={() => router.push('/signup')} style={styles.button}>
-              <Text style={styles.buttonText}>Sign up</Text>
+              <Text style={styles.buttonText}>SIGN UP</Text>
             </Pressable>
 
             <Pressable onPress={() => router.push('/(tabs)/home')} style={styles.button}>
@@ -103,7 +102,6 @@ export default function WelcomeScreen() {
           </View>
         </View>
       </View>
-      */}
     </View>
   );
 }
@@ -111,7 +109,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: 'black',
   },
   backgroundContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -145,8 +143,9 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   missionText: {
-    fontFamily: 'Poppins',
-    color: '#00A9A5',
+    fontFamily: 'SFProTextSemiBold',
+    color: '#DFF8EB',
+    fontSize: 18,
   },
   buttonContainer: {
     position: 'absolute',
@@ -156,9 +155,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   blurButtonContainer: {
-    paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 30,
+    top: 20,
     overflow: 'hidden',
     width: '90%',
   },
@@ -168,16 +167,16 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   button: {
-    height: 48,
     width: '30%',
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#3454B4', // teal-500 equivalent
+    backgroundColor: '#00AF9F',
     borderRadius: 24,
   },
   buttonText: {
-    fontSize: 20,
+    fontSize: 16,
     color: 'white',
-    fontWeight: '500',
+    fontFamily: 'SFProTextMedium',
   },
 });
