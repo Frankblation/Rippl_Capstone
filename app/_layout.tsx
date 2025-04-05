@@ -31,27 +31,30 @@ function RootLayoutNav() {
         <Stack.Screen name="landing" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
-        
+
         {/* Onboarding screens - auth required */}
-        <Stack.Screen 
-          name="customize-profile" 
-          options={{ 
+        <Stack.Screen
+          name="create-profile"
+          options={{
             headerShown: false,
             // Prevent going to these screens if not authenticated
-            headerBackVisible: false
-          }} 
+            headerBackVisible: false,
+          }}
         />
-        <Stack.Screen name="create-interests" options={{ headerShown: false, headerBackVisible: false }} />
+        <Stack.Screen
+          name="create-interests"
+          options={{ headerShown: false, headerBackVisible: false }}
+        />
         <Stack.Screen name="welcome" options={{ headerShown: false, headerBackVisible: false }} />
-        
+
         {/* Main app - auth required */}
-        <Stack.Screen 
-          name="(tabs)" 
-          options={{ 
+        <Stack.Screen
+          name="(tabs)"
+          options={{
             headerShown: false,
             // Prevent going back to auth screens
-            headerBackVisible: false
-          }} 
+            headerBackVisible: false,
+          }}
         />
         <Stack.Screen name="+not-found" />
       </Stack>
