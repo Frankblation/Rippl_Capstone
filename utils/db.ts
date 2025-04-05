@@ -48,6 +48,7 @@ export interface PostsTable {
     likes: number;
     reposts: number;
     created_at: string;
+    interest_id: string;
 }
 
 // Messages Data Type

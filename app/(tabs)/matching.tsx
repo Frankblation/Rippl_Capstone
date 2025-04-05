@@ -1,10 +1,12 @@
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import Swipe from '~/components/Swiping';
+import { ChatButton } from '~/components/ChatButton';
 
 export default function App() {
   return (
     <SafeAreaView className="flex-1">
       <View style={styles.container}>
+        <ChatButton />
         <Text style={styles.title}>Connect Through Shared Interests</Text>
         <Swipe />
       </View>

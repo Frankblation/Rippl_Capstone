@@ -12,7 +12,7 @@ export default function WavyTop() {
       viewBox={`0 0 ${SCREEN_WIDTH} 450`}
       style={{ position: 'absolute', bottom: 0, left: 0 }}>
       <Path
-        fill="#DFF8EB"
+        fill="white"
         opacity={0.8}
         d={`
           M0,200
