@@ -1,12 +1,14 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Redirect, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { AuthProvider, useAuth } from '~/components/providers/AuthProvider';
+
+import { OverlayProvider } from 'stream-chat-expo';
 
 import 'global.css';
 
@@ -80,9 +82,11 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <RootLayoutNav />
-      </AuthProvider>
+      <OverlayProvider>
+        <AuthProvider>
+          <RootLayoutNav />
+        </AuthProvider>
+      </OverlayProvider>
     </GestureHandlerRootView>
   );
 }

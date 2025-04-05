@@ -1,32 +1,36 @@
+// In chat/chat.tsx or wherever your chat screen is
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView, Text } from 'react-native';
+import { 
+  Chat, 
+  ChannelList,
+  useCreateChatClient
+} from 'stream-chat-expo';
 
-export default function Chat() {
+export default function ChatScreen() {
+  // Stream Chat configuration
+  const chatApiKey = "9wbpcdvydjaw"; // Replace with your actual API key
+  const chatUserId = "1";
+  const chatUserName = "testUser";
+  const chatUserToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMSJ9.GPZsQL4Ugb7by42bOWZ3r6ErURc3Gmh2GU9AgAeYE0M";
+  
+  // Create chat client
+  const chatClient = useCreateChatClient({
+    apiKey: chatApiKey,
+    userData: { id: chatUserId, name: chatUserName },
+    tokenOrProvider: chatUserToken,
+  });
+
+  if (!chatClient) {
+    // Return a loading indicator if client is not ready
+    return <SafeAreaView><Text>Loading chat...</Text></SafeAreaView>;
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>No Messages Yet</Text>
-      <Text style={styles.subtitle}>Start a conversation and it will show up here.</Text>
-    </View>
+    <SafeAreaView style={{ flex: 1 }}>
+      <Chat client={chatClient}>
+        <ChannelList />
+      </Chat>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-});
