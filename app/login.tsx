@@ -4,14 +4,7 @@ import { useAuth } from '~/components/providers/AuthProvider';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { 
-    email, 
-    setEmail, 
-    password, 
-    setPassword, 
-    authLoading, 
-    signInWithEmail 
-  } = useAuth();
+  const { email, setEmail, password, setPassword, authLoading, signInWithEmail } = useAuth();
 
   const handleLogin = async () => {
     if (!email) {
@@ -32,7 +25,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login Screen</Text>
-      
+
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -41,7 +34,7 @@ export default function LoginScreen() {
         autoCapitalize="none"
         keyboardType="email-address"
       />
-      
+
       <TextInput
         style={styles.input}
         placeholder="Password"
@@ -49,31 +42,28 @@ export default function LoginScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      
+
       {authLoading ? (
         <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
       ) : (
         <Button title="Log In" onPress={handleLogin} />
       )}
-      
-      <Button 
-        title="Don't have an account? Sign Up" 
-        onPress={() => router.push('/signup')} 
-      />
+
+      <Button title="Don't have an account? Sign Up" onPress={() => router.push('/signup')} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    justifyContent: 'center', 
+  container: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20 
+    padding: 20,
   },
-  title: { 
-    fontSize: 24, 
-    marginBottom: 20 
+  title: {
+    fontSize: 24,
+    marginBottom: 20,
   },
   input: {
     width: '100%',
@@ -85,6 +75,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   loader: {
-    marginVertical: 20
-  }
+    marginVertical: 20,
+  },
 });

@@ -34,27 +34,30 @@ const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchSc
 
   return (
     <ImageBackground
-      source={require('../assets/matched-background2.jpg')}
+      source={require('../assets/blue-gradient.jpg')}
       style={styles.backgroundImage}
       resizeMode="cover">
       <Text style={styles.title}>You've Connected!</Text>
       <View style={styles.container}>
         {Platform.OS === 'ios' ? (
-          <BlurView intensity={90} tint="default" style={styles.blurContainer}>
+          <BlurView intensity={120} tint="light" style={styles.blurContainer}>
             <View style={styles.contentContainer}>
-              <TouchableOpacity style={styles.chatButton} onPress={onStartChat}>
-                <Text style={styles.chatButtonText}>Talk about it!</Text>
-              </TouchableOpacity>
+              <View style={styles.bottomContent}>
+                <View style={styles.interestsContainer}>
+                  <Text style={styles.interestsTitle}>You and {matchedUser.name} both enjoy</Text>
 
-              <View style={styles.interestsContainer}>
-                <Text style={styles.interestsTitle}>You and {matchedUser.name} both enjoy</Text>
-
-                <View style={styles.interestTags}>
-                  {interestsToShow.map((interest, index) => (
-                    <View key={index} style={styles.interestTag}>
-                      <Text style={styles.interestTagText}>{interest.toLowerCase()}</Text>
-                    </View>
-                  ))}
+                  <View style={styles.interestTags}>
+                    {interestsToShow.map((interest, index) => (
+                      <View key={index} style={styles.interestTag}>
+                        <Text style={styles.interestTagText}>{interest.toLowerCase()}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.chatContainer}>
+                  <TouchableOpacity style={styles.chatButton} onPress={onStartChat}>
+                    <Text style={styles.chatButtonText}>Lets go fishing!</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -62,20 +65,21 @@ const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchSc
         ) : (
           <View style={[styles.blurContainer, styles.androidBlurFallback]}>
             <View style={styles.contentContainer}>
-              <TouchableOpacity style={styles.chatButton} onPress={onStartChat}>
-                <Text style={styles.chatButtonText}>start chatting!</Text>
-              </TouchableOpacity>
+              <View style={styles.bottomContent}>
+                <View style={styles.interestsContainer}>
+                  <Text style={styles.interestsTitle}>Shared Interests</Text>
 
-              <View style={styles.interestsContainer}>
-                <Text style={styles.interestsTitle}>Shared Interests</Text>
-
-                <View style={styles.interestTags}>
-                  {interestsToShow.map((interest, index) => (
-                    <View key={index} style={styles.interestTag}>
-                      <Text style={styles.interestTagText}>{interest.toLowerCase()}</Text>
-                    </View>
-                  ))}
+                  <View style={styles.interestTags}>
+                    {interestsToShow.map((interest, index) => (
+                      <View key={index} style={styles.interestTag}>
+                        <Text style={styles.interestTagText}>{interest.toLowerCase()}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
+                <TouchableOpacity style={styles.chatButton} onPress={onStartChat}>
+                  <Text style={styles.chatButtonText}>Lets go fishing!</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -92,7 +96,7 @@ const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchSc
             </View>
             <View style={styles.profileImageRight}>
               <Image
-                source={require('../assets/user.png')}
+                source={require('../assets/user2.jpg')}
                 style={styles.profileImage}
                 borderRadius={100}
               />
@@ -126,29 +130,31 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     zIndex: 1,
   },
-
   androidBlurFallback: {
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
   contentContainer: {
+    flexDirection: 'column',
     width: '100%',
     height: '100%',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 120,
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
-
+  bottomContent: {
+    width: '100%',
+    marginTop: 'auto',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 40,
     fontFamily: 'SFProTextBold',
-
     fontWeight: 'bold',
     textAlign: 'center',
     color: 'white',
     zIndex: 3,
-
     marginTop: 150,
   },
   profileContainer: {
@@ -166,7 +172,7 @@ const styles = StyleSheet.create({
   },
   profileImageLeft: {
     position: 'absolute',
-    left: 0,
+    right: 185,
     top: 0,
     height: 80,
     width: 80,
@@ -175,7 +181,7 @@ const styles = StyleSheet.create({
   },
   profileImageRight: {
     position: 'absolute',
-    right: 0,
+    left: 185,
     bottom: 0,
     height: 80,
     width: 80,
@@ -185,23 +191,29 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 200,
     height: 200,
+    boxShadow: 'white 0px 20px 20px',
+    borderColor: 'white',
+    borderWidth: 2,
+  },
+  chatContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: 20,
   },
   chatButton: {
-    margin: 40,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 20,
-    textAlign: 'left',
-    width: 120,
-    height: 100,
-    right: 90,
+    textAlign: 'center',
+    width: 150,
     backdropFilter: 'blur(10px)',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   chatButtonText: {
     color: 'white',
     fontSize: 18,
-    fontWeight: '500',
+    textAlign: 'center',
     fontFamily: 'SFProTextRegular',
   },
   interestsContainer: {
