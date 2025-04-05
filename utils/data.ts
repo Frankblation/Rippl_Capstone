@@ -76,23 +76,26 @@ export const getUserById = async (userId: string): Promise<UsersTable | null> =>
 
 // UPDATE
 /**
- * Updates a user in the database
- * @param userData User data to insert (excluding id and created_at)
- * @returns Promise with the created user data
+ * Updates an existing user record in Supabase
+ * @param userId The ID of the user to update
+ * @param userData The user data to update
+ * @returns Promise with the updated user data
  */
 export const updateUser = async (
-  userData: Omit<UsersTable, 'id' | 'created_at'>
+  userId: string,
+  userData: Partial<Omit<UsersTable, 'id' | 'created_at'>>
 ): Promise<UsersTable> => {
   const { data, error } = await supabase
     .from('users')
-    .insert([
-      {
-        email: userData.email,
-        password: userData.password,
-        name: userData.name,
-        image: userData.image,
-      },
-    ])
+    .update({
+      name: userData.name,
+      image: userData.image,
+      description: userData.description,
+      // Only include email and password if they're provided
+      ...(userData.email && { email: userData.email }),
+      ...(userData.password && { password: userData.password }),
+    })
+    .eq('id', userId)
     .select()
     .single();
 
