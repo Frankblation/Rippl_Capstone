@@ -34,6 +34,7 @@ export interface UsersTable {
     name: string;
     image: string;
     created_at: string;
+    description: string;
 }
 
 // Posts Data Type
