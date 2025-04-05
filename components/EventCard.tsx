@@ -12,6 +12,7 @@ import Feather from '@expo/vector-icons/Feather';
 import AvatarGroup from './AvatarGroup';
 import LottieView from 'lottie-react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import AntDesign from '@expo/vector-icons/AntDesign';
 
 interface EventCardProps {
   title: string;
@@ -161,7 +162,7 @@ const EventCard: React.FC<EventCardProps> = ({
                   isGoing ? styles.goingButtonActiveGreen : styles.goingButtonInactive,
                 ]}
                 onPress={toggleGoing}>
-                <Feather name="check" size={20} color={isGoing ? '#fff' : '#10b981'} />
+                <AntDesign name="check" size={20} color={isGoing ? '#fff' : '#00AF9F'} />
               </TouchableOpacity>
 
               {/* NOT GOING */}
@@ -171,7 +172,7 @@ const EventCard: React.FC<EventCardProps> = ({
                   isNotGoing ? styles.notGoingButtonActiveGray : styles.notGoingButtonInactive,
                 ]}
                 onPress={toggleNotGoing}>
-                <Feather name="x" size={20} color={isNotGoing ? '#fff' : '#f87171'} />
+                <AntDesign name="staro" size={20} color={isNotGoing ? '#fff' : '#F39237'} />
               </TouchableOpacity>
             </View>
           )}
@@ -295,19 +296,19 @@ const styles = StyleSheet.create({
   },
   goingButtonInactive: {
     backgroundColor: 'white',
-    borderColor: '#10b981',
+    borderColor: '#00AF9F',
   },
   notGoingButtonInactive: {
     backgroundColor: 'white',
-    borderColor: '#f87171',
+    borderColor: '#F39237',
   },
   goingButtonActiveGreen: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
+    backgroundColor: '#00AF9F',
+    borderColor: '#00AF9F',
   },
   notGoingButtonActiveGray: {
-    backgroundColor: '#f87171',
-    borderColor: '#f87171',
+    backgroundColor: '#F39237',
+    borderColor: '#F39237',
   },
   // ATTENDEES SELECTION
   attendeesSection: {
