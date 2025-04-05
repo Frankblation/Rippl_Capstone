@@ -1,5 +1,7 @@
+'use client';
+
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
@@ -19,6 +21,9 @@ const INTERESTS = [
   { id: '12', name: 'Gaming' },
 ];
 
+// Minimum number of interests required
+const MIN_INTERESTS_REQUIRED = 6;
+
 export default function CreateInterests() {
   const router = useRouter();
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -32,16 +37,22 @@ export default function CreateInterests() {
   };
 
   const goNext = () => {
-    router.replace('/welcome');
+    if (selectedInterests.length >= MIN_INTERESTS_REQUIRED) {
+      router.replace('/welcome');
+    }
   };
 
+  // Calculate if enough interests are selected
+  const hasEnoughInterests = selectedInterests.length >= MIN_INTERESTS_REQUIRED;
+
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
-      <ScrollView className="flex-1 px-6 py-12">
+      <View className="flex-1 px-6 py-4">
         <Text className="mb-2 text-3xl font-bold">Select Your Interests</Text>
         <Text className="mb-8 text-gray-600">
-          Choose topics you're interested in to help us personalize your experience.
+          Choose at least {MIN_INTERESTS_REQUIRED} topics you're interested in to help us
+          personalize your experience.
         </Text>
 
         <View className="mb-8 flex-row flex-wrap justify-between">
@@ -67,10 +78,12 @@ export default function CreateInterests() {
 
         <TouchableOpacity
           onPress={goNext}
-          className="mb-8 w-full items-center rounded-xl bg-teal-500 py-4">
+          disabled={!hasEnoughInterests}
+          className="mb-8 w-full items-center rounded-xl bg-teal-500 py-4"
+          style={{ opacity: hasEnoughInterests ? 1 : 0.5 }}>
           <Text className="text-lg font-semibold text-white">Continue</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
