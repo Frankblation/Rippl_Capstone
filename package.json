@@ -62,7 +62,8 @@
     "expo-sharing": "~13.0.1",
     "expo-clipboard": "~7.0.1",
     "expo-document-picker": "~13.0.3",
-    "expo-media-library": "~17.0.6"
+    "expo-media-library": "~17.0.6",
+    "expo-calendar": "~14.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
