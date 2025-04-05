@@ -1,15 +1,21 @@
+'use client';
+
+// This shows how to integrate the InterestChips component into your CurrentUser component
+
 import { FlashList } from '@shopify/flash-list';
-import React, { useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, View, Text, Alert } from 'react-native';
+import type React from 'react';
+import { useRef, useState } from 'react';
+import { SafeAreaView, StyleSheet, View, Alert } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CommentsBottomSheet, {
-  CommentsBottomSheetRef,
-  PostComment,
+  type CommentsBottomSheetRef,
+  type PostComment,
 } from '~/components/CommentsBottomSheet';
 import PostCard from '~/components/PostCard';
 import { UserProfileHeader } from '~/components/UserProfileHeader';
+import InterestGrid from '~/components/profile/InterestMasonary';
 
 const INTERESTS = [
   { id: '1', name: 'Photography' },
@@ -103,11 +109,7 @@ const CurrentUser: React.FC = () => {
         <View style={styles.headerContainer}>
           <UserProfileHeader />
           <View style={styles.interestsContainer}>
-            {INTERESTS.map((interest) => (
-              <View key={interest.id} style={styles.interestChip}>
-                <Text style={styles.interestText}>{interest.name}</Text>
-              </View>
-            ))}
+            <InterestGrid interests={INTERESTS} />
           </View>
         </View>
       );
@@ -156,28 +158,10 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   headerContainer: {
-    paddingTop: 40,
+    paddingTop: 20,
   },
   interestsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  interestChip: {
-    marginBottom: 8,
-    padding: 8,
-    borderRadius: 16,
-    opacity: 75,
-    backgroundColor: '#00AF9F',
-    width: '48%',
-    alignItems: 'center',
-  },
-  interestText: {
-    color: '#fff',
-    fontSize: 14,
+    paddingTop: 20,
   },
 });
 

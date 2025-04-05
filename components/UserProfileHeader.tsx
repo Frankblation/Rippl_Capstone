@@ -1,11 +1,6 @@
 import React from 'react';
-import { StyleSheet, Image, Text, View, ImageSourcePropType, ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedSensor,
-  useAnimatedStyle,
-  SensorType,
-  AnimatedStyleProp,
-} from 'react-native-reanimated';
+import { StyleSheet, Image, Text, View, ImageSourcePropType } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
 const INTENSITY: number = 30;
@@ -26,29 +21,12 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   postCount = 248,
   friendCount = 1432,
 }) => {
-  const animatedSensor = useAnimatedSensor(SensorType.ROTATION, {
-    interval: 0,
-  });
-
-  const style: AnimatedStyleProp<ViewStyle> = useAnimatedStyle(() => {
-    const { pitch, yaw, qy } = animatedSensor.sensor.value;
-
-    const num: number = qy > 0 ? 30 : 50;
-    const yawValue: number =
-      qy > 0 ? num * 2.5 * Number(qy.toFixed(2)) : num * Number(qy.toFixed(2));
-    const pitchValue: number = 26 * parseFloat(pitch.toFixed(2));
-
-    return {
-      transform: [{ translateX: yawValue }, { translateY: pitchValue }],
-    };
-  });
-
   return (
     <>
       <Image style={styles.imageStyle} source={profileImage} />
       <BlurView intensity={INTENSITY} style={StyleSheet.absoluteFill} />
 
-      <Animated.View style={[styles.animatedViewStyle, style]}>
+      <Animated.View style={styles.animatedViewStyle}>
         <Image style={{ flex: 1 }} source={profileImage} />
 
         <View style={styles.profileContainer}>
