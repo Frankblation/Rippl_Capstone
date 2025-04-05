@@ -1,15 +1,21 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { supabase } from '~/utils/supabase';
+import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
   email: string;
   setEmail: (email: string) => void;
   password: string;
   setPassword: (password: string) => void;
   authLoading: boolean;
-  signInWithEmail: () => Promise<{error: any}>;
-  signUpWithEmail: () => Promise<{error: any}>;
-  // other properties and methods
+  signInWithEmail: () => Promise<{ error: any }>;
+  signUpWithEmail: () => Promise<{ data?: any; error: any }>;
+  signOut: () => Promise<{ error: any }>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
+  updatePassword: (newPassword: string) => Promise<{ error: any }>;
 }
 
 // Create context
@@ -24,10 +30,14 @@ export const useAuth = () => {
   return context;
 };
 
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
 // Auth provider component
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -83,7 +93,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   // Reset password
-  async function resetPassword(email) {
+  async function resetPassword(email: string) {
     setAuthLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     setAuthLoading(false);
@@ -91,7 +101,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   // Update password
-  async function updatePassword(newPassword) {
+  async function updatePassword(newPassword: string) {
     setAuthLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setAuthLoading(false);
