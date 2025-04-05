@@ -6,7 +6,7 @@ export function ChatButton() {
   const router = useRouter();
 
   async function chat() {
-    router.replace('/(tabs)/chat/chat');
+    router.push('/(tabs)/chat/chat-list');
   }
 
   return (

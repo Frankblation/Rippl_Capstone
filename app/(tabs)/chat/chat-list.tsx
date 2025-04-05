@@ -50,10 +50,10 @@ export default function ChatScreen() {
       </View>
       <Chat client={chatClient}>
         <ChannelList
-         onSelect={(channel) => {
-          // Navigate to a chat screen with the selected channel
-          router.push(`/chat/${channel.id}`);
-        }}
+          onSelect={(channel) => {
+            // Navigate to a chat screen with the selected channel
+            router.push(`/chat/${channel.id}`);
+          }}
         />
       </Chat>
     </SafeAreaView>
