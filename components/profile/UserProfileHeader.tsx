@@ -10,16 +10,16 @@ const CARD_HEIGHT: number = 330;
 
 interface ProfileCardProps {
   profileImage?: ImageSourcePropType;
-  username?: string;
-  postCount?: number;
-  friendCount?: number;
+  name?: string;  // Changed to match what profile page is passing
+  postCount?: number;  // Changed to match what profile page is passing
+  friendCount?: number;  // Changed to match what profile page is passing
 }
 
 const ProfileCard: React.FC<ProfileCardProps> = ({
-  profileImage = require('../../assets/user.png'),
-  username = 'Alex Johnson',
-  postCount = 248,
-  friendCount = 1432,
+  profileImage,
+  name,
+  postCount = 0,
+  friendCount = 0,
 }) => {
   return (
     <>
@@ -30,7 +30,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
         <Image style={{ flex: 1 }} source={profileImage} />
 
         <View style={styles.profileContainer}>
-          <Text style={styles.username}>{username}</Text>
+          <Text style={styles.username}>{name}</Text>
 
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
@@ -52,12 +52,28 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   );
 };
 
-interface UserProfileHeaderProps {}
+export interface UserProfileHeaderProps {
+  name: string;
+  profileImage: string;
+  postsCount: number;
+  friendsCount: number;
+}
 
-export const UserProfileHeader: React.FC<UserProfileHeaderProps> = () => {
+
+export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
+  name,
+  profileImage,
+  postsCount,
+  friendsCount
+}) => {
   return (
     <View style={styles.headerContainer}>
-      <ProfileCard />
+      <ProfileCard
+        name={name}
+        profileImage={{ uri: profileImage }}
+        postCount={postsCount}
+        friendCount={friendsCount}
+      />
     </View>
   );
 };

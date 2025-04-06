@@ -1,11 +1,9 @@
 'use client';
 
-// This shows how to integrate the InterestChips component into your CurrentUser component
-
 import { FlashList } from '@shopify/flash-list';
 import type React from 'react';
-import { useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, View, Alert } from 'react-native';
+import { useRef, useState, useEffect } from 'react';
+import { SafeAreaView, StyleSheet, View, Alert, ActivityIndicator, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,39 +14,70 @@ import CommentsBottomSheet, {
 import PostCard from '~/components/PostCard';
 import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
+import { useUser } from '~/hooks/useUser';
+import { useAuth } from '~/components/providers/AuthProvider';
+import { getPostsByUserId } from '~/utils/data';
+import { formatPostsForUI, UIPost } from '~/utils/formatPosts';
 
-const INTERESTS = [
-  { id: '1', name: 'Photography' },
-  { id: '2', name: 'Travel' },
-  { id: '3', name: 'Cooking' },
-  { id: '4', name: 'Fitness' },
-  { id: '5', name: 'Reading' },
-  { id: '6', name: 'Music' },
-  { id: '7', name: 'Movies' },
-  { id: '8', name: 'Art' },
-  { id: '9', name: 'Technology' },
-  { id: '10', name: 'Sports' },
-  { id: '11', name: 'Fashion' },
-  { id: '12', name: 'Gaming' },
-];
+// Define feed item types
+type FeedItem = { id: string; type: 'header' } | UIPost;
 
 const CurrentUser: React.FC = () => {
   const insets = useSafeAreaInsets();
   const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
   const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
   const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
+  const [feed, setFeed] = useState<FeedItem[]>([{ id: 'header', type: 'header' }]);
+  const [loading, setLoading] = useState(true);
 
-  const handleOpenComments = (comments: PostComment[], count: number) => {
-    setSelectedComments(comments);
-    setSelectedCommentsCount(count);
+  // Get authenticated user ID from auth hook
+  const { user: authUser } = useAuth();
+
+  // Use our custom hook to get full user data
+  const { user } = useUser(authUser?.id || null);
+
+  // Fetch user posts for profile
+  useEffect(() => {
+    if (user.isLoading || !user.id) return;
+
+    const fetchUserPosts = async () => {
+      try {
+        setLoading(true);
+
+        // Get posts created by the user
+        const userPosts = await getPostsByUserId(user.id);
+
+        // Format posts for UI display
+        if (userPosts.length > 0) {
+          const formattedPosts = await formatPostsForUI(userPosts);
+
+          // Set the feed with header at the top followed by posts
+          setFeed([{ id: 'header', type: 'header' }, ...formattedPosts]);
+        } else {
+          setFeed([{ id: 'header', type: 'header' }]);
+        }
+      } catch (error) {
+        console.error('Error fetching user posts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserPosts();
+  }, [user.id, user.isLoading]);
+
+  // Handle comments
+  const handleOpenComments = (post: UIPost) => {
+    setSelectedComments(post.comments || []);
+    setSelectedCommentsCount(post.commentsCount);
     commentsSheetRef.current?.open();
   };
 
   const handleAddComment = (text: string) => {
     const newComment: PostComment = {
       id: Date.now().toString(),
-      username: 'current_user',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/68.jpg' },
+      username: user.name || 'current_user',
+      userAvatar: { uri: user.image || 'https://randomuser.me/api/portraits/women/68.jpg' },
       text,
       timePosted: 'Just now',
     };
@@ -56,75 +85,49 @@ const CurrentUser: React.FC = () => {
     setSelectedCommentsCount((prev) => prev + 1);
   };
 
-  const sampleComments: PostComment[] = [
-    {
-      id: '1',
-      username: 'alex_dev',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/men/42.jpg' },
-      text: 'This is awesome!',
-      timePosted: '2h ago',
-    },
-    {
-      id: '2',
-      username: 'jane_smith',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/33.jpg' },
-      text: 'Love the colors in this photo!',
-      timePosted: '1h ago',
-    },
-  ];
+  // Format user interests for the interest grid
+  const userInterests = user.interests.map(interest => ({
+    id: interest.interest_id,
+    name: interest.interests?.name || 'Interest'
+  }));
 
-  const posts = [
-    {
-      id: '1',
-      interest: 'Books',
-      username: 'Julia Smith',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/44.jpg' },
-      timePosted: '5 hours ago',
-      title: 'My trip to the mountains',
-      postText: 'Just finished reading an amazing book! Highly recommend it.',
-      likesCount: 87,
-      commentsCount: 32,
-      type: 'post',
-    },
-    {
-      id: '2',
-      interest: 'Photography',
-      username: 'travel_enthusiast',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/68.jpg' },
-      timePosted: '1 day ago',
-      title: 'My trip to the mountains',
-      postText: 'Sunset views from my hotel balcony. No filter needed!',
-      postImage: { uri: 'https://picsum.photos/id/1016/1000/1000' },
-      likesCount: 342,
-      commentsCount: 56,
-      type: 'post',
-    },
-  ];
-
-  const feed = [{ id: 'header', type: 'header' }, ...posts];
-
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item }: { item: FeedItem }) => {
     if (item.type === 'header') {
       return (
         <View style={styles.headerContainer}>
-          <UserProfileHeader />
+          <UserProfileHeader
+            name={user.name || 'User'}
+            profileImage={user.image || 'https://randomuser.me/api/portraits/women/44.jpg'}
+            postsCount={feed.length - 1}
+            friendsCount={user.friendships?.filter(f => f.status === 'accepted').length || 0}
+          />
           <View style={styles.interestsContainer}>
-            <InterestGrid interests={INTERESTS} />
+            <InterestGrid interests={userInterests.length > 0 ? userInterests : []} />
           </View>
         </View>
       );
-    } else if (item.type === 'post') {
+    } else if (item.type === 'post' || item.type === 'event') {
       return (
         <PostCard
           {...item}
+          userId={item.postUserId}
           onLikePress={() => console.log('Like pressed')}
-          onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
-          onCommentPress={() => handleOpenComments(sampleComments, item.commentsCount)}
+          onProfilePress={() => console.log('Profile pressed')}
+          onCommentPress={() => handleOpenComments(item)}
         />
       );
     }
     return null;
   };
+
+  if (user.isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -139,6 +142,22 @@ const CurrentUser: React.FC = () => {
               ...styles.listContent,
               paddingBottom: insets.bottom + 16,
             }}
+            refreshing={loading}
+            onRefresh={() => {
+              if (user.id) {
+                setLoading(true);
+                // This will trigger the useEffect again
+                setFeed([{ id: 'header', type: 'header' }]);
+              }
+            }}
+            ListEmptyComponent={
+              !loading && feed.length <= 1 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No posts yet</Text>
+                  <Text style={styles.emptySubtext}>Your posts will appear here</Text>
+                </View>
+              ) : null
+            }
           />
 
           <CommentsBottomSheet
@@ -162,6 +181,30 @@ const styles = StyleSheet.create({
   },
   interestsContainer: {
     paddingTop: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 

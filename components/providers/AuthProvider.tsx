@@ -92,16 +92,16 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session && isMounted) {
         const isValid = await handleValidSession(session);
-        
+
         // If user exists and is valid, get chat token
         if (isValid && isMounted) {
           getChatToken();
         }
       }
-      
+
       if (isMounted) {
         setLoading(false);
       }
@@ -145,7 +145,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const session = await supabase.auth.getSession();
       console.log(session);
       const accessToken = session?.data?.session?.access_token;
-  
+
       if (!accessToken) {
         return '';
       }
@@ -157,13 +157,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           'Content-Type': 'application/json'
         },
       });
-  
+
       if (!res.ok) {
         const errorText = await res.text();
         console.log(`Error response (${res.status}): ${errorText}`);
         return;
       }
-  
+
       const { token } = await res.json();
       console.log(token);
       setChatToken(token);
