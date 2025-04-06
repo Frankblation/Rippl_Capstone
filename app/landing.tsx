@@ -89,11 +89,11 @@ export default function Landing() {
         <View style={styles.blurButtonContainer}>
           <View style={styles.buttonsRow}>
             <Pressable onPress={() => router.push('/login')} style={styles.button}>
-              <Text style={styles.buttonText}>LOGIN</Text>
+              <Text style={styles.buttonText}>Login</Text>
             </Pressable>
 
             <Pressable onPress={() => router.push('/signup')} style={styles.button}>
-              <Text style={styles.buttonText}>SIGN UP</Text>
+              <Text style={styles.buttonText}>Sign Up</Text>
             </Pressable>
 
             <Pressable onPress={() => router.push('/(tabs)/home')} style={styles.button}>
@@ -177,6 +177,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     color: 'white',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: 'geistBold',
   },
 });

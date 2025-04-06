@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import TabBarBackground from '~/components/ui/TabBarBackground';
 import { Colors } from '~/constants/Colors';
 import { useColorScheme } from '~/hooks/useColorScheme';
+import { ChatButton } from '~/components/ChatButton';
 
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
@@ -64,6 +65,10 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="cards-outline" size={24} color={color} />
           ),
+          headerShown: true,
+          headerRight: () => <ChatButton />,
+          headerTransparent: true,
+          headerTitle: '',
         }}
         listeners={{
           tabPress: () => {
@@ -88,7 +93,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="matched-users"
         options={{
-          title: 'My Profile',
+          title: 'Matched Users',
           href: null,
         }}
       />
