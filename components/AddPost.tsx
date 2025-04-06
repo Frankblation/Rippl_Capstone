@@ -1,9 +1,18 @@
+'use client';
+
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import {
   View,
   Text,
@@ -16,17 +25,23 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
   Alert,
+  Switch,
 } from 'react-native';
 
-type PostType = 'post' | 'event';
+type PostType = 'post' | 'event' | null;
+type DateTimeType = 'single' | 'range';
 
 interface FormData {
   type: PostType;
   title: string;
   description: string;
   location?: string;
-  date?: Date;
-  time?: Date;
+  dateType?: DateTimeType;
+  startDate?: Date;
+  endDate?: Date;
+  timeType?: DateTimeType;
+  startTime?: Date;
+  endTime?: Date;
   interestGroup: string;
   image?: string | null;
 }
@@ -45,12 +60,81 @@ const interestGroups = [
   'Other',
 ];
 
+// Accordion Section Component
+const AccordionSection = ({ title, icon, children, isRequired = false, isOpen, onToggle }) => {
+  const animationValue = useSharedValue(isOpen ? 1 : 0);
+
+  useEffect(() => {
+    animationValue.value = withTiming(isOpen ? 1 : 0, { duration: 300 });
+  }, [isOpen, animationValue]);
+
+  const contentStyle = useAnimatedStyle(() => {
+    const maxHeight = interpolate(animationValue.value, [0, 1], [0, 1000], Extrapolate.CLAMP);
+
+    const opacity = interpolate(animationValue.value, [0, 0.5, 1], [0, 0, 1], Extrapolate.CLAMP);
+
+    return {
+      maxHeight,
+      opacity,
+      overflow: 'hidden',
+    };
+  });
+
+  const iconStyle = useAnimatedStyle(() => {
+    const rotation = interpolate(animationValue.value, [0, 1], [0, 180], Extrapolate.CLAMP);
+
+    return {
+      transform: [{ rotate: `${rotation}deg` }],
+    };
+  });
+
+  return (
+    <View style={styles.accordionSection}>
+      <TouchableOpacity style={styles.accordionHeader} onPress={onToggle} activeOpacity={0.7}>
+        <View style={styles.accordionTitleContainer}>
+          {icon && <Ionicons name={icon} size={18} color="#00AF9F" style={styles.accordionIcon} />}
+          <Text style={styles.accordionTitle}>{title}</Text>
+          {isRequired && <Text style={styles.requiredIndicator}>*</Text>}
+        </View>
+        <Animated.View style={iconStyle}>
+          <Ionicons name="chevron-down" size={18} color="#F39237" />
+        </Animated.View>
+      </TouchableOpacity>
+
+      <Animated.View style={contentStyle}>
+        <View style={styles.accordionContent}>{children}</View>
+      </Animated.View>
+    </View>
+  );
+};
+
 const AddPostForm = () => {
-  const [postType, setPostType] = useState<PostType>('post');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showInterestPicker, setShowInterestPicker] = useState(false);
+  const [postType, setPostType] = useState<PostType>(null);
+  const [dateType, setDateType] = useState<DateTimeType>('single');
+  const [timeType, setTimeType] = useState<DateTimeType>('single');
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Accordion state
+  const [openSections, setOpenSections] = useState({
+    type: true,
+    basicInfo: false,
+    location: false,
+    date: false,
+    time: false,
+    interest: false,
+    image: false,
+  });
+
+  const toggleSection = (section) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   // FORM
   const {
@@ -60,23 +144,116 @@ const AddPostForm = () => {
     reset,
     setValue,
     watch,
+    trigger,
   } = useForm<FormData>({
     defaultValues: {
-      type: 'post',
+      type: null,
       title: '',
       description: '',
       location: '',
-      date: undefined,
-      time: undefined,
+      dateType: 'single',
+      startDate: undefined,
+      endDate: undefined,
+      timeType: 'single',
+      startTime: undefined,
+      endTime: undefined,
       interestGroup: '',
       image: null,
     },
   });
 
-  const selectedDate = watch('date');
-  const selectedTime = watch('time');
+  // Watch form values for auto-progression
+  const title = watch('title');
+  const description = watch('description');
+  const location = watch('location');
+  const selectedStartDate = watch('startDate');
+  const selectedEndDate = watch('endDate');
+  const selectedStartTime = watch('startTime');
+  const selectedEndTime = watch('endTime');
   const selectedInterestGroup = watch('interestGroup');
   const imageUri = watch('image');
+
+  // Auto-progress through sections when fields are filled
+  useEffect(() => {
+    // If type is selected, open basic info
+    if (postType && !openSections.basicInfo) {
+      setOpenSections((prev) => ({
+        ...prev,
+        basicInfo: true,
+      }));
+    }
+
+    // If basic info is filled, open next section
+    if (title && description && postType === 'event' && !openSections.location) {
+      setOpenSections((prev) => ({
+        ...prev,
+        location: true,
+      }));
+    }
+
+    // If location is filled for events, open date section
+    if (postType === 'event' && location && !openSections.date) {
+      setOpenSections((prev) => ({
+        ...prev,
+        date: true,
+      }));
+    }
+
+    // If date is filled for events, open time section
+    if (
+      postType === 'event' &&
+      selectedStartDate &&
+      (dateType === 'single' || (dateType === 'range' && selectedEndDate)) &&
+      !openSections.time
+    ) {
+      setOpenSections((prev) => ({
+        ...prev,
+        time: true,
+      }));
+    }
+
+    // If time is filled for events, open interest section
+    if (
+      postType === 'event' &&
+      selectedStartTime &&
+      (timeType === 'single' || (timeType === 'range' && selectedEndTime)) &&
+      !openSections.interest
+    ) {
+      setOpenSections((prev) => ({
+        ...prev,
+        interest: true,
+      }));
+    }
+
+    // For posts, if basic info is filled, open interest section
+    if (postType === 'post' && title && description && !openSections.interest) {
+      setOpenSections((prev) => ({
+        ...prev,
+        interest: true,
+      }));
+    }
+
+    // If interest is selected, open image section
+    if (selectedInterestGroup && !openSections.image) {
+      setOpenSections((prev) => ({
+        ...prev,
+        image: true,
+      }));
+    }
+  }, [
+    postType,
+    title,
+    description,
+    location,
+    selectedStartDate,
+    selectedEndDate,
+    selectedStartTime,
+    selectedEndTime,
+    selectedInterestGroup,
+    openSections,
+    dateType,
+    timeType,
+  ]);
 
   // IMAGE PICKER
   const pickImage = async () => {
@@ -96,37 +273,71 @@ const AddPostForm = () => {
 
     if (!result.canceled) {
       setValue('image', result.assets[0].uri);
+      trigger('image'); // Trigger validation after setting the image
     }
   };
 
   // FORM SUBMISSION
   const onSubmit = (data: FormData) => {
+    // Validate that a post type is selected
+    if (!data.type) {
+      Alert.alert('Error', 'Please select what you are creating (Post or Event).');
+      return;
+    }
+
+    // Validate that an image is provided for events
+    if (data.type === 'event' && !data.image) {
+      Alert.alert('Error', 'Please add an image for your event.');
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // SIM API CAL
+    // SIM API CALL
     setTimeout(() => {
       console.log('Form submitted:', data);
 
       // RESET AFTER SUBMISSION
       reset();
-      setPostType('post');
+      setPostType(null);
+      setDateType('single');
+      setTimeType('single');
       setIsSubmitting(false);
 
-      Alert.alert('Success', `Your ${postType} has been created successfully!`, [{ text: 'OK' }]);
+      // Reset open sections to initial state
+      setOpenSections({
+        type: true,
+        basicInfo: false,
+        location: false,
+        date: false,
+        time: false,
+        interest: false,
+        image: false,
+      });
+
+      Alert.alert('Success', `Your ${data.type} has been created successfully!`, [{ text: 'OK' }]);
     }, 1000);
   };
+
+  // Determine if image is required based on post type
+  const isImageRequired = postType === 'event';
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}>
-      <ScrollView style={styles.container}>
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={true}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Create New {postType === 'post' ? 'Post' : 'Event'}</Text>
-
-          {/* POST TYPE (POST, EVENT, STILL NEED TO ADD CLASS ) */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>What are you creating?</Text>
+          {/* POST TYPE SECTION */}
+          <AccordionSection
+            title="What are you creating?"
+            isRequired={true}
+            isOpen={openSections.type}
+            onToggle={() => toggleSection('type')}>
             <View style={styles.radioGroup}>
               <TouchableOpacity
                 style={[styles.radioButton, postType === 'post' && styles.radioButtonSelected]}
@@ -150,60 +361,68 @@ const AddPostForm = () => {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </AccordionSection>
 
-          {/* TITLE INPUT */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Title</Text>
-            <Controller
-              control={control}
-              rules={{ required: 'Title is required' }}
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={styles.input}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  placeholder="Enter a title"
-                />
-              )}
-              name="title"
-            />
-            {errors.title && <Text style={styles.errorText}>{errors.title.message}</Text>}
-          </View>
+          {/* BASIC INFO SECTION */}
+          <AccordionSection
+            title="Basic Information"
+            icon="information-circle-outline"
+            isRequired={true}
+            isOpen={openSections.basicInfo}
+            onToggle={() => toggleSection('basicInfo')}>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Title</Text>
+              <Controller
+                control={control}
+                rules={{ required: 'Title is required' }}
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={styles.input}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    placeholder="Enter a title"
+                  />
+                )}
+                name="title"
+              />
+              {errors.title && <Text style={styles.errorText}>{errors.title.message}</Text>}
+            </View>
 
-          {/* DESCRIPTION INPUT */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Description</Text>
-            <Controller
-              control={control}
-              rules={{ required: 'Description is required' }}
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  placeholder="Write your content here..."
-                  multiline
-                  numberOfLines={4}
-                />
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Description</Text>
+              <Controller
+                control={control}
+                rules={{ required: 'Description is required' }}
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    placeholder="Write your content here..."
+                    multiline
+                    numberOfLines={4}
+                  />
+                )}
+                name="description"
+              />
+              {errors.description && (
+                <Text style={styles.errorText}>{errors.description.message}</Text>
               )}
-              name="description"
-            />
-            {errors.description && (
-              <Text style={styles.errorText}>{errors.description.message}</Text>
-            )}
-          </View>
+            </View>
+          </AccordionSection>
 
           {/* EVENT FIELDS */}
           {postType === 'event' && (
             <>
-              {/* LOCATION INPUT */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>
-                  <Ionicons name="location-outline" size={16} /> Location
-                </Text>
+              {/* LOCATION SECTION */}
+              <AccordionSection
+                title="Location"
+                icon="location-outline"
+                isRequired={true}
+                isOpen={openSections.location}
+                onToggle={() => toggleSection('location')}>
                 <Controller
                   control={control}
                   rules={{ required: 'Location is required for events' }}
@@ -219,115 +438,228 @@ const AddPostForm = () => {
                   name="location"
                 />
                 {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
-              </View>
+              </AccordionSection>
 
-              {/* DATE PICKER */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>
-                  <Ionicons name="calendar-outline" size={16} /> Date
-                </Text>
+              {/* DATE SECTION */}
+              <AccordionSection
+                title="Date"
+                icon="calendar-outline"
+                isRequired={true}
+                isOpen={openSections.date}
+                onToggle={() => toggleSection('date')}>
+                <View style={styles.toggleContainer}>
+                  <Text style={styles.toggleLabel}>Range</Text>
+                  <Switch
+                    value={dateType === 'range'}
+                    onValueChange={(value) => {
+                      const newDateType = value ? 'range' : 'single';
+                      setDateType(newDateType);
+                      setValue('dateType', newDateType);
+                    }}
+                    trackColor={{ false: '#ddd', true: '#14b8a6' }}
+                    thumbColor={'white'}
+                  />
+                </View>
+
+                {/* START DATE PICKER */}
                 <TouchableOpacity
                   style={styles.datePickerButton}
-                  onPress={() => setShowDatePicker(true)}>
+                  onPress={() => setShowStartDatePicker(true)}>
                   <Text style={styles.datePickerButtonText}>
-                    {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : 'Select a date'}
+                    {selectedStartDate
+                      ? format(selectedStartDate, 'MMMM d, yyyy')
+                      : dateType === 'single'
+                        ? 'Select a date'
+                        : 'Select start date'}
                   </Text>
                 </TouchableOpacity>
-                {showDatePicker && (
+                {showStartDatePicker && (
                   <DateTimePicker
-                    value={selectedDate || new Date()}
+                    value={selectedStartDate || new Date()}
                     mode="date"
                     display="default"
                     onChange={(event, selectedDate) => {
-                      setShowDatePicker(Platform.OS === 'ios');
+                      setShowStartDatePicker(Platform.OS === 'ios');
                       if (selectedDate) {
-                        setValue('date', selectedDate);
+                        setValue('startDate', selectedDate);
+                        // If end date is before start date, update end date
+                        if (selectedEndDate && selectedDate > selectedEndDate) {
+                          setValue('endDate', selectedDate);
+                        }
                       }
                     }}
                   />
                 )}
-                {errors.date && <Text style={styles.errorText}>{errors.date.message}</Text>}
-              </View>
 
-              {/* TIME PICKER */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>
-                  <Ionicons name="time-outline" size={16} /> Time
-                </Text>
+                {/* END DATE PICKER (ONLY SHOWN FOR RANGE) */}
+                {dateType === 'range' && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.datePickerButton, { marginTop: 8 }]}
+                      onPress={() => setShowEndDatePicker(true)}>
+                      <Text style={styles.datePickerButtonText}>
+                        {selectedEndDate
+                          ? format(selectedEndDate, 'MMMM d, yyyy')
+                          : 'Select end date'}
+                      </Text>
+                    </TouchableOpacity>
+                    {showEndDatePicker && (
+                      <DateTimePicker
+                        value={selectedEndDate || selectedStartDate || new Date()}
+                        mode="date"
+                        display="default"
+                        minimumDate={selectedStartDate}
+                        onChange={(event, selectedDate) => {
+                          setShowEndDatePicker(Platform.OS === 'ios');
+                          if (selectedDate) {
+                            setValue('endDate', selectedDate);
+                          }
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+                {errors.startDate && (
+                  <Text style={styles.errorText}>{errors.startDate.message}</Text>
+                )}
+                {errors.endDate && <Text style={styles.errorText}>{errors.endDate.message}</Text>}
+              </AccordionSection>
+
+              {/* TIME SECTION */}
+              <AccordionSection
+                title="Time"
+                icon="time-outline"
+                isRequired={true}
+                isOpen={openSections.time}
+                onToggle={() => toggleSection('time')}>
+                <View style={styles.toggleContainer}>
+                  <Text style={styles.toggleLabel}>Range</Text>
+                  <Switch
+                    value={timeType === 'range'}
+                    onValueChange={(value) => {
+                      const newTimeType = value ? 'range' : 'single';
+                      setTimeType(newTimeType);
+                      setValue('timeType', newTimeType);
+                    }}
+                    trackColor={{ false: '#ddd', true: '#14b8a6' }}
+                    thumbColor={'white'}
+                  />
+                </View>
+
+                {/* START TIME PICKER */}
                 <TouchableOpacity
                   style={styles.datePickerButton}
-                  onPress={() => setShowTimePicker(true)}>
+                  onPress={() => setShowStartTimePicker(true)}>
                   <Text style={styles.datePickerButtonText}>
-                    {selectedTime ? format(selectedTime, 'h:mm a') : 'Select a time'}
+                    {selectedStartTime
+                      ? format(selectedStartTime, 'h:mm a')
+                      : timeType === 'single'
+                        ? 'Select a time'
+                        : 'Select start time'}
                   </Text>
                 </TouchableOpacity>
-                {showTimePicker && (
+                {showStartTimePicker && (
                   <DateTimePicker
-                    value={selectedTime || new Date()}
+                    value={selectedStartTime || new Date()}
                     mode="time"
                     display="default"
                     onChange={(event, selectedTime) => {
-                      setShowTimePicker(Platform.OS === 'ios');
+                      setShowStartTimePicker(Platform.OS === 'ios');
                       if (selectedTime) {
-                        setValue('time', selectedTime);
+                        setValue('startTime', selectedTime);
+                        // If end time is before start time, update end time
+                        if (
+                          selectedEndTime &&
+                          selectedTime.getHours() > selectedEndTime.getHours()
+                        ) {
+                          setValue('endTime', selectedTime);
+                        }
                       }
                     }}
                   />
                 )}
-                {errors.time && <Text style={styles.errorText}>{errors.time.message}</Text>}
-              </View>
+
+                {/* END TIME PICKER (ONLY SHOWN FOR RANGE) */}
+                {timeType === 'range' && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.datePickerButton, { marginTop: 8 }]}
+                      onPress={() => setShowEndTimePicker(true)}>
+                      <Text style={styles.datePickerButtonText}>
+                        {selectedEndTime ? format(selectedEndTime, 'h:mm a') : 'Select end time'}
+                      </Text>
+                    </TouchableOpacity>
+                    {showEndTimePicker && (
+                      <DateTimePicker
+                        value={selectedEndTime || selectedStartTime || new Date()}
+                        mode="time"
+                        display="default"
+                        onChange={(event, selectedTime) => {
+                          setShowEndTimePicker(Platform.OS === 'ios');
+                          if (selectedTime) {
+                            setValue('endTime', selectedTime);
+                          }
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+                {errors.startTime && (
+                  <Text style={styles.errorText}>{errors.startTime.message}</Text>
+                )}
+                {errors.endTime && <Text style={styles.errorText}>{errors.endTime.message}</Text>}
+              </AccordionSection>
             </>
           )}
 
-          {/* INTEREST SELECTOR */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Interest Group</Text>
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={() => setShowInterestPicker(!showInterestPicker)}>
-              <Text style={styles.selectButtonText}>
-                {selectedInterestGroup || 'Select an interest group'}
-              </Text>
-              <Ionicons
-                name={showInterestPicker ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color="#666"
-              />
-            </TouchableOpacity>
-
-            {showInterestPicker && (
-              <View style={styles.dropdownMenu}>
-                {interestGroups.map((group) => (
-                  <TouchableOpacity
-                    key={group}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setValue('interestGroup', group);
-                      setShowInterestPicker(false);
-                    }}>
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        selectedInterestGroup === group && styles.dropdownItemTextSelected,
-                      ]}>
-                      {group}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+          {/* INTEREST SECTION */}
+          <AccordionSection
+            title="Interest Group"
+            icon="people-outline"
+            isRequired={true}
+            isOpen={openSections.interest}
+            onToggle={() => toggleSection('interest')}>
+            <View style={styles.interestContainer}>
+              {interestGroups.map((group) => (
+                <TouchableOpacity
+                  key={group}
+                  style={[
+                    styles.interestToggle,
+                    selectedInterestGroup === group && styles.interestToggleSelected,
+                  ]}
+                  onPress={() => {
+                    setValue('interestGroup', group);
+                  }}>
+                  <Text
+                    style={[
+                      styles.interestToggleText,
+                      selectedInterestGroup === group && styles.interestToggleTextSelected,
+                    ]}>
+                    {group}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             {errors.interestGroup && (
               <Text style={styles.errorText}>{errors.interestGroup.message}</Text>
             )}
-          </View>
+          </AccordionSection>
 
-          {/* IMAGE PICKER */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              <Ionicons name="image-outline" size={16} /> Add Photo (Optional)
+          {/* IMAGE SECTION */}
+          <AccordionSection
+            title="Add Photo"
+            icon="image-outline"
+            isRequired={isImageRequired}
+            isOpen={openSections.image}
+            onToggle={() => toggleSection('image')}>
+            <Text style={styles.imageDescription}>
+              {isImageRequired
+                ? 'An image is required for events to help attendees identify your event.'
+                : 'Adding an image to your post is optional but recommended.'}
             </Text>
+
             <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
-              <Ionicons name="cloud-upload-outline" size={24} color="#666" />
+              <Ionicons name="cloud-upload-outline" size={24} color="#00AF9F" />
               <Text style={styles.imagePickerText}>Choose an image</Text>
             </TouchableOpacity>
 
@@ -341,7 +673,11 @@ const AddPostForm = () => {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
+
+            {isImageRequired && !imageUri && (
+              <Text style={styles.imageRequiredText}>Please add an image for your event</Text>
+            )}
+          </AccordionSection>
 
           {/* FORM ACTIONS */}
           <View style={styles.formActions}>
@@ -349,7 +685,19 @@ const AddPostForm = () => {
               style={styles.cancelButton}
               onPress={() => {
                 reset();
-                setPostType('post');
+                setPostType(null);
+                setDateType('single');
+                setTimeType('single');
+                // Reset open sections to initial state
+                setOpenSections({
+                  type: true,
+                  basicInfo: false,
+                  location: false,
+                  date: false,
+                  time: false,
+                  interest: false,
+                  image: false,
+                });
               }}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -362,12 +710,14 @@ const AddPostForm = () => {
                 <ActivityIndicator color="white" size="small" />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  {postType === 'post' ? 'Create Post' : 'Create Event'}
+                  {postType ? (postType === 'post' ? 'Create Post' : 'Create Event') : 'Create'}
                 </Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
+        {/* Add some bottom padding to ensure the submit button is visible */}
+        <View style={{ height: 50 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -376,16 +726,16 @@ const AddPostForm = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     width: '100%',
     paddingHorizontal: 10,
   },
-
+  contentContainer: {
+    paddingBottom: 80, // Add extra padding at the bottom
+  },
   card: {
     width: '100%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 50,
+
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -393,20 +743,56 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-
   cardTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: 'SFProDisplayBold',
     marginBottom: 20,
     color: '#333',
   },
+  // Accordion styles
+  accordionSection: {
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#fdfdfd ',
+  },
+  accordionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  accordionIcon: {
+    marginRight: 8,
+  },
+  accordionTitle: {
+    fontSize: 16,
+    fontFamily: 'SFProTextSemiBold',
+    color: '#333',
+  },
+  requiredIndicator: {
+    color: '#F39237',
+    marginLeft: 4,
+    fontWeight: 'bold',
+  },
+  accordionContent: {
+    padding: 12,
+    backgroundColor: 'white',
+  },
+  // Original styles
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontSize: 16,
     marginBottom: 8,
-    fontWeight: '500',
+    fontFamily: 'SFProTextSemiBold',
     color: '#333',
   },
   input: {
@@ -415,7 +801,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fafafa',
+    backgroundColor: 'white',
   },
   textArea: {
     minHeight: 100,
@@ -427,23 +813,26 @@ const styles = StyleSheet.create({
   },
   radioButton: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#00AF9F',
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 20,
     marginRight: 10,
-    backgroundColor: '#fafafa',
+    backgroundColor: 'white',
   },
   radioButtonSelected: {
-    backgroundColor: '#14b8a6',
-    borderColor: '#14b8a6',
+    backgroundColor: '#00AF9F',
+    borderColor: '#00AF9F',
   },
   radioText: {
     fontSize: 16,
-    color: '#666',
+    color: '#00AF9F',
+    fontFamily: 'SFProTextMedium',
   },
   radioTextSelected: {
     color: 'white',
+    fontFamily: 'SFProTextMedium',
+    fontSize: 16,
   },
   errorText: {
     color: '#d32f2f',
@@ -461,40 +850,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  selectButton: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fafafa',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  selectButtonText: {
-    fontSize: 16,
+  imageDescription: {
+    fontSize: 14,
     color: '#666',
+    marginBottom: 12,
+    lineHeight: 20,
   },
-  dropdownMenu: {
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: 'white',
-    maxHeight: 200,
-  },
-  dropdownItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  dropdownItemTextSelected: {
-    color: '#14b8a6',
-    fontWeight: 'bold',
+  imageRequiredText: {
+    color: '#d32f2f',
+    fontSize: 14,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   imagePickerButton: {
     borderWidth: 1,
@@ -530,7 +896,7 @@ const styles = StyleSheet.create({
   formActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 10,
+    marginTop: 16,
   },
   cancelButton: {
     paddingVertical: 12,
@@ -543,9 +909,10 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     color: '#666',
+    fontFamily: 'SFProTextMedium',
   },
   submitButton: {
-    backgroundColor: '#14b8a6',
+    backgroundColor: '#00AF9F',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -553,7 +920,49 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     color: 'white',
-    fontWeight: '500',
+    fontFamily: 'SFProTextMedium',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  toggleWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  toggleLabel: {
+    marginRight: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  interestContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+  interestToggle: {
+    borderWidth: 1,
+    borderColor: '#00AF9F',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    margin: 4,
+    backgroundColor: 'white',
+  },
+  interestToggleSelected: {
+    backgroundColor: '#00AF9F',
+    borderColor: '#00AF9F',
+  },
+  interestToggleText: {
+    fontSize: 14,
+    color: '#00AF9F',
+    fontFamily: 'SFProTextMedium',
+  },
+  interestToggleTextSelected: {
+    color: 'white',
+    fontFamily: 'SFProTextMedium',
   },
 });
 

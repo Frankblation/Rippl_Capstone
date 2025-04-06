@@ -70,7 +70,14 @@ export default function RootLayout() {
     SFProTextSemiBold: require('../assets/fonts/SF-Pro-Text-Semibold.otf'),
     SFProTextMedium: require('../assets/fonts/SF-Pro-Text-Medium.otf'),
     SFProDisplayRegular: require('../assets/fonts/SF-Pro-Display-Regular.otf'),
+    SFProDisplayBold: require('../assets/fonts/SF-Pro-Display-Bold.otf'),
     rlAqva: require('../assets/fonts/rlAqva.otf'),
+    geistBold: require('../assets/fonts/Geist-Bold.otf'),
+    geistRegular: require('../assets/fonts/Geist-Regular.otf'),
+    geistSemiBold: require('../assets/fonts/Geist-SemiBold.otf'),
+    geistMedium: require('../assets/fonts/Geist-Medium.otf'),
+    brush: require('../assets/fonts/Astakhov-Brush-Hooliganism.otf'),
+    bubbles: require('../assets/fonts/Pearly-Smiles.ttf'),
   });
 
   useEffect(() => {

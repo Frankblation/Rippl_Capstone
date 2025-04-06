@@ -22,7 +22,7 @@ type UserCardProps = {
   user: {
     name: string;
     bio: string;
-    picture: string;
+    picture: any;
     interests: string[];
   };
 };
@@ -38,13 +38,13 @@ export default function UserSwipingCard({ user }: UserCardProps) {
   const { colors: gradientColors, locations: gradientLocations } = easeGradient({
     colorStops: {
       0: { color: 'transparent' },
-      0.5: { color: 'rgba(0,0,0,0.99)' },
+      0.5: { color: 'rgba(0,0,0,0.80)' },
       1: { color: 'black' },
     },
   }) as { colors: [string, string, ...string[]]; locations: [number, number, ...number[]] };
   return (
     <View style={styles.container}>
-      <Image source={{ uri: user.picture }} resizeMode="cover" style={styles.image} />
+      <Image source={user.picture} resizeMode="cover" style={styles.image} />
       <View style={[styles.blurContainer, { width, height: height / 2 }]}>
         <MaskedView
           maskElement={
@@ -63,7 +63,6 @@ export default function UserSwipingCard({ user }: UserCardProps) {
         </MaskedView>
         <View style={styles.textContainer}>
           <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.bio}>{user.bio}</Text>
 
           <View style={styles.interestsContainer}>
             <Text style={styles.interestsTitle}>Interests</Text>
@@ -75,6 +74,7 @@ export default function UserSwipingCard({ user }: UserCardProps) {
               ))}
             </View>
           </View>
+          <Text style={styles.bio}>{user.bio}</Text>
         </View>
       </View>
     </View>
@@ -84,7 +84,7 @@ export default function UserSwipingCard({ user }: UserCardProps) {
 const styles = StyleSheet.create({
   container: {
     width: width * 0.9,
-    aspectRatio: 0.58,
+    aspectRatio: 0.65,
     borderRadius: 50,
     overflow: 'hidden',
     position: 'relative',
@@ -111,29 +111,30 @@ const styles = StyleSheet.create({
   },
   text: {
     color: 'white',
-    fontSize: 40,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontFamily: 'geistBold',
+
     marginBottom: 16,
   },
   name: {
-    fontFamily: 'SFProTextBold',
-    fontSize: 30,
+    fontFamily: 'geistBold',
+    fontSize: 20,
 
     color: 'white',
     marginBottom: 8,
   },
   bio: {
-    fontSize: 18,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
 
-    fontFamily: 'SFProTextRegular',
+    fontFamily: 'geistMedium',
+    marginBottom: 20,
+    marginHorizontal: 10,
   },
-  interestsContainer: {
-    marginTop: 12,
-  },
+  interestsContainer: {},
   interestsTitle: {
-    fontSize: 28,
-    fontFamily: 'SFProTextBold',
+    fontSize: 24,
+    fontFamily: 'geistBold',
     marginBottom: 12,
     color: 'rgba(255, 255, 255, 0.95)',
   },
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
   },
   interestText: {
     color: 'white',
-    fontFamily: 'SFProTextRegular',
+    fontFamily: 'geistSemiBold',
     fontSize: 18,
   },
 });
