@@ -23,6 +23,7 @@ export interface PostComment {
 
 export interface NotePost {
   id: string;
+  postUserId: string;
   interest: string;
   username: string;
   userAvatar: { uri: string };
@@ -38,6 +39,7 @@ export interface NotePost {
 
 export interface EventPost {
   id: string;
+  postUserId: string;
   interest: string;
   username: string;
   userAvatar: { uri: string };
@@ -181,6 +183,7 @@ export async function formatPostForUI(
 
       const eventPost: EventPost = {
         id: post.id,
+        postUserId: post.user_id,
         interest: interest?.name || 'General',
         username: postAuthor?.name || 'Unknown User',
         userAvatar: {
@@ -214,6 +217,7 @@ export async function formatPostForUI(
       // For regular posts (notes) - match PostCard requirements
       const notePost: NotePost = {
         id: post.id,
+        postUserId: post.user_id,
         interest: interest?.name || 'General',
         username: postAuthor?.name || 'Unknown User',
         userAvatar: {

@@ -128,6 +128,7 @@ const HomeScreen = () => {
       return (
         <PostCard
           {...item}
+          userId={item.postUserId}
           onLikePress={() => console.log('Like pressed')}
           onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
           onCommentPress={() => handleOpenComments(item)}

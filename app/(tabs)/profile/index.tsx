@@ -110,6 +110,7 @@ const CurrentUser: React.FC = () => {
       return (
         <PostCard
           {...item}
+          userId={item.postUserId}
           onLikePress={() => console.log('Like pressed')}
           onProfilePress={() => console.log('Profile pressed')}
           onCommentPress={() => handleOpenComments(item)}
