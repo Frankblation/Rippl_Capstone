@@ -2,11 +2,11 @@ import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import Feather from '@expo/vector-icons/Feather';
 
-export function SettingsProfile() {
+export function EditProfileButton() {
   const router = useRouter();
 
   async function settings() {
-    //   router.replace('/(tabs)/profile/edit');
+    router.replace('/(tabs)/profile/edit');
   }
 
   return (
