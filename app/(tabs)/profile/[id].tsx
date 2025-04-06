@@ -16,6 +16,8 @@ import CommentsBottomSheet, {
 import PostCard from '~/components/PostCard';
 import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
+import { AddUserButton } from '~/components/profile/AddUserButton';
+import { add } from 'date-fns';
 
 const INTERESTS = [
   { id: '1', name: 'Photography' },
@@ -32,7 +34,7 @@ const INTERESTS = [
   { id: '12', name: 'Gaming' },
 ];
 
-const CurrentUser: React.FC = () => {
+function Profile() {
   const insets = useSafeAreaInsets();
   const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
   const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
@@ -129,6 +131,8 @@ const CurrentUser: React.FC = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
+        <AddUserButton style={[styles.addUserButton, { top: 50 }]} />
+
         <View style={{ flex: 1 }}>
           <FlashList
             data={feed}
@@ -151,7 +155,7 @@ const CurrentUser: React.FC = () => {
       </SafeAreaView>
     </GestureHandlerRootView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   listContent: {
@@ -163,6 +167,12 @@ const styles = StyleSheet.create({
   interestsContainer: {
     paddingTop: 20,
   },
+  addUserButton: {
+    position: 'absolute',
+    top: 10, // or use `insets.top + 10` if you want it under the status bar
+    right: 16,
+    zIndex: 10, // ensure it's above everything
+  },
 });
 
-export default CurrentUser;
+export default Profile;

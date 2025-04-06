@@ -3,12 +3,13 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Platform } from 'react-native';
-import { SettingsProfile } from '~/components/SettingsProfile';
+import { EditProfileButton } from '~/components/profile/EditProfileButton';
 import * as Haptics from 'expo-haptics';
 import TabBarBackground from '~/components/ui/TabBarBackground';
 import { Colors } from '~/constants/Colors';
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { ChatButton } from '~/components/ChatButton';
+import { AddUserButton } from '~/components/profile/AddUserButton';
 
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
@@ -77,12 +78,19 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="matched-users"
+        options={{
+          title: 'Matched Users',
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="profile/index"
         options={{
           title: 'My Profile',
           tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,
           headerShown: true,
-          headerRight: () => <SettingsProfile />,
+          headerRight: () => <EditProfileButton />,
         }}
         listeners={{
           tabPress: () => {
@@ -91,9 +99,8 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="matched-users"
+        name="profile/[id]"
         options={{
-          title: 'Matched Users',
           href: null,
         }}
       />

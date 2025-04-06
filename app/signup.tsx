@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '~/components/providers/AuthProvider'; // Update this path if needed
+import { useAuth } from '~/components/providers/AuthProvider';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -86,7 +87,7 @@ export default function SignupScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
       <View className="flex-1 px-6 py-12">
         <View className="mb-8">
@@ -160,6 +161,6 @@ export default function SignupScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }

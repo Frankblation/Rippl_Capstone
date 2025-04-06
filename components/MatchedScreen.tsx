@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Feather from '@expo/vector-icons/Feather';
+import LottieView from 'lottie-react-native';
+import { useRef, useEffect } from 'react';
 
 type User = {
   name: string;
@@ -24,7 +26,7 @@ type MatchScreenProps = {
   onStartChat: () => void;
 };
 
-const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchScreenProps) => {
+const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps) => {
   const sharedInterests = matchedUser.interests
     .filter((interest) => currentUser.interests.includes(interest))
     .slice(0, 3);
@@ -32,32 +34,55 @@ const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchSc
   const interestsToShow =
     sharedInterests.length > 0 ? sharedInterests : matchedUser.interests.slice(0, 3);
 
+  const animationRef = useRef<LottieView>(null);
+
+  useEffect(() => {
+    if (animationRef.current) {
+      animationRef.current.play();
+    }
+  }, []);
+
   return (
     <ImageBackground
-      source={require('../assets/nothing.jpg')}
+      source={require('../assets/background.jpg')}
       style={styles.backgroundImage}
       resizeMode="cover">
-      <Text style={styles.title}>You've Connected!</Text>
+      <Text style={styles.title}>You're Making Waves!</Text>
+
       <View style={styles.container}>
         {Platform.OS === 'ios' ? (
-          <BlurView intensity={120} tint="light" style={styles.blurContainer}>
+          <BlurView intensity={80} tint="default" style={styles.blurContainer}>
             <View style={styles.contentContainer}>
               <View style={styles.bottomContent}>
                 <View style={styles.interestsContainer}>
-                  <Text style={styles.interestsTitle}>You and {matchedUser.name} both enjoy</Text>
+                  <Text style={styles.interestsTitle}>
+                    You and {matchedUser.name} are both interested in
+                  </Text>
 
                   <View style={styles.interestTags}>
                     {interestsToShow.map((interest, index) => (
                       <View key={index} style={styles.interestTag}>
-                        <Text style={styles.interestTagText}>{interest.toLowerCase()}</Text>
+                        <Text style={styles.interestTagText}>{interest}</Text>
                       </View>
                     ))}
                   </View>
                 </View>
                 <View style={styles.chatContainer}>
-                  <TouchableOpacity style={styles.chatButton} onPress={onStartChat}>
-                    <Text style={styles.chatButtonText}>Lets go fishing!</Text>
-                  </TouchableOpacity>
+                  <View style={styles.buttonWrapper}>
+                    <LottieView
+                      ref={animationRef}
+                      source={require('../assets/animations/orange-ripple.json')}
+                      style={styles.rippleAnimation}
+                      loop={true}
+                      autoPlay={true}
+                    />
+                    <TouchableOpacity
+                      style={styles.chatButton}
+                      onPress={onStartChat}
+                      activeOpacity={0.8}>
+                      <Text style={styles.chatButtonText}>Let's Go</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
@@ -67,19 +92,33 @@ const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchSc
             <View style={styles.contentContainer}>
               <View style={styles.bottomContent}>
                 <View style={styles.interestsContainer}>
-                  <Text style={styles.interestsTitle}>Shared Interests</Text>
+                  <Text style={styles.interestsTitle}>
+                    You and {matchedUser.name} both enjoy these activities
+                  </Text>
 
                   <View style={styles.interestTags}>
                     {interestsToShow.map((interest, index) => (
                       <View key={index} style={styles.interestTag}>
-                        <Text style={styles.interestTagText}>{interest.toLowerCase()}</Text>
+                        <Text style={styles.interestTagText}>{interest}</Text>
                       </View>
                     ))}
                   </View>
                 </View>
-                <TouchableOpacity style={styles.chatButton} onPress={onStartChat}>
-                  <Text style={styles.chatButtonText}>Lets go fishing!</Text>
-                </TouchableOpacity>
+                <View style={styles.buttonWrapper}>
+                  <LottieView
+                    ref={animationRef}
+                    source={require('../assets/animations/orange-ripple.json')}
+                    style={styles.rippleAnimation}
+                    loop={true}
+                    autoPlay={true}
+                  />
+                  <TouchableOpacity
+                    style={styles.chatButton}
+                    onPress={onStartChat}
+                    activeOpacity={0.8}>
+                    <Text style={styles.chatButtonText}>Let's Go</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -118,9 +157,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
   },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  title: {
+    fontSize: 32,
+    fontFamily: 'geistBold',
+    textAlign: 'center',
+    color: 'white',
+    zIndex: 3,
+    marginTop: 100,
+  },
+  subtitle: {
+    fontSize: 18,
+    fontFamily: 'geistMedium',
+    textAlign: 'center',
+    color: 'white',
+    zIndex: 3,
+    marginTop: 8,
+    marginHorizontal: 40,
+  },
   blurContainer: {
     position: 'absolute',
-    top: '10%',
+    top: '15%',
     left: 40,
     right: 40,
     bottom: '20%',
@@ -147,15 +210,6 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 'auto',
     alignItems: 'center',
-  },
-  title: {
-    fontSize: 40,
-    fontFamily: 'geistBold',
-
-    textAlign: 'center',
-    color: 'white',
-    zIndex: 3,
-    marginTop: 150,
   },
   profileContainer: {
     position: 'absolute',
@@ -198,18 +252,29 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 20,
   },
+  buttonWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  rippleAnimation: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+  },
   chatButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
-    textAlign: 'center',
-    width: 150,
-    backdropFilter: 'blur(10px)',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 90,
+    height: 90,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   chatButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 20,
     textAlign: 'center',
     fontFamily: 'geistBold',
   },
@@ -222,6 +287,8 @@ const styles = StyleSheet.create({
     fontFamily: 'geistMedium',
     marginBottom: 16,
     color: 'white',
+    textAlign: 'center',
+    paddingHorizontal: 10,
   },
   interestTags: {
     flexDirection: 'row',
@@ -236,6 +303,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backdropFilter: 'blur(10px)',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(243, 146, 55, 0.3)',
+    borderWidth: 2,
   },
   interestTagText: {
     color: 'white',

@@ -16,7 +16,7 @@ interface ProfileCardProps {
 }
 
 const ProfileCard: React.FC<ProfileCardProps> = ({
-  profileImage = require('../assets/user.png'),
+  profileImage = require('../../assets/user.png'),
   username = 'Alex Johnson',
   postCount = 248,
   friendCount = 1432,

@@ -82,7 +82,7 @@ export default function Landing() {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image source={require('../assets/rippl-logo.png')} style={styles.logo} />
-        <Text style={styles.missionText}>Where small connections make big waves.</Text>
+        <Text style={styles.missionText}>Where Small Connections Make Big Waves.</Text>
       </View>
 
       <View style={styles.buttonContainer}>
@@ -94,10 +94,6 @@ export default function Landing() {
 
             <Pressable onPress={() => router.push('/signup')} style={styles.button}>
               <Text style={styles.buttonText}>Sign Up</Text>
-            </Pressable>
-
-            <Pressable onPress={() => router.push('/(tabs)/home')} style={styles.button}>
-              <Text style={styles.buttonText}>Go to app</Text>
             </Pressable>
           </View>
         </View>
@@ -143,7 +139,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   missionText: {
-    fontFamily: 'SFProTextSemiBold',
+    fontFamily: 'geistBold',
     color: '#DFF8EB',
     fontSize: 18,
   },
@@ -167,7 +163,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   button: {
-    width: '30%',
+    width: '40%',
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -177,6 +173,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     color: 'white',
-    fontFamily: 'geistBold',
+    fontFamily: 'geistSemiBold',
   },
 });
