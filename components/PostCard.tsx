@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+
+
 interface PostCardProps {
   interest: string;
   username: string;
@@ -46,7 +48,11 @@ const PostCard: React.FC<PostCardProps> = ({
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
   const animationRef = useRef<LottieView>(null);
-
+  /**
+   * Data needed:
+   * user (user_id, name, image, interest)
+   * post (created_at, title, description, image)
+   */
   const handleLikePress = () => {
     setIsLiked(!isLiked);
     setLikesCount(!isLiked ? likesCount + 1 : likesCount - 1);
