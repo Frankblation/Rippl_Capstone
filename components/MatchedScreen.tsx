@@ -34,7 +34,7 @@ const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchSc
 
   return (
     <ImageBackground
-      source={require('../assets/blue-gradient.jpg')}
+      source={require('../assets/nothing.jpg')}
       style={styles.backgroundImage}
       resizeMode="cover">
       <Text style={styles.title}>You've Connected!</Text>
@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 40,
-    fontFamily: 'SFProTextBold',
-    fontWeight: 'bold',
+    fontFamily: 'geistBold',
+
     textAlign: 'center',
     color: 'white',
     zIndex: 3,
@@ -191,9 +191,6 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 200,
     height: 200,
-    boxShadow: 'white 0px 20px 20px',
-    borderColor: 'white',
-    borderWidth: 2,
   },
   chatContainer: {
     flexDirection: 'row',
@@ -214,7 +211,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     textAlign: 'center',
-    fontFamily: 'SFProTextRegular',
+    fontFamily: 'geistBold',
   },
   interestsContainer: {
     alignItems: 'center',
@@ -222,6 +219,7 @@ const styles = StyleSheet.create({
   },
   interestsTitle: {
     fontSize: 18,
+    fontFamily: 'geistMedium',
     marginBottom: 16,
     color: 'white',
   },
@@ -242,7 +240,7 @@ const styles = StyleSheet.create({
   interestTagText: {
     color: 'white',
     fontSize: 16,
-    fontFamily: 'SFProTextRegular',
+    fontFamily: 'geistSemiBold',
   },
 });
 

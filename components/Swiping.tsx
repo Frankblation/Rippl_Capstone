@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Swiper from 'react-native-deck-swiper';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import UserCard from './UserSwipingCard';
 
 import { useRouter } from 'expo-router';
@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 type User = {
   name: string;
   bio: string;
-  picture: string;
+  picture: any; // Changed to any to support require() for local images
   interests: string[];
 };
 
@@ -18,57 +18,49 @@ const users: User[] = [
   {
     name: 'Alex Johnson',
     bio: 'Photography enthusiast capturing urban landscapes and street art.',
-    picture:
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Photography', 'Urban Exploration', 'Cycling', 'Jazz Music', 'Coffee Brewing'],
   },
   {
     name: 'Jamie Smith',
     bio: 'Avid hiker and nature photographer documenting wilderness trails.',
-    picture:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Hiking', 'Photography', 'Bird Watching', 'Camping', 'Botany'],
   },
   {
     name: 'Taylor Rodriguez',
     bio: 'Passionate home chef specializing in international cuisines and baking.',
-    picture:
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Cooking', 'Baking', 'Farmers Markets', 'Food Blogging', 'Wine Tasting'],
   },
   {
     name: 'Morgan Chen',
     bio: 'Book lover and writer working on a collection of short stories.',
-    picture:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Reading', 'Creative Writing', 'Poetry', 'Book Clubs', 'Library Visits'],
   },
   {
     name: 'Jordan Williams',
     bio: 'Dedicated musician playing guitar in a local indie rock band.',
-    picture:
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Guitar', 'Songwriting', 'Concert-going', 'Record Collecting', 'Music Production'],
   },
   {
     name: 'Casey Parker',
     bio: 'Yoga instructor and meditation practitioner focused on mindfulness.',
-    picture:
-      'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Yoga', 'Meditation', 'Hiking', 'Vegetarian Cooking', 'Journaling'],
   },
   {
     name: 'Riley Thompson',
     bio: 'Crafting enthusiast specializing in handmade jewelry and accessories.',
-    picture:
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Jewelry Making', 'Crafting', 'Art Markets', 'Upcycling', 'Design'],
   },
   {
     name: 'Avery Martinez',
     bio: 'Rock climbing coach who spends weekends exploring new climbing routes.',
-    picture:
-      'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=150&h=150&fit=crop&crop=faces&q=80',
+    picture: require('../assets/user.jpg'), // Local image path
     interests: ['Rock Climbing', 'Bouldering', 'Outdoor Adventure', 'Fitness', 'Travel'],
   },
 ];

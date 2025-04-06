@@ -63,11 +63,11 @@ export default function SignupScreen() {
       Alert.alert(
         'Check your email',
         'We sent you a confirmation link. Please check your email to complete signup.',
-        [{ text: 'OK', onPress: () => router.replace('/login') }]
+        [{ text: 'OK', onPress: () => router.replace('/create-profile') }]
       );
     } else {
       // Email confirmation not required, go to onboarding
-      router.replace('/customize-profile');
+      router.replace('/create-profile');
     }
   };
 
