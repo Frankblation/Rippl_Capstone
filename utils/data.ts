@@ -644,7 +644,6 @@ export const createUserInterest = async (
  * @returns Promise with an array of user interests with interest details
  */
 export const getUserInterests = async (userId: string): Promise<any[]> => {
-  console.log(`Fetching interests for user ID: ${userId}`);
 
   const { data, error } = await supabase
     .from('user_interests')
@@ -663,7 +662,6 @@ export const getUserInterests = async (userId: string): Promise<any[]> => {
     throw error;
   }
 
-  console.log('Raw result:', JSON.stringify(data));
   return data || [];
 };
 

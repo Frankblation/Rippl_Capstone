@@ -45,26 +45,20 @@ const HomeScreen = () => {
     const fetchUserData = async () => {
       try {
         // User data
-          const userData = await getUserById('05e88c6c-ac98-49ac-8551-4d89f816f636');
-          console.log('User data:', userData);
+          const userData = await getUserById(user.id);
+          // console.log('User data:', userData);
 
           // User's interests
-          const userInterests = await getUserInterests('05e88c6c-ac98-49ac-8551-4d89f816f636');
-          console.log('User interests:', userInterests);
+          const userInterests = await getUserInterests(user.id);
+          // console.log('User interests:', userInterests);
 
           // User's posts
-          const userPosts = await getPostsByUserId('05e88c6c-ac98-49ac-8551-4d89f816f636');
-          console.log('User posts:', userPosts);
+          const userPosts = await getPostsByUserId(user.id);
+          // console.log('User posts:', userPosts);
 
           // any posts???
           const post = await getAllPosts();
-          console.log('All post: ', post)
-//  (NOBRIDGE) LOG  User data: {"created_at": "2025-04-05T20:48:49.150097", "description": "NULL", "email": "NULL", "id": "05e88c6c-ac98-49ac-8551-4d89f816f636", "image": "https://cdn.jsdelivr.net/gh/faker-js/assets-person-portrait/female/512/41.jpg", "name": "Dorothy O'Connell Sr."}
-//  (NOBRIDGE) LOG  Fetching interests for user ID: 05e88c6c-ac98-49ac-8551-4d89f816f636
-//  (NOBRIDGE) LOG  Raw result: []
-//  (NOBRIDGE) LOG  User interests: []
-//  (NOBRIDGE) LOG  User posts: []
-//  (NOBRIDGE) LOG  All post:  []
+          // console.log('All post: ', post)
 
 
         // getPostsByUserId();
