@@ -1,9 +1,24 @@
 import Feather from '@expo/vector-icons/Feather';
 import { FlashList } from '@shopify/flash-list';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '~/components/providers/AuthProvider';
+
+// DB stuff
+import {
+  getUserById,
+  getPostsByUserId,
+  getUserInterests,
+  getUserChats,
+  getUserFriendships,
+  getPendingFriendRequests,
+  getUserMatches,
+  getAttendeesByUser,
+  getPostsByInterestId,
+  getAllPosts
+} from '~/utils/data';
 
 import EventCard from '../../components/EventCard';
 import PostCard from '../../components/PostCard';
@@ -18,6 +33,49 @@ const HomeScreen = () => {
   const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
   const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
   const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Wait for the user object to be updated by auth
+    // Get current user interest
+    // Get a list of that users friends
+    // Show post from friends and posts from user interest
+    const fetchUserData = async () => {
+      try {
+        // User data
+          const userData = await getUserById('05e88c6c-ac98-49ac-8551-4d89f816f636');
+          console.log('User data:', userData);
+
+          // User's interests
+          const userInterests = await getUserInterests('05e88c6c-ac98-49ac-8551-4d89f816f636');
+          console.log('User interests:', userInterests);
+
+          // User's posts
+          const userPosts = await getPostsByUserId('05e88c6c-ac98-49ac-8551-4d89f816f636');
+          console.log('User posts:', userPosts);
+
+          // any posts???
+          const post = await getAllPosts();
+          console.log('All post: ', post)
+//  (NOBRIDGE) LOG  User data: {"created_at": "2025-04-05T20:48:49.150097", "description": "NULL", "email": "NULL", "id": "05e88c6c-ac98-49ac-8551-4d89f816f636", "image": "https://cdn.jsdelivr.net/gh/faker-js/assets-person-portrait/female/512/41.jpg", "name": "Dorothy O'Connell Sr."}
+//  (NOBRIDGE) LOG  Fetching interests for user ID: 05e88c6c-ac98-49ac-8551-4d89f816f636
+//  (NOBRIDGE) LOG  Raw result: []
+//  (NOBRIDGE) LOG  User interests: []
+//  (NOBRIDGE) LOG  User posts: []
+//  (NOBRIDGE) LOG  All post:  []
+
+
+        // getPostsByUserId();
+        // getPostsByInterestId(interestID);
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, [user]);
 
   const handleOpenComments = (comments: PostComment[], count: number) => {
     setSelectedComments(comments);
@@ -36,6 +94,7 @@ const HomeScreen = () => {
     setSelectedComments((prev) => [...prev, newComment]);
     setSelectedCommentsCount((prev) => prev + 1);
   };
+
 
   const avatars2 = [
     { uri: 'https://randomuser.me/api/portraits/women/68.jpg' },

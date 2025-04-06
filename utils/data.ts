@@ -171,6 +171,22 @@ export const getPostsByUserId = async (userId: string): Promise<PostsTable[]> =>
   return data as PostsTable[];
 };
 
+/**
+ * Fetches all posts by a specific Interest
+ * @param interestId The ID of the Interest whose posts to fetch
+ * @returns Promise with array of the posts with that interest
+ */
+export const getPostsByInterestId = async (interestId: string): Promise<PostsTable[]> => {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('interest_id', interestId)
+    .order('created_at', { ascending: false }); // Latest posts first
+
+  if (error) throw error;
+  return data as PostsTable[];
+};
+
 // UPDATE
 /**
  * Updates a post in the database
@@ -627,19 +643,28 @@ export const createUserInterest = async (
  * @param userId The ID of the user
  * @returns Promise with an array of user interests with interest details
  */
-export const getUserInterests = async (
-  userId: string
-): Promise<(UserInterestsTable & InterestsTable)[]> => {
+export const getUserInterests = async (userId: string): Promise<any[]> => {
+  console.log(`Fetching interests for user ID: ${userId}`);
+
   const { data, error } = await supabase
     .from('user_interests')
-    .select('*, interests(*)')
+    .select(`
+      *,
+      interests (
+        id,
+        name,
+        category_id
+      )
+    `)
     .eq('user_id', userId);
 
-  if (error) throw error;
-  return data.map((item) => ({
-    ...item,
-    ...item.interests,
-  }));
+  if (error) {
+    console.error('Supabase error:', error);
+    throw error;
+  }
+
+  console.log('Raw result:', JSON.stringify(data));
+  return data || [];
 };
 
 /**
