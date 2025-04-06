@@ -14,7 +14,8 @@ import { useAuth } from '~/components/providers/AuthProvider'; // Update this pa
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { email, setEmail, password, setPassword, signUpWithEmail, authLoading } = useAuth();
+  const { email, setEmail, password, setPassword, signUpWithEmail, signInWithEmail, authLoading } =
+    useAuth();
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -43,6 +44,19 @@ export default function SignupScreen() {
     return true;
   };
 
+  const handleVerifiedEmail = async () => {
+    // Force sign in with email after verification
+    const { data, error } = await signInWithEmail();
+
+    if (error) {
+      setErrorMessage(`Error signing in: ${error.message}`);
+      return;
+    }
+
+    // Proceed to profile creation
+    router.replace('/create-profile');
+  };
+
   const handleSignup = async () => {
     // First validate inputs
     if (!validateInputs()) {
@@ -63,7 +77,7 @@ export default function SignupScreen() {
       Alert.alert(
         'Check your email',
         'We sent you a confirmation link. Please check your email to complete signup.',
-        [{ text: 'OK', onPress: () => router.replace('/create-profile') }]
+        [{ text: 'I Verified My Email', onPress: handleVerifiedEmail }]
       );
     } else {
       // Email confirmation not required, go to onboarding
