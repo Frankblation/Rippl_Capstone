@@ -25,14 +25,14 @@ export default function CustomizeProfile() {
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
         setUserId(data.user.id);
-        
+
         // Optionally fetch the current user data to pre-fill the form
         const { data: userData } = await supabase
           .from('users')
           .select('email, name, description')
           .eq('id', data.user.id)
           .single();
-          
+
         if (userData) {
           setUserEmail(userData.email);
           setName(userData.name || '');
@@ -41,7 +41,7 @@ export default function CustomizeProfile() {
         }
       }
     };
-    
+
     getCurrentUser();
   }, []);
 
@@ -60,46 +60,46 @@ export default function CustomizeProfile() {
 
   const goNext = async () => {
     if (!name.trim()) {
-      Alert.alert("Missing Information", "Please enter your name");
+      Alert.alert('Missing Information', 'Please enter your name');
       return;
     }
 
     if (!userId || !userEmail) {
-      Alert.alert("Authentication Error", "Please sign in to update your profile");
+      Alert.alert('Authentication Error', 'Please sign in to update your profile');
       return;
     }
 
     try {
       setIsLoading(true);
-      
+
       // Handle image upload if an image is selected
       let imageUrl = null;
       if (image) {
         // For Supabase Storage approach:
         const fileExt = image.split('.').pop();
         const filePath = `${userId}-${Date.now()}.${fileExt}`;
-        
+
         // Upload to Supabase Storage
-        const { data, error } = await supabase.storage
-          .from('profile-images')
-          .upload(filePath, await FileSystem.readAsStringAsync(image, {
-            encoding: FileSystem.EncodingType.Base64
-          }), {
-            contentType: `image/${fileExt}`
-          });
-          
+        const { data, error } = await supabase.storage.from('profile-images').upload(
+          filePath,
+          await FileSystem.readAsStringAsync(image, {
+            encoding: FileSystem.EncodingType.Base64,
+          }),
+          {
+            contentType: `image/${fileExt}`,
+          }
+        );
+
         if (error) {
           throw new Error('Error uploading image: ' + error.message);
         }
-        
+
         // Get the public URL
-        const { data: urlData } = supabase.storage
-          .from('profile-images')
-          .getPublicUrl(filePath);
-          
+        const { data: urlData } = supabase.storage.from('profile-images').getPublicUrl(filePath);
+
         imageUrl = urlData.publicUrl;
       }
-      
+
       // Update the user profile using your existing function
       await updateUser(userId, {
         email: userEmail,
@@ -108,15 +108,12 @@ export default function CustomizeProfile() {
         image: imageUrl || '',
         description: bio,
       });
-      
+
       // Navigate to the next screen on success
       router.replace('/create-interests');
     } catch (error) {
-      console.error("Failed to update profile:", error);
-      Alert.alert(
-        "Error", 
-        "There was a problem updating your profile. Please try again."
-      );
+      console.error('Failed to update profile:', error);
+      Alert.alert('Error', 'There was a problem updating your profile. Please try again.');
     } finally {
       setIsLoading(false);
     }

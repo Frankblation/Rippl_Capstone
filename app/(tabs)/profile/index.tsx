@@ -12,7 +12,7 @@ import CommentsBottomSheet, {
   type PostComment,
 } from '~/components/CommentsBottomSheet';
 import PostCard from '~/components/PostCard';
-import { UserProfileHeader } from '~/components/UserProfileHeader';
+import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
 import { useUser } from '~/hooks/useUser';
 import { useAuth } from '~/components/providers/AuthProvider';
