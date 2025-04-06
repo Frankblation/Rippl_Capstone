@@ -50,6 +50,8 @@ export interface PostsTable {
     reposts: number;
     created_at: string;
     interest_id: string;
+    attendees?: AttendeesTable;
+    event_date?: string;
 }
 
 // Messages Data Type
