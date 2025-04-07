@@ -16,49 +16,62 @@ export default function ChatLayout() {
 
   // Stream Chat configuration
   const chatApiKey = '9wbpcdvydjaw'; // Your Stream publishable key
-  
+
   // Initialize the chat client manually instead of using useCreateChatClient
   const initializeClient = useCallback(async () => {
     try {
+      // If client already exists and is connected, don't reconnect
+      if (chatClient && chatClient.userID === user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
       // Make sure we have a token
       let token = chatToken;
       if (!token) {
         await getChatToken();
         token = chatToken; // Get updated token after getChatToken
       }
-      
+
       if (!token || !user) {
         console.error('Missing token or user data for chat initialization');
         setIsLoading(false);
         return;
       }
-      
+
       // Create a new StreamChat instance
       const client = StreamChat.getInstance(chatApiKey);
-      
-      // Connect user to Stream
-      await client.connectUser(
-        {
-          id: user.id,
-          name: user.email || 'Anonymous User',
-          image: user.user_metadata?.avatar_url,
-          role: 'user',
-        },
-        token
-      );
-      
+
+      // If a different user was already connected, disconnect them first
+      if (client.userID && client.userID !== user.id) {
+        await client.disconnectUser();
+      }
+
+      // Only connect if not already connected
+      if (!client.userID) {
+        await client.connectUser(
+          {
+            id: user.id,
+            name: user.email || 'Anonymous User',
+            image: user.user_metadata?.avatar_url,
+            role: 'user',
+          },
+          token
+        );
+      }
+
       setChatClient(client);
       setIsLoading(false);
     } catch (error) {
       console.error('Failed to initialize chat client:', error);
       setIsLoading(false);
     }
-  }, [user, chatToken, getChatToken]);
+  }, [user, chatToken, getChatToken, chatClient]);
 
-  // Initialize chat when component mounts
+  // Initialize chat when component mounts or when initializeClient changes
   useEffect(() => {
     initializeClient();
-    
+
     // Cleanup function - disconnect when component unmounts
     return () => {
       if (chatClient) {
@@ -67,7 +80,7 @@ export default function ChatLayout() {
         });
       }
     };
-  }, []);
+  }, [initializeClient]);
 
   // Show loading state when initializing
   if (isLoading) {
@@ -78,7 +91,7 @@ export default function ChatLayout() {
       </View>
     );
   }
-  
+
   // Show error state if we failed to initialize the client
   if (!chatClient || !user || !chatToken) {
     return (
