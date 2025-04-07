@@ -137,19 +137,16 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     };
   }, []);
 
-  console.log("about to call get chat token");
   // Get Stream Chat token from Edge Function
   const getChatToken = async () => {
-    console.log("get chat token called successfully")
     try {
       const session = await supabase.auth.getSession();
-      console.log(session);
       const accessToken = session?.data?.session?.access_token;
 
       if (!accessToken) {
         return '';
       }
-      console.log("about to call edge function");
+
       const res = await fetch('https://fjnqmjdiveffwxhghxek.supabase.co/functions/v1/generate-stream-token', {
         method: 'POST',
         headers: {
@@ -160,12 +157,10 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.log(`Error response (${res.status}): ${errorText}`);
-        return;
+        return '';
       }
 
       const { token } = await res.json();
-      console.log(token);
       setChatToken(token);
       return token;
     } catch (err) {
