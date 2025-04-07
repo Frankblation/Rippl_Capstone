@@ -7,40 +7,54 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  FlatList,
 } from 'react-native';
-import { 
-  ChannelList, 
-  useChatContext, 
+import {
+  ChannelList,
+  useChatContext,
   ChannelPreviewMessengerProps,
-  DefaultStreamChatGenerics 
+  DefaultStreamChatGenerics,
 } from 'stream-chat-expo';
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { Channel } from 'stream-chat';
 
-import { getUserById } from '~/utils/data';
+import { getUserById, searchUsers } from '~/utils/data';
+
+// Define a user type for search results
+type UserSearchResult = {
+  id: string;
+  name: string;
+  // Add other properties you might want to display (avatar, etc.)
+};
 
 export default function ChatListScreen() {
   const { user } = useAuth();
   const { client: chatClient } = useChatContext();
 
   // State for creating new chats
-  const [newChatId, setNewChatId] = useState('');
   const [channelName, setChannelName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   // State for adding users to existing channels
-  const [activeChannel, setActiveChannel] = useState<Channel<DefaultStreamChatGenerics> | null>(null);
-  const [userIdToAdd, setUserIdToAdd] = useState('');
+  const [activeChannel, setActiveChannel] = useState<Channel<DefaultStreamChatGenerics> | null>(
+    null
+  );
+  const [addUserSearchQuery, setAddUserSearchQuery] = useState('');
+  const [addUserSearchResults, setAddUserSearchResults] = useState<UserSearchResult[]>([]);
   const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
 
   // Load user profiles when component mounts
   useEffect(() => {
     if (!user) return;
-    
+
     // Add current user to profiles
-    setUserProfiles(prev => ({
+    setUserProfiles((prev) => ({
       ...prev,
-      [user.id]: user.id // Initialize with ID, will be updated when we get profile data
+      [user.id]: user.id, // Initialize with ID, will be updated when we get profile data
     }));
   }, [user]);
 
@@ -51,18 +65,67 @@ export default function ChatListScreen() {
       if (userData) {
         // Use the name field that makes most sense for your app
         const displayName = userData.name || userId;
-        
-        setUserProfiles(prev => ({
+
+        setUserProfiles((prev) => ({
           ...prev,
-          [userId]: displayName
+          [userId]: displayName,
         }));
-        
+
         return displayName;
       }
       return userId; // Fallback to ID if user not found
     } catch (error) {
       console.error('Error fetching user data:', error);
       return userId; // Fallback to ID on error
+    }
+  };
+
+  // Function to search users
+  const handleUserSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      // Call the searchUsers function that you'll need to implement in utils/data.js
+      const users = await searchUsers(query);
+
+      // Filter out the current user from results
+      const filteredUsers = users.filter((u) => u.id !== user?.id);
+
+      setSearchResults(filteredUsers);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      Alert.alert('Error', 'Failed to search users. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Function to search users for adding to a channel
+  const handleAddUserSearch = async (query: string) => {
+    if (!query.trim()) {
+      setAddUserSearchResults([]);
+      return;
+    }
+
+    try {
+      // Call the searchUsers function
+      const users = await searchUsers(query);
+
+      // Filter out users that are already in the channel
+      if (activeChannel) {
+        const currentMemberIds = Object.keys(activeChannel.state.members || {});
+        const filteredUsers = users.filter((u) => !currentMemberIds.includes(u.id));
+        setAddUserSearchResults(filteredUsers);
+      } else {
+        setAddUserSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching users for adding:', error);
+      Alert.alert('Error', 'Failed to search users. Please try again.');
     }
   };
 
@@ -75,33 +138,30 @@ export default function ChatListScreen() {
     );
   }
 
-  // Function to create a new channel with a single user
+  // Function to create a new channel with a selected user
   const createNewChannel = async () => {
-    if (!chatClient || !newChatId.trim()) {
-      Alert.alert('Error', 'Please enter a valid user ID');
+    if (!chatClient || !selectedUser) {
+      Alert.alert('Error', 'Please select a user to chat with');
       return;
     }
 
     try {
-      // Fetch the other user's name
-      const otherUserName = await fetchUserName(newChatId.trim());
-      
       // Use provided channel name or generate a default one
       const channelNameToUse = channelName.trim() || `Chat ${new Date().toLocaleDateString()}`;
       const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
 
-      // Create channel with current user and the specified user
+      // Create channel with current user and the selected user
       const channel = chatClient.channel('messaging', channelId, {
         name: channelNameToUse,
-        members: [user.id, newChatId.trim()],
+        members: [user.id, selectedUser.id],
         created_by_id: user.id,
         // Add custom data for displaying user names
         customData: {
           memberNames: {
             [user.id]: userProfiles[user.id] || user.id,
-            [newChatId.trim()]: otherUserName
-          }
-        }
+            [selectedUser.id]: selectedUser.name,
+          },
+        },
       });
 
       await channel.create();
@@ -109,53 +169,94 @@ export default function ChatListScreen() {
 
       // Reset form
       setChannelName('');
-      setNewChatId('');
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedUser(null);
 
       // Navigate to the new channel
       router.push(`/(chat)/${channel.id}`);
     } catch (error) {
       console.error('Error creating channel:', error);
-      Alert.alert('Error', 'Failed to create chat. Make sure the user ID exists.');
+      Alert.alert('Error', 'Failed to create chat. Please try again.');
     }
   };
 
   // Function to add a user to a channel
-  const addUserToChannel = async () => {
-    if (!activeChannel || !userIdToAdd.trim()) {
-      Alert.alert('Error', 'Please enter a valid user ID');
+  const addUserToChannel = async (userToAdd: UserSearchResult) => {
+    if (!activeChannel) {
+      Alert.alert('Error', 'No active channel selected');
       return;
     }
 
     try {
-      // Fetch the new user's name first
-      const newUserName = await fetchUserName(userIdToAdd.trim());
-      
       // Add member to channel
-      await activeChannel.addMembers([userIdToAdd.trim()]);
-      
+      await activeChannel.addMembers([userToAdd.id]);
+
       // Update custom data with the new user's name
-      const customData = activeChannel.data?.customData as { memberNames?: Record<string, string> } | undefined;
+      const customData = activeChannel.data?.customData as
+        | { memberNames?: Record<string, string> }
+        | undefined;
       const updatedMemberNames = {
         ...(customData?.memberNames || {}),
-        [userIdToAdd.trim()]: newUserName
+        [userToAdd.id]: userToAdd.name,
       };
-      
+
       // Update the channel's custom data
       await activeChannel.updatePartial({
         set: {
           customData: {
-            memberNames: updatedMemberNames
-          }
-        }
+            memberNames: updatedMemberNames,
+          },
+        },
       });
-      
+
       console.log('User added to channel successfully');
-      Alert.alert('Success', 'User added to the chat');
-      setUserIdToAdd('');
+      Alert.alert('Success', `${userToAdd.name} added to the chat`);
+
+      // Reset the add user interface
+      setAddUserSearchQuery('');
+      setAddUserSearchResults([]);
       setActiveChannel(null);
     } catch (error) {
       console.error('Error adding user to channel:', error);
-      Alert.alert('Error', 'Failed to add user. Make sure the user ID exists.');
+      Alert.alert('Error', 'Failed to add user. Please try again.');
+    }
+  };
+
+  // Function to delete a channel
+  const deleteChannel = async (channel: Channel<DefaultStreamChatGenerics>) => {
+    try {
+      // Show confirmation dialog
+      Alert.alert('Delete Chat', 'Are you sure you want to delete this chat?', [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            // Only channel creator or admins should be able to delete
+            if (channel.data?.created_by_id === user.id) {
+              await channel.delete();
+              console.log('Channel deleted successfully');
+              // If the active channel for adding users is the deleted one, reset it
+              if (activeChannel && activeChannel.cid === channel.cid) {
+                setActiveChannel(null);
+                setAddUserSearchQuery('');
+                setAddUserSearchResults([]);
+              }
+            } else {
+              // For non-creators, just remove themselves from the channel
+              await channel.removeMembers([user.id]);
+              console.log('Left the channel successfully');
+            }
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error('Error deleting channel:', error);
+      Alert.alert('Error', 'Failed to delete chat. Please try again.');
     }
   };
 
@@ -169,79 +270,94 @@ export default function ChatListScreen() {
     if (activeChannel && activeChannel.cid === channel.cid) {
       // If clicking on the same channel, collapse the interface
       setActiveChannel(null);
-      setUserIdToAdd('');
+      setAddUserSearchQuery('');
+      setAddUserSearchResults([]);
     } else {
       // Otherwise, expand the interface for this channel
       setActiveChannel(channel);
-      setUserIdToAdd('');
+      setAddUserSearchQuery('');
+      setAddUserSearchResults([]);
     }
   };
 
   // Function to get display name for the channel (shows other user's name)
   const getChannelDisplayName = (channel: Channel<DefaultStreamChatGenerics>) => {
     // If there's a custom channel name set by the user, use that
-    if (channel.data?.name && 
-        typeof channel.data.created_at === 'string' && 
-        channel.data.name !== `Chat ${new Date(channel.data.created_at).toLocaleDateString()}`) {
+    if (
+      channel.data?.name &&
+      typeof channel.data.created_at === 'string' &&
+      channel.data.name !== `Chat ${new Date(channel.data.created_at).toLocaleDateString()}`
+    ) {
       return channel.data.name;
     }
-    
+
     // Get all members of the channel
     const members = Object.keys(channel.state.members || {});
-    
+
     // If custom data with member names exists, use it
-    const customData = channel.data?.customData as { memberNames?: Record<string, string> } | undefined;
+    const customData = channel.data?.customData as
+      | { memberNames?: Record<string, string> }
+      | undefined;
     if (customData?.memberNames) {
       const memberNames = customData.memberNames;
       // Find members that aren't the current user
-      const otherMembers = members.filter(memberId => memberId !== user.id);
-      
+      const otherMembers = members.filter((memberId) => memberId !== user.id);
+
+      if (otherMembers.length === 0) return 'Just you';
       if (otherMembers.length === 1) {
         // For direct chats, show the other person's name
         const otherUserId = otherMembers[0];
-        const displayName = memberNames[otherUserId] || userProfiles[otherUserId] || otherUserId;
-        
-        // If we only have the ID, try to fetch the name for next time
-        if (displayName === otherUserId && !userProfiles[otherUserId]) {
-          fetchUserName(otherUserId);
-        }
-        
-        return displayName;
-      } else if (otherMembers.length > 1) {
+        return memberNames[otherUserId] || userProfiles[otherUserId] || otherUserId;
+      } else {
         // For group chats, show multiple names
-        const otherMemberNames = otherMembers.map(id => {
-          const displayName = memberNames[id] || userProfiles[id] || id;
-          
-          // If we only have the ID, try to fetch the name for next time
-          if (displayName === id && !userProfiles[id]) {
-            fetchUserName(id);
-          }
-          
-          return displayName;
-        }).slice(0, 3);
-        
+        const otherMemberNames = otherMembers
+          .map((id) => memberNames[id] || userProfiles[id] || id)
+          .slice(0, 3);
+
         return otherMemberNames.join(', ') + (otherMembers.length > 3 ? '...' : '');
       }
     }
-    
+
     // Fallback: filter out current user and show other IDs
-    const otherMembers = members.filter(memberId => memberId !== user.id);
-    
+    const otherMembers = members.filter((memberId) => memberId !== user.id);
+
     // Try to fetch names for these users for next time
-    otherMembers.forEach(id => {
+    otherMembers.forEach((id) => {
       if (!userProfiles[id]) {
         fetchUserName(id);
       }
     });
-    
+
     if (otherMembers.length === 0) return 'Just you';
     if (otherMembers.length === 1) {
       return userProfiles[otherMembers[0]] || otherMembers[0];
     }
-    
-    const displayNames = otherMembers.map(id => userProfiles[id] || id).slice(0, 2);
+
+    const displayNames = otherMembers.map((id) => userProfiles[id] || id).slice(0, 2);
     return displayNames.join(', ') + (otherMembers.length > 2 ? '...' : '');
   };
+
+  // Render search result item
+  const renderUserSearchItem = ({ item }: { item: UserSearchResult }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      onPress={() => {
+        setSelectedUser(item);
+        setSearchQuery(item.name);
+        setSearchResults([]);
+      }}>
+      <Text style={styles.searchResultName}>{item.name}</Text>
+      <Text style={styles.searchResultId}>{item.id}</Text>
+    </TouchableOpacity>
+  );
+
+  // Render add user search result item
+  const renderAddUserSearchItem = ({ item }: { item: UserSearchResult }) => (
+    <TouchableOpacity style={styles.searchResultItem} onPress={() => addUserToChannel(item)}>
+      <Text style={styles.searchResultName}>{item.name}</Text>
+      <Text style={styles.searchResultId}>{item.id}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -256,20 +372,51 @@ export default function ChatListScreen() {
             onChangeText={setChannelName}
           />
         </View>
+
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="User ID to chat with"
-            value={newChatId}
-            onChangeText={setNewChatId}
+            placeholder="Search users..."
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              if (selectedUser && text !== selectedUser.name) {
+                setSelectedUser(null);
+              }
+              handleUserSearch(text);
+            }}
           />
           <TouchableOpacity
-            style={[styles.actionButton, !newChatId.trim() && styles.disabledButton]}
+            style={[styles.actionButton, !selectedUser && styles.disabledButton]}
             onPress={createNewChannel}
-            disabled={!newChatId.trim()}>
+            disabled={!selectedUser}>
             <Text style={styles.actionButtonText}>Create</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <View style={styles.searchResultsContainer}>
+            <FlatList
+              data={searchResults}
+              renderItem={renderUserSearchItem}
+              keyExtractor={(item) => item.id}
+              keyboardShouldPersistTaps="handled"
+              style={styles.searchResultsList}
+            />
+          </View>
+        )}
+
+        {/* Selected User Display */}
+        {selectedUser && (
+          <View style={styles.selectedUserContainer}>
+            <Text style={styles.selectedUserText}>
+              Chat with: <Text style={styles.selectedUserName}>{selectedUser.name}</Text>
+            </Text>
+          </View>
+        )}
+
+        {isSearching && <Text style={styles.searchingText}>Searching...</Text>}
       </View>
 
       <Text style={[styles.sectionTitle, { marginLeft: 16, marginTop: 16 }]}>Your Chats</Text>
@@ -296,11 +443,21 @@ export default function ChatListScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.inviteButton}
-                onPress={() => toggleAddUserInterface(previewProps.channel)}>
-                <Text style={styles.inviteButtonText}>+</Text>
-              </TouchableOpacity>
+              <View style={styles.buttonContainer}>
+                {/* Delete Button */}
+                <TouchableOpacity
+                  style={[styles.actionIconButton, styles.deleteButton]}
+                  onPress={() => deleteChannel(previewProps.channel)}>
+                  <Text style={styles.actionIconText}>🗑️</Text>
+                </TouchableOpacity>
+
+                {/* Add User Button */}
+                <TouchableOpacity
+                  style={styles.actionIconButton}
+                  onPress={() => toggleAddUserInterface(previewProps.channel)}>
+                  <Text style={styles.actionIconText}>+</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Expandable Add User Interface */}
@@ -308,16 +465,26 @@ export default function ChatListScreen() {
               <View style={styles.addUserContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder="User ID to add"
-                  value={userIdToAdd}
-                  onChangeText={setUserIdToAdd}
+                  placeholder="Search users to add..."
+                  value={addUserSearchQuery}
+                  onChangeText={(text) => {
+                    setAddUserSearchQuery(text);
+                    handleAddUserSearch(text);
+                  }}
                 />
-                <TouchableOpacity
-                  style={[styles.actionButton, !userIdToAdd.trim() && styles.disabledButton]}
-                  onPress={addUserToChannel}
-                  disabled={!userIdToAdd.trim()}>
-                  <Text style={styles.actionButtonText}>Add User</Text>
-                </TouchableOpacity>
+
+                {/* Add User Search Results */}
+                {addUserSearchResults.length > 0 && (
+                  <View style={styles.searchResultsContainer}>
+                    <FlatList
+                      data={addUserSearchResults}
+                      renderItem={renderAddUserSearchItem}
+                      keyExtractor={(item) => item.id}
+                      keyboardShouldPersistTaps="handled"
+                      style={styles.searchResultsList}
+                    />
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -384,14 +551,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  inviteButton: {
+  buttonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionIconButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
+    marginLeft: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#FF3B30',
+  },
+  actionIconText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   inviteButtonText: {
     color: 'white',
@@ -399,10 +578,50 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   addUserContainer: {
-    flexDirection: 'row',
     padding: 12,
     backgroundColor: '#f2f2f2',
     borderBottomWidth: 1,
     borderBottomColor: '#e1e1e1',
+  },
+  searchResultsContainer: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 200,
+  },
+  searchResultsList: {
+    maxHeight: 200,
+  },
+  searchResultItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  searchResultId: {
+    fontSize: 12,
+    color: '#666',
+  },
+  selectedUserContainer: {
+    backgroundColor: '#e6f7ff',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  selectedUserText: {
+    fontSize: 14,
+  },
+  selectedUserName: {
+    fontWeight: 'bold',
+  },
+  searchingText: {
+    marginTop: 8,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
