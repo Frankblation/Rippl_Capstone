@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import WavyTop from '../components/WavyTop';
-import * as Haptics from 'expo-haptics';
 
 type ImageItem = {
   id: string;
@@ -89,21 +88,11 @@ export default function Landing() {
       <View style={styles.buttonContainer}>
         <View style={styles.blurButtonContainer}>
           <View style={styles.buttonsRow}>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                router.push('/login');
-              }}
-              style={styles.button}>
+            <Pressable onPress={() => router.push('/login')} style={styles.button}>
               <Text style={styles.buttonText}>Login</Text>
             </Pressable>
 
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                router.push('/signup');
-              }}
-              style={styles.button}>
+            <Pressable onPress={() => router.push('/signup')} style={styles.button}>
               <Text style={styles.buttonText}>Sign Up</Text>
             </Pressable>
           </View>
