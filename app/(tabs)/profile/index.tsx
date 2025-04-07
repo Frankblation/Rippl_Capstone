@@ -86,9 +86,9 @@ const CurrentUser: React.FC = () => {
   };
 
   // Format user interests for the interest grid
-  const userInterests = user.interests.map(interest => ({
+  const userInterests = user.interests.map((interest) => ({
     id: interest.interest_id,
-    name: interest.interests?.name || 'Interest'
+    name: interest.interests?.name || 'Interest',
   }));
 
   const renderItem = ({ item }: { item: FeedItem }) => {
@@ -99,7 +99,7 @@ const CurrentUser: React.FC = () => {
             name={user.name || 'User'}
             profileImage={user.image || 'https://randomuser.me/api/portraits/women/44.jpg'}
             postsCount={feed.length - 1}
-            friendsCount={user.friendships?.filter(f => f.status === 'accepted').length || 0}
+            friendsCount={user.friendships?.filter((f) => f.status === 'accepted').length || 0}
           />
           <View style={styles.interestsContainer}>
             <InterestGrid interests={userInterests.length > 0 ? userInterests : []} />
@@ -123,7 +123,7 @@ const CurrentUser: React.FC = () => {
   if (user.isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#00AF9F" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );

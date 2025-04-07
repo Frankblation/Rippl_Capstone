@@ -1,7 +1,5 @@
 'use client';
 
-// This shows how to integrate the InterestChips component into your CurrentUser component
-
 import { FlashList } from '@shopify/flash-list';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -16,7 +14,6 @@ import CommentsBottomSheet, {
 import PostCard from '~/components/PostCard';
 import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
-import { AddUserButton } from '~/components/profile/AddUserButton';
 import { add } from 'date-fns';
 
 const INTERESTS = [
@@ -109,7 +106,13 @@ function Profile() {
     if (item.type === 'header') {
       return (
         <View style={styles.headerContainer}>
-          <UserProfileHeader />
+          <UserProfileHeader
+            name="Jane Doe"
+            profileImage="https://randomuser.me/api/portraits/women/68.jpg"
+            postsCount={12}
+            friendsCount={34}
+          />
+
           <View style={styles.interestsContainer}>
             <InterestGrid interests={INTERESTS} />
           </View>
@@ -131,8 +134,6 @@ function Profile() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
-        <AddUserButton style={[styles.addUserButton, { top: 50 }]} />
-
         <View style={{ flex: 1 }}>
           <FlashList
             data={feed}

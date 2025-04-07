@@ -21,7 +21,6 @@ const INTERESTS = [
   { id: '12', name: 'Gaming' },
 ];
 
-// Minimum number of interests required
 const MIN_INTERESTS_REQUIRED = 6;
 
 export default function CreateInterests() {
@@ -42,7 +41,6 @@ export default function CreateInterests() {
     }
   };
 
-  // Calculate if enough interests are selected
   const hasEnoughInterests = selectedInterests.length >= MIN_INTERESTS_REQUIRED;
 
   return (
