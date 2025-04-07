@@ -1,29 +1,18 @@
-// In chat/chat.tsx or wherever your chat screen is
-import { router } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, Text, View, Button } from 'react-native';
-import { Chat, ChannelList, useCreateChatClient } from 'stream-chat-expo';
+import { SafeAreaView, View, Button, Text } from 'react-native';
+import { ChannelList, useChatContext } from 'stream-chat-expo';
+import { router } from 'expo-router';
+import { useAuth } from '~/components/providers/AuthProvider'; // Update path if needed
 
-export default function ChatScreen() {
-  // Stream Chat configuration
-  const chatApiKey = '9wbpcdvydjaw'; // Replace with your actual API key
-  const chatUserId = '1';
-  const chatUserName = 'testUser';
-  const chatUserToken =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMSJ9.GPZsQL4Ugb7by42bOWZ3r6ErURc3Gmh2GU9AgAeYE0M';
+export default function ChatListScreen() {
+  const { user } = useAuth();
+  const { client: chatClient } = useChatContext();
 
-  // Create chat client
-  const chatClient = useCreateChatClient({
-    apiKey: chatApiKey,
-    userData: { id: chatUserId, name: chatUserName },
-    tokenOrProvider: chatUserToken,
-  });
-
-  if (!chatClient) {
-    // Return a loading indicator if client is not ready
+  // If no user is logged in, show a message
+  if (!user) {
     return (
-      <SafeAreaView>
-        <Text>Loading chat...</Text>
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Please log in to access chat</Text>
       </SafeAreaView>
     );
   }
@@ -34,9 +23,10 @@ export default function ChatScreen() {
         const channelId = `random-${Math.random().toString(36).substring(7)}`;
         const channel = chatClient.channel('messaging', channelId, {
           name: 'New Chat Channel',
-          members: [chatUserId],
+          members: [user.id],
         });
         await channel.create();
+        console.log('Channel created successfully:', channelId);
       } catch (error) {
         console.error('Error creating channel:', error);
       }
@@ -48,14 +38,16 @@ export default function ChatScreen() {
       <View style={{ padding: 10 }}>
         <Button title="Create New Chat" onPress={createNewChannel} />
       </View>
-      <Chat client={chatClient}>
-        <ChannelList
-          onSelect={(channel) => {
-            // Navigate to a chat screen with the selected channel
-            router.push(`/${channel.id}`);
-          }}
-        />
-      </Chat>
+      <ChannelList
+        filters={{
+          members: { $in: [user.id] },
+        }}
+        sort={{ last_message_at: -1 }}
+        onSelect={(channel) => {
+          // Navigate to a chat screen with the selected channel
+          router.push(`/(chat)/${channel.id}`);
+        }}
+      />
     </SafeAreaView>
   );
 }
