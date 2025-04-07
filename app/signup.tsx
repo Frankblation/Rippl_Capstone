@@ -89,7 +89,7 @@ export default function SignupScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
-      <View className="flex-1 px-6 py-12">
+      <View className="flex-1 justify-center px-6 py-12">
         <View className="mb-8">
           <Text className="mb-2 text-3xl font-bold">Create Account</Text>
           <Text className="text-gray-600">Sign up to get started with our app</Text>
