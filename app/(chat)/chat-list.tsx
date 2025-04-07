@@ -2,17 +2,23 @@ import React, { useState } from 'react';
 import {
   SafeAreaView,
   View,
-  Button,
   Text,
   TextInput,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   Alert,
 } from 'react-native';
-import { ChannelList, useChatContext } from 'stream-chat-expo';
+import { 
+  ChannelList, 
+  useChatContext, 
+  ChannelPreviewMessengerProps,
+  DefaultStreamChatGenerics 
+} from 'stream-chat-expo';
 import { router } from 'expo-router';
-import { useAuth } from '~/components/providers/AuthProvider'; // Update path if needed
+import { useAuth } from '~/components/providers/AuthProvider';
+
+// Import the Channel type from stream-chat correctly
+import { Channel } from 'stream-chat';
 
 export default function ChatListScreen() {
   const { user } = useAuth();
@@ -23,7 +29,7 @@ export default function ChatListScreen() {
   const [channelName, setChannelName] = useState('');
 
   // State for adding users to existing channels
-  const [activeChannel, setActiveChannel] = useState(null);
+  const [activeChannel, setActiveChannel] = useState<Channel<DefaultStreamChatGenerics> | null>(null);
   const [userIdToAdd, setUserIdToAdd] = useState('');
 
   // If no user is logged in, show a message
@@ -89,12 +95,12 @@ export default function ChatListScreen() {
   };
 
   // Function to handle channel selection
-  const handleChannelSelect = (channel) => {
+  const handleChannelSelect = (channel: Channel<DefaultStreamChatGenerics>) => {
     router.push(`/(chat)/${channel.id}`);
   };
 
   // Function to toggle user adding interface for a channel
-  const toggleAddUserInterface = (channel) => {
+  const toggleAddUserInterface = (channel: Channel<DefaultStreamChatGenerics>) => {
     if (activeChannel && activeChannel.cid === channel.cid) {
       // If clicking on the same channel, collapse the interface
       setActiveChannel(null);
@@ -145,17 +151,17 @@ export default function ChatListScreen() {
         }}
         sort={{ last_message_at: -1 }}
         onSelect={handleChannelSelect}
-        Preview={(previewProps) => (
+        Preview={(previewProps: ChannelPreviewMessengerProps<DefaultStreamChatGenerics>) => (
           <View>
             <View style={styles.channelPreview}>
               <TouchableOpacity
                 style={styles.channelPreviewContent}
                 onPress={() => handleChannelSelect(previewProps.channel)}>
                 <Text style={styles.channelName}>
-                  {previewProps.channel.data.name || 'Chat Channel'}
+                  {previewProps.channel.data?.name || 'Chat Channel'}
                 </Text>
                 <Text numberOfLines={1} style={styles.lastMessage}>
-                  {previewProps.lastMessage?.text || 'No messages yet'}
+                  {previewProps.latestMessagePreview?.messageObject?.text || 'No messages yet'}
                 </Text>
               </TouchableOpacity>
 
