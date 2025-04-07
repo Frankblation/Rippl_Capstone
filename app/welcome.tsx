@@ -13,6 +13,7 @@ export default function Welcome() {
     <View className="flex-1 bg-white">
       <StatusBar style="dark" />
       <View className="flex-1 items-center justify-center px-6">
+        <Image source={require('../assets/rippl-logo.png')} className="mb-8 h-32 w-32" />
         <Text className="mb-2 text-center text-3xl font-bold">Welcome</Text>
         <Text className="mb-8 text-center text-lg text-gray-600">
           Your profile is all set up and ready to go. Explore the app and connect with others who

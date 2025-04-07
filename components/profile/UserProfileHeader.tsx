@@ -1,18 +1,22 @@
 import React from 'react';
-import { StyleSheet, Image, Text, View, ImageSourcePropType } from 'react-native';
-import Animated from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import {
+  StyleSheet,
+  Image,
+  Text,
+  View,
+  ImageSourcePropType,
+  useWindowDimensions,
+  Platform,
+} from 'react-native';
+import Constants from 'expo-constants';
 
-const INTENSITY: number = 30;
 const BORDER_RADIUS: number = 20;
-const CARD_WIDTH: number = 300;
-const CARD_HEIGHT: number = 330;
 
 interface ProfileCardProps {
   profileImage?: ImageSourcePropType;
-  name?: string;  // Changed to match what profile page is passing
-  postCount?: number;  // Changed to match what profile page is passing
-  friendCount?: number;  // Changed to match what profile page is passing
+  name?: string;
+  postCount?: number;
+  friendCount?: number;
 }
 
 const ProfileCard: React.FC<ProfileCardProps> = ({
@@ -21,34 +25,95 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   postCount = 0,
   friendCount = 0,
 }) => {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
+  const cardWidth = isLandscape ? width * 0.5 : width * 0.9;
+  const cardHeight = isLandscape ? height * 0.8 : cardWidth * 1.1;
+  const profilePicSize = Math.min(cardWidth * 0.55, 180);
+
+  const dynamicStyles = StyleSheet.create({
+    cardContainer: {
+      width: cardWidth,
+      height: cardHeight,
+      borderRadius: BORDER_RADIUS,
+      overflow: 'hidden',
+    },
+    backgroundImage: {
+      width: '100%',
+      height: '100%',
+    },
+    profilePicture: {
+      width: profilePicSize,
+      height: profilePicSize,
+      borderRadius: profilePicSize / 2,
+      borderWidth: Platform.OS === 'ios' ? 3 : 2,
+      borderColor: 'white',
+    },
+    profileContainer: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      width: '100%',
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      padding: Math.max(width * 0.03, 12),
+      paddingTop: profilePicSize / 2 + 10,
+      borderBottomLeftRadius: BORDER_RADIUS,
+      borderBottomRightRadius: BORDER_RADIUS,
+    },
+    profilePictureContainer: {
+      position: 'absolute',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      top: cardHeight / 2 - profilePicSize / 2,
+      zIndex: 10,
+    },
+    username: {
+      color: 'white',
+      fontSize: Math.min(width * 0.05, 20),
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 15,
+    },
+    statNumber: {
+      color: 'white',
+      fontSize: Math.min(width * 0.045, 18),
+      fontWeight: 'bold',
+    },
+    statLabel: {
+      color: 'rgba(255,255,255,0.8)',
+      fontSize: Math.min(width * 0.035, 14),
+    },
+  });
+
   return (
-    <>
-      <Image style={styles.imageStyle} source={profileImage} />
-      <BlurView intensity={INTENSITY} style={StyleSheet.absoluteFill} />
+    <View style={dynamicStyles.cardContainer}>
+      {/* Background Image */}
+      <Image style={dynamicStyles.backgroundImage} source={profileImage} resizeMode="cover" />
 
-      <Animated.View style={styles.animatedViewStyle}>
-        <Image style={{ flex: 1 }} source={profileImage} />
+      {/* Profile picture container - centered horizontally */}
+      <View style={dynamicStyles.profilePictureContainer}>
+        <Image style={dynamicStyles.profilePicture} source={profileImage} />
+      </View>
 
-        <View style={styles.profileContainer}>
-          <Text style={styles.username}>{name}</Text>
+      {/* Dark overlay for text */}
+      <View style={dynamicStyles.profileContainer}>
+        <Text style={dynamicStyles.username}>{name}</Text>
 
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{postCount}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{friendCount.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Friends</Text>
-            </View>
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={dynamicStyles.statNumber}>{postCount}</Text>
+            <Text style={dynamicStyles.statLabel}>Posts</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={dynamicStyles.statNumber}>{friendCount.toLocaleString()}</Text>
+            <Text style={dynamicStyles.statLabel}>Friends</Text>
           </View>
         </View>
-
-        <View style={styles.profilePictureContainer}>
-          <Image style={styles.profilePicture} source={profileImage} />
-        </View>
-      </Animated.View>
-    </>
+      </View>
+    </View>
   );
 };
 
@@ -59,15 +124,16 @@ export interface UserProfileHeaderProps {
   friendsCount: number;
 }
 
-
 export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   name,
   profileImage,
   postsCount,
-  friendsCount
+  friendsCount,
 }) => {
+  const statusBarHeight = Constants.statusBarHeight || 0;
+
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, { paddingTop: statusBarHeight + 10 }]}>
       <ProfileCard
         name={name}
         profileImage={{ uri: profileImage }}
@@ -82,51 +148,8 @@ const styles = StyleSheet.create({
   headerContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  imageStyle: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    borderRadius: BORDER_RADIUS,
-  },
-  animatedViewStyle: {
-    width: CARD_WIDTH + 20,
-    height: CARD_HEIGHT + 20,
-    borderRadius: BORDER_RADIUS,
-    overflow: 'hidden',
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 15,
-    paddingTop: 100,
-    borderBottomLeftRadius: BORDER_RADIUS,
-    borderBottomRightRadius: BORDER_RADIUS,
-  },
-  profilePictureContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    bottom: 120,
-    zIndex: 10,
-  },
-  profilePicture: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 3,
-    borderColor: 'white',
-  },
-  username: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 15,
+    width: '100%',
+    paddingVertical: 20,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -134,14 +157,6 @@ const styles = StyleSheet.create({
   },
   statItem: {
     alignItems: 'center',
-  },
-  statNumber: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
+    paddingHorizontal: 10,
   },
 });

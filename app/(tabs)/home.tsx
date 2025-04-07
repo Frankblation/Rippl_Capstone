@@ -1,7 +1,15 @@
 import Feather from '@expo/vector-icons/Feather';
 import { FlashList } from '@shopify/flash-list';
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '~/components/providers/AuthProvider';
@@ -13,22 +21,18 @@ import {
   getUserInterests,
   getUserFriendships,
   getPostsByInterestId,
-  getInterestById
+  getInterestById,
 } from '~/utils/data';
 
 // Import the formatter
 import { formatPostsForUI, UIPost, PostComment } from '~/utils/formatPosts';
 
-import {
-  PostsTable
-} from '~/utils/db';
+import { PostsTable } from '~/utils/db';
 
 import EventCard from '../../components/EventCard';
 import PostCard from '../../components/PostCard';
 import EventCarousel from '../../components/UpcomingEventsCarousel';
-import CommentsBottomSheet, {
-  CommentsBottomSheetRef,
-} from '../../components/CommentsBottomSheet';
+import CommentsBottomSheet, { CommentsBottomSheetRef } from '../../components/CommentsBottomSheet';
 
 // Define FeedItem type for items that can be in the feed
 type FeedItem = UIPost | { type: 'carousel' };
@@ -41,13 +45,13 @@ const HomeScreen = () => {
   const [feed, setFeed] = useState<FeedItem[]>([{ type: 'carousel' }]);
   const [loading, setLoading] = useState(true);
 
-    // Get authenticated user ID from auth hook
+  // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
 
   // Use our custom hook to get full user data
   const { user, getInterestIds, getFriendIds } = useUser(authUser?.id || null);
 
-   // Fetch feed data when user data is available
+  // Fetch feed data when user data is available
   useEffect(() => {
     // Skip if we're still loading user data or no user ID
     if (user.isLoading || !user.id) return;
@@ -81,7 +85,7 @@ const HomeScreen = () => {
 
         // 3. Remove duplicate posts
         const uniquePosts = Array.from(
-          new Map(supabasePosts.map(post => [post.id, post])).values()
+          new Map(supabasePosts.map((post) => [post.id, post])).values()
         );
 
         // 4. Format posts for UI
@@ -100,7 +104,6 @@ const HomeScreen = () => {
 
     fetchFeedData();
   }, [user.id, user.interests, user.isLoading]);
-
 
   const handleOpenComments = (post: UIPost) => {
     // Use the comments from the formatted post
@@ -176,7 +179,9 @@ const HomeScreen = () => {
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>No posts to show</Text>
-                  <Text style={styles.emptySubtext}>Follow interests or connect with friends to see posts</Text>
+                  <Text style={styles.emptySubtext}>
+                    Follow interests or connect with friends to see posts
+                  </Text>
                 </View>
               }
             />
@@ -211,7 +216,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: 'geistBold',
     marginBottom: 8,
   },
   emptySubtext: {

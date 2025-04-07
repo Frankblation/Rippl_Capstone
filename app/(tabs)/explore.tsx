@@ -1,21 +1,36 @@
-import React from 'react';
-import { TextInput, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Feather from '@expo/vector-icons/Feather';
+import SearchingBar from '~/components/SearchBar';
 
 export default function ExploreScreen() {
-  const [text, onChangeText] = React.useState('');
+  const handleSearch = (text: string) => {
+    console.log('Searching for:', text);
+  };
+
   return (
-    <SafeAreaView className="flex-1  ">
-      <View className="mx-4 h-12 flex-row items-center rounded-full border-2 border-black">
-        <Feather name="search" size={24} color="black" className="ml-2" />
-        <TextInput
-          placeholder="Search posts..."
-          value={text}
-          onChangeText={onChangeText}
-          className="ml-2 flex-1 text-black"
-        />
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      <View style={styles.searchContainer}>
+        <SearchingBar placeholder="Search" onSearch={handleSearch} />
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  searchContainer: {
+    marginHorizontal: 16,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+});

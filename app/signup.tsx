@@ -113,6 +113,7 @@ export default function SignupScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               editable={!authLoading}
+              style={{ textAlignVertical: 'center', minHeight: 50 }}
             />
           </View>
 
@@ -125,6 +126,7 @@ export default function SignupScreen() {
               placeholder="Create a password"
               secureTextEntry
               editable={!authLoading}
+              style={{ textAlignVertical: 'center', minHeight: 50 }}
             />
           </View>
 
@@ -137,6 +139,7 @@ export default function SignupScreen() {
               placeholder="Confirm your password"
               secureTextEntry
               editable={!authLoading}
+              style={{ textAlignVertical: 'center', minHeight: 50 }}
             />
           </View>
         </View>
@@ -157,7 +160,7 @@ export default function SignupScreen() {
         <View className="flex-row justify-center">
           <Text className="text-gray-600">Already have an account? </Text>
           <TouchableOpacity onPress={() => router.push('/login')} disabled={authLoading}>
-            <Text className="font-medium text-teal-500">Log In</Text>
+            <Text className="font-medium text-[#00AF9F]">Log In</Text>
           </TouchableOpacity>
         </View>
       </View>
