@@ -1,6 +1,16 @@
-import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -23,34 +33,57 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login Screen</Text>
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 justify-center px-6 py-12">
+        <View className="mb-8">
+          <Text className="mb-2 text-3xl font-bold">Welcome back!</Text>
+          <Text className="text-gray-600">Login to start making waves</Text>
+        </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
+        <View className="mb-8 gap-y-4">
+          <View className="gap-y-2">
+            <Text className="font-medium text-gray-700">Email</Text>
+            <TextInput
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+          <View className="gap-y-2">
+            <Text className="font-medium text-gray-700">Password</Text>
 
-      {authLoading ? (
-        <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
-      ) : (
-        <Button title="Log In" onPress={handleLogin} />
-      )}
-
-      <Button title="Don't have an account? Sign Up" onPress={() => router.push('/signup')} />
-    </View>
+            <TextInput
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
+        </View>
+        <TouchableOpacity
+          onPress={handleLogin}
+          className={`mb-6 w-full items-center rounded-xl py-4 ${
+            authLoading ? 'bg-teal-300' : 'bg-teal-500'
+          }`}>
+          {authLoading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-lg font-semibold text-white">Login</Text>
+          )}
+        </TouchableOpacity>
+        <View className="flex-row justify-center">
+          <Text className="text-gray-600">Don't have an account? </Text>
+          <TouchableOpacity onPress={() => router.push('/signup')}>
+            <Text className="font-medium text-teal-500">Create an account</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
