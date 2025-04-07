@@ -1,6 +1,6 @@
 'use client';
 
-import { format } from 'date-fns';
+import { format, ISOStringFormat } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,12 +27,16 @@ import {
   Alert,
   Switch,
 } from 'react-native';
+import { router } from 'expo-router';
+import { useAuth } from '~/components/providers/AuthProvider';
+import { createPost, getUserInterests } from '~/utils/data';
+import { PostsTable } from '~/utils/db';
 
-type PostType = 'post' | 'event' | null;
+import { PostType } from '~/utils/db';
 type DateTimeType = 'single' | 'range';
 
 interface FormData {
-  type: PostType;
+  type: PostType | undefined;
   title: string;
   description: string;
   location?: string;
@@ -46,22 +50,17 @@ interface FormData {
   image?: string | null;
 }
 
-// TEMP MOCK DATA FOR INTERESTS
-const interestGroups = [
-  'Technology',
-  'Sports',
-  'Arts',
-  'Music',
-  'Food',
-  'Travel',
-  'Education',
-  'Health',
-  'Business',
-  'Other',
-];
-
 // Accordion Section Component
-const AccordionSection = ({ title, icon, children, isRequired = false, isOpen, onToggle }) => {
+interface AccordionSectionProps {
+  title: string;
+  icon?: string;
+  children: React.ReactNode;
+  isRequired?: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+const AccordionSection = ({ title, icon, children, isRequired = false, isOpen, onToggle }: AccordionSectionProps) => {
   const animationValue = useSharedValue(isOpen ? 1 : 0);
 
   useEffect(() => {
@@ -92,7 +91,7 @@ const AccordionSection = ({ title, icon, children, isRequired = false, isOpen, o
     <View style={styles.accordionSection}>
       <TouchableOpacity style={styles.accordionHeader} onPress={onToggle} activeOpacity={0.7}>
         <View style={styles.accordionTitleContainer}>
-          {icon && <Ionicons name={icon} size={18} color="#00AF9F" style={styles.accordionIcon} />}
+          {icon && <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color="#00AF9F" style={styles.accordionIcon} />}
           <Text style={styles.accordionTitle}>{title}</Text>
           {isRequired && <Text style={styles.requiredIndicator}>*</Text>}
         </View>
@@ -109,7 +108,7 @@ const AccordionSection = ({ title, icon, children, isRequired = false, isOpen, o
 };
 
 const AddPostForm = () => {
-  const [postType, setPostType] = useState<PostType>(null);
+  const [postType, setPostType] = useState<PostType | null>(null);
   const [dateType, setDateType] = useState<DateTimeType>('single');
   const [timeType, setTimeType] = useState<DateTimeType>('single');
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
@@ -117,6 +116,13 @@ const AddPostForm = () => {
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State for user interests from database
+  const [interests, setInterests] = useState<{ id: string; name: string }[]>([]);
+  const [loadingInterests, setLoadingInterests] = useState(false);
+
+  // Get the authenticated user
+  const { user: authUser } = useAuth();
 
   // Accordion state
   const [openSections, setOpenSections] = useState({
@@ -129,12 +135,46 @@ const AddPostForm = () => {
     image: false,
   });
 
-  const toggleSection = (section) => {
-    setOpenSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+  interface OpenSections {
+    [key: string]: boolean;
+  }
+
+  interface ToggleSection {
+      (section: keyof typeof openSections): void;
+  }
+
+  const toggleSection: ToggleSection = (section: keyof OpenSections) => {
+      setOpenSections((prev) => ({
+        ...prev,
+        [section as keyof typeof openSections]: !prev[section as keyof typeof openSections],
+      }));
   };
+
+  // Fetch user interests from database
+  useEffect(() => {
+    const fetchInterests = async () => {
+      if (!authUser?.id) return;
+
+      try {
+        setLoadingInterests(true);
+        const userInterests = await getUserInterests(authUser.id);
+
+        // Transform the data structure
+        const formattedInterests = userInterests.map(item => ({
+          id: item.interest_id,
+          name: item.interests?.name || 'Unknown Interest'
+        }));
+
+        setInterests(formattedInterests);
+      } catch (error) {
+        console.error('Error fetching user interests:', error);
+      } finally {
+        setLoadingInterests(false);
+      }
+    };
+
+    fetchInterests();
+  }, [authUser?.id]);
 
   // FORM
   const {
@@ -147,7 +187,7 @@ const AddPostForm = () => {
     trigger,
   } = useForm<FormData>({
     defaultValues: {
-      type: null,
+      type: undefined,
       title: '',
       description: '',
       location: '',
@@ -184,7 +224,7 @@ const AddPostForm = () => {
     }
 
     // If basic info is filled, open next section
-    if (title && description && postType === 'event' && !openSections.location) {
+    if (title && description && postType === PostType.EVENT && !openSections.location) {
       setOpenSections((prev) => ({
         ...prev,
         location: true,
@@ -192,7 +232,7 @@ const AddPostForm = () => {
     }
 
     // If location is filled for events, open date section
-    if (postType === 'event' && location && !openSections.date) {
+    if (postType === PostType.EVENT && location && !openSections.date) {
       setOpenSections((prev) => ({
         ...prev,
         date: true,
@@ -201,7 +241,7 @@ const AddPostForm = () => {
 
     // If date is filled for events, open time section
     if (
-      postType === 'event' &&
+      postType === PostType.EVENT &&
       selectedStartDate &&
       (dateType === 'single' || (dateType === 'range' && selectedEndDate)) &&
       !openSections.time
@@ -214,7 +254,7 @@ const AddPostForm = () => {
 
     // If time is filled for events, open interest section
     if (
-      postType === 'event' &&
+      postType === PostType.EVENT &&
       selectedStartTime &&
       (timeType === 'single' || (timeType === 'range' && selectedEndTime)) &&
       !openSections.interest
@@ -226,7 +266,7 @@ const AddPostForm = () => {
     }
 
     // For posts, if basic info is filled, open interest section
-    if (postType === 'post' && title && description && !openSections.interest) {
+    if (postType === PostType.NOTE && title && description && !openSections.interest) {
       setOpenSections((prev) => ({
         ...prev,
         interest: true,
@@ -277,8 +317,8 @@ const AddPostForm = () => {
     }
   };
 
-  // FORM SUBMISSION
-  const onSubmit = (data: FormData) => {
+  // FORM SUBMISSION - FIXED JSON FORMAT ISSUES
+  const onSubmit = async (data: FormData) => {
     // Validate that a post type is selected
     if (!data.type) {
       Alert.alert('Error', 'Please select what you are creating (Post or Event).');
@@ -286,25 +326,76 @@ const AddPostForm = () => {
     }
 
     // Validate that an image is provided for events
-    if (data.type === 'event' && !data.image) {
+    if (data.type === PostType.EVENT && !data.image) {
       Alert.alert('Error', 'Please add an image for your event.');
+      return;
+    }
+
+    // Verify user is authenticated
+    if (!authUser?.id) {
+      Alert.alert('Error', 'You must be logged in to create a post.');
       return;
     }
 
     setIsSubmitting(true);
 
-    // SIM API CALL
-    setTimeout(() => {
-      console.log('Form submitted:', data);
+    try {
+      // Prepare base post data with appropriate types for database
+      const postData: {
+        user_id: string;
+        title: string;
+        description: string;
+        image: string | null;
+        post_type: PostType;
+        interest_id: string | null;
+        location?: string;
+        event_date?: ISOStringFormat | null
+      } = {
+        user_id: authUser.id,
+        title: data.title,
+        description: data.description,
+        image: data.image || '', // Ensure image is always a string
+        post_type: data.type,
+        interest_id: data.interestGroup || null,
+      };
 
-      // RESET AFTER SUBMISSION
+      // Only add location and date for events
+      if (data.type === PostType.EVENT) {
+        postData.location = data.location || undefined;
+
+        // Format event date if available
+        if (data.startDate) {
+          const eventDate = new Date(data.startDate);
+          if (data.startTime) {
+            eventDate.setHours(data.startTime.getHours());
+            eventDate.setMinutes(data.startTime.getMinutes());
+            eventDate.setSeconds(0);
+          }
+
+          postData.event_date = eventDate.toISOString() as ISOStringFormat;
+        }
+      }
+
+      console.log('Submitting post data:', postData);
+
+      // Direct approach without the object wrapper - this matches the function signature in data.ts
+      const createdPost = await createPost({
+        postData: {
+          ...postData,
+          image: postData.image ?? '',
+          interest_id: postData.interest_id ?? '',
+          event_date: postData.event_date ?? undefined
+        },
+        initializePopularity: true
+      });
+
+      console.log('Post created successfully:', createdPost);
+
+      // Reset form and state
       reset();
       setPostType(null);
       setDateType('single');
       setTimeType('single');
-      setIsSubmitting(false);
-
-      // Reset open sections to initial state
       setOpenSections({
         type: true,
         basicInfo: false,
@@ -315,12 +406,23 @@ const AddPostForm = () => {
         image: false,
       });
 
-      Alert.alert('Success', `Your ${data.type} has been created successfully!`, [{ text: 'OK' }]);
-    }, 1000);
+      // Success message and navigation
+      Alert.alert(
+        'Success',
+        `Your ${data.type === PostType.NOTE ? 'post' : 'event'} has been created successfully!`,
+        [{ text: 'OK', onPress: () => router.push('/(tabs)/home') }]
+      );
+
+    } catch (error) {
+      console.error('Error creating post:', error);
+      Alert.alert('Error', 'Failed to create post. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Determine if image is required based on post type
-  const isImageRequired = postType === 'event';
+  const isImageRequired = postType === PostType.EVENT;
 
   return (
     <KeyboardAvoidingView
@@ -340,23 +442,23 @@ const AddPostForm = () => {
             onToggle={() => toggleSection('type')}>
             <View style={styles.radioGroup}>
               <TouchableOpacity
-                style={[styles.radioButton, postType === 'post' && styles.radioButtonSelected]}
+                style={[styles.radioButton, postType === PostType.NOTE && styles.radioButtonSelected]}
                 onPress={() => {
-                  setPostType('post');
-                  setValue('type', 'post');
+                  setPostType(PostType.NOTE);
+                  setValue('type', PostType.NOTE);
                 }}>
-                <Text style={[styles.radioText, postType === 'post' && styles.radioTextSelected]}>
+                <Text style={[styles.radioText, postType === PostType.NOTE && styles.radioTextSelected]}>
                   Post
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.radioButton, postType === 'event' && styles.radioButtonSelected]}
+                style={[styles.radioButton, postType === PostType.EVENT && styles.radioButtonSelected]}
                 onPress={() => {
-                  setPostType('event');
-                  setValue('type', 'event');
+                  setPostType(PostType.EVENT);
+                  setValue('type', PostType.EVENT);
                 }}>
-                <Text style={[styles.radioText, postType === 'event' && styles.radioTextSelected]}>
+                <Text style={[styles.radioText, postType === PostType.EVENT && styles.radioTextSelected]}>
                   Event
                 </Text>
               </TouchableOpacity>
@@ -414,7 +516,7 @@ const AddPostForm = () => {
           </AccordionSection>
 
           {/* EVENT FIELDS */}
-          {postType === 'event' && (
+          {postType === PostType.EVENT && (
             <>
               {/* LOCATION SECTION */}
               <AccordionSection
@@ -612,34 +714,45 @@ const AddPostForm = () => {
             </>
           )}
 
-          {/* INTEREST SECTION */}
+          {/* INTEREST SECTION - UPDATED TO USE DATABASE INTERESTS */}
           <AccordionSection
             title="Interest Group"
             icon="people-outline"
             isRequired={true}
             isOpen={openSections.interest}
             onToggle={() => toggleSection('interest')}>
-            <View style={styles.interestContainer}>
-              {interestGroups.map((group) => (
-                <TouchableOpacity
-                  key={group}
-                  style={[
-                    styles.interestToggle,
-                    selectedInterestGroup === group && styles.interestToggleSelected,
-                  ]}
-                  onPress={() => {
-                    setValue('interestGroup', group);
-                  }}>
-                  <Text
+            {loadingInterests ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#00AF9F" />
+                <Text style={styles.loadingText}>Loading your interests...</Text>
+              </View>
+            ) : interests.length > 0 ? (
+              <View style={styles.interestContainer}>
+                {interests.map((interest) => (
+                  <TouchableOpacity
+                    key={interest.id}
                     style={[
-                      styles.interestToggleText,
-                      selectedInterestGroup === group && styles.interestToggleTextSelected,
-                    ]}>
-                    {group}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                      styles.interestToggle,
+                      selectedInterestGroup === interest.id && styles.interestToggleSelected,
+                    ]}
+                    onPress={() => {
+                      setValue('interestGroup', interest.id);
+                    }}>
+                    <Text
+                      style={[
+                        styles.interestToggleText,
+                        selectedInterestGroup === interest.id && styles.interestToggleTextSelected,
+                      ]}>
+                      {interest.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.noInterestsText}>
+                You don't have any interests yet. Add interests in your profile settings.
+              </Text>
+            )}
             {errors.interestGroup && (
               <Text style={styles.errorText}>{errors.interestGroup.message}</Text>
             )}
@@ -710,7 +823,7 @@ const AddPostForm = () => {
                 <ActivityIndicator color="white" size="small" />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  {postType ? (postType === 'post' ? 'Create Post' : 'Create Event') : 'Create'}
+                  {postType ? (postType === PostType.NOTE ? 'Create Post' : 'Create Event') : 'Create'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -743,6 +856,28 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  // Rest of your styles...
+
+  // New styles
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  noInterestsText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 10,
+  },
+
+  // Keep all your existing styles
   cardTitle: {
     fontSize: 22,
     fontFamily: 'SFProDisplayBold',

@@ -131,13 +131,42 @@ export const deleteUser = async (userId: string): Promise<UsersTable | null> => 
  * @param postData The post data to insert (id and created_at will be generated automatically)
  * @returns Promise with the created post data
  */
-export const createPost = async (
-  postData: Omit<PostsTable, 'id' | 'created_at'>
-): Promise<PostsTable> => {
-  const { data, error } = await supabase.from('posts').insert([postData]).select().single();
+export const createPost = async ({ postData, initializePopularity = true }: { postData: Omit<PostsTable, 'id' | 'created_at'>; initializePopularity?: boolean }) => {
+  try {
+    // Insert the post and get the new post ID
+    const { data: post, error } = await supabase
+      .from('posts')
+      .insert(postData)
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data as PostsTable;
+    if (error) throw error;
+
+    // Initialize post popularity row for this post
+    if (initializePopularity && post) {
+      const popularityData = {
+        post_id: post.id,
+        likes: 0,
+        comments: 0,
+        reposts: 0,
+        total_engagement: 0
+      };
+
+      const { error: popError } = await supabase
+        .from('post_popularity')
+        .insert(popularityData);
+
+      if (popError) {
+        console.error('Failed to initialize post popularity:', popError);
+        // Consider whether to throw this error or just log it
+      }
+    }
+
+    return post;
+  } catch (error) {
+    console.error('Error in createPost:', error);
+    throw error;
+  }
 };
 
 // READ
