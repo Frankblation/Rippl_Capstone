@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import Feather from '@expo/vector-icons/Feather';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '~/utils/supabase';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { updateUser } from '~/utils/data';
 
@@ -120,9 +121,9 @@ export default function CustomizeProfile() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
-      <View className="flex-1 px-6 py-12">
+      <View className="flex-1 justify-center px-6 py-12">
         <Text className="mb-8 text-3xl font-bold">Customize Your Profile</Text>
 
         <View className="mb-8 items-center">
@@ -147,6 +148,7 @@ export default function CustomizeProfile() {
             value={name}
             onChangeText={setName}
             placeholder="Your name"
+            style={{ textAlignVertical: 'center', minHeight: 50 }}
           />
         </View>
 
@@ -165,12 +167,12 @@ export default function CustomizeProfile() {
         <TouchableOpacity
           onPress={goNext}
           disabled={isLoading}
-          className={`w-full items-center rounded-xl ${isLoading ? 'bg-teal-300' : 'bg-teal-500'} py-4`}>
+          className={`w-full items-center rounded-xl ${isLoading ? 'bg-[#00AF9F]' : 'bg-[#00AF9F]'} py-4`}>
           <Text className="text-lg font-semibold text-white">
             {isLoading ? 'Saving...' : 'Continue'}
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }

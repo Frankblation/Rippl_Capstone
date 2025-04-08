@@ -15,7 +15,7 @@ export function EditProfileButton() {
         name="settings"
         size={24}
         color="black"
-        style={{ marginRight: 16, paddingBottom: 12 }}
+        style={{ marginRight: 16, paddingBottom: 22 }}
       />
     </Pressable>
   );

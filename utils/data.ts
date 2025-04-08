@@ -74,6 +74,59 @@ export const getUserById = async (userId: string): Promise<UsersTable | null> =>
   return data as UsersTable;
 };
 
+/**
+ * Search for users by name or id
+ * @param query The search query to use
+ * @returns An array of user objects matching the query
+ */
+export const searchUsers = async (query: string): Promise<UsersTable[]> => {
+  if (!query.trim()) {
+    return [];
+  }
+
+  try {
+    // Only search by name using ilike (case-insensitive pattern matching)
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .ilike('name', `%${query}%`)
+      .limit(10);
+
+    if (error) {
+      console.error('Error searching users:', error);
+      throw error;
+    }
+
+    // If the query looks like a UUID (for exact ID matching), try that as a separate query
+    // We do this as a separate query to avoid UUID syntax errors when searching by name
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query)) {
+      const { data: idData, error: idError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', query);
+
+      if (!idError && idData.length > 0) {
+        // Combine with the name search results, ensuring no duplicates
+        const allIds = new Set(data.map((user) => user.id));
+        const combinedData = [...data];
+
+        for (const user of idData) {
+          if (!allIds.has(user.id)) {
+            combinedData.push(user);
+          }
+        }
+
+        return combinedData as UsersTable[];
+      }
+    }
+
+    return data as UsersTable[];
+  } catch (error) {
+    console.error('Error searching users:', error);
+    throw error;
+  }
+};
+
 // UPDATE
 /**
  * Updates an existing user record in Supabase
@@ -673,17 +726,18 @@ export const createUserInterest = async (
  * @returns Promise with an array of user interests with interest details
  */
 export const getUserInterests = async (userId: string): Promise<any[]> => {
-
   const { data, error } = await supabase
     .from('user_interests')
-    .select(`
+    .select(
+      `
       *,
       interests (
         id,
         name,
         category_id
       )
-    `)
+    `
+    )
     .eq('user_id', userId);
 
   if (error) {

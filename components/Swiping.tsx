@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Swiper from 'react-native-deck-swiper';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Vibration } from 'react-native';
 import UserCard from './UserSwipingCard';
 
 import { useRouter } from 'expo-router';
@@ -79,6 +79,7 @@ export default function Swipe() {
   const handleSwipe = (direction: string, cardIndex: number) => {
     if (direction === 'right') {
       const matched = users[cardIndex];
+      Vibration.vibrate([0, 100, 0, 300, 0, 500]);
       router.push({
         pathname: '/(tabs)/matched-users',
         params: {

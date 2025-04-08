@@ -10,6 +10,7 @@ import { Colors } from '~/constants/Colors';
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { ChatButton } from '~/components/ChatButton';
 import { AddUserButton } from '~/components/profile/AddUserButton';
+import { LogOutButton } from '~/components/profile/LogOutButton';
 
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
@@ -102,6 +103,18 @@ export default function TabsLayout() {
         name="profile/[id]"
         options={{
           href: null,
+          title: '',
+          headerShown: true,
+          headerRight: () => <AddUserButton />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile/edit"
+        options={{
+          href: null,
+          title: 'Edit My Profile',
+          headerShown: true,
+          headerRight: () => <LogOutButton />,
         }}
       />
     </Tabs>
