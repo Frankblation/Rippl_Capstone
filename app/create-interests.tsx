@@ -23,7 +23,7 @@ const INTERESTS = [
 
 const MIN_INTERESTS_REQUIRED = 6;
 
-export default function CreateInterests() {
+export default function CreateInterestsScreen() {
   const router = useRouter();
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
