@@ -24,17 +24,14 @@ export default function SupabaseImageUploader({
   const [image, setImage] = useState<string | null>(existingImageUrl);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
-  // Request permissions and open the image picker
   const pickImage = async (): Promise<void> => {
     try {
-      // Request permission if needed
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission needed', 'Please grant camera roll permissions to upload images.');
         return;
       }
 
-      // Open image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -44,11 +41,7 @@ export default function SupabaseImageUploader({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const selectedImageUri = result.assets[0].uri;
-
-        // Set the image locally for preview
         setImage(selectedImageUri);
-
-        // Start the upload process
         await handleUpload(selectedImageUri);
       }
     } catch (error) {
@@ -57,7 +50,6 @@ export default function SupabaseImageUploader({
     }
   };
 
-  // Handle the upload using the utility function
   const handleUpload = async (imageUri: string): Promise<void> => {
     if (!userId) {
       Alert.alert('Authentication Error', 'Please sign in to upload images');
@@ -66,28 +58,17 @@ export default function SupabaseImageUploader({
 
     try {
       setIsUploading(true);
-      
-      // Use the utility function from data.ts
       const imageUrl = await uploadProfileImage(imageUri, userId);
-      
-      // Call the callback with the URL
       onUploadComplete(imageUrl);
     } catch (error: unknown) {
       console.error('Error uploading file:', error);
-      
       let errorMessage = 'Failed to upload image. Please try again.';
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       Alert.alert('Upload Error', errorMessage);
-      
-      // Revert to previous image if it exists
-      if (existingImageUrl) {
-        setImage(existingImageUrl);
-      } else {
-        setImage(null);
-      }
+      setImage(existingImageUrl ?? null);
     } finally {
       setIsUploading(false);
     }

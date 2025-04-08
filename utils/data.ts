@@ -1323,32 +1323,37 @@ export const getCommentById = async (
 
 export const uploadProfileImage = async (imageUri: string, userId: string): Promise<string> => {
   try {
-    // Extract file extension
     const fileExt = imageUri.split('.').pop() || 'jpg';
+    const filePath = `${userId}-profile.${fileExt}`;
 
-    // Create path with userId as the first folder (for RLS)
-    const filePath = `${userId}/image-${Date.now()}.${fileExt}`;
-
-    // Read file as Base64 string
-    const fileContent = await FileSystem.readAsStringAsync(imageUri, {
+    // Read image as base64 string
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    // Convert base64 to ArrayBuffer
+    const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+    // Upload as binary using the Uint8Array
+    const { error } = await supabase.storage
       .from('profile-images')
-      .upload(filePath, fileContent, {
+      .upload(filePath, buffer, {
         contentType: `image/${fileExt}`,
+        upsert: true,
       });
 
     if (error) throw error;
 
-    // Get the public URL
-    const { data: urlData } = supabase.storage.from('profile-images').getPublicUrl(filePath);
+    const { data: urlData } = supabase.storage
+      .from('profile-images')
+      .getPublicUrl(filePath);
 
+    if (!urlData?.publicUrl) throw new Error('Could not retrieve public URL');
+
+    console.log('Uploaded to:', urlData.publicUrl);
     return urlData.publicUrl;
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error('Upload error:', error);
     throw error;
   }
 };
