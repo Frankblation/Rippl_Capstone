@@ -127,8 +127,8 @@ export const searchUsers = async (query: string): Promise<UsersTable[]> => {
   }
 };
 
-// UPDATE
 /**
+ * UPDATE
  * Updates an existing user record in Supabase
  * @param userId The ID of the user to update
  * @param userData The user data to update
@@ -138,16 +138,20 @@ export const updateUser = async (
   userId: string,
   userData: Partial<Omit<UsersTable, 'id' | 'created_at'>>
 ): Promise<UsersTable> => {
+  // Prepare the update object with only fields that are provided
+  const updateData: any = {};
+
+  // Only add fields that are provided in userData
+  if (userData.name !== undefined || null) updateData.name = userData.name;
+  if (userData.image !== undefined || null) updateData.image = userData.image;
+  if (userData.description !== undefined || null) updateData.description = userData.description;
+  if (userData.email) updateData.email = userData.email;
+  if (userData.password) updateData.password = userData.password;
+
+  // Execute the update with only the provided fields
   const { data, error } = await supabase
     .from('users')
-    .update({
-      name: userData.name,
-      image: userData.image,
-      description: userData.description,
-      // Only include email and password if they're provided
-      ...(userData.email && { email: userData.email }),
-      ...(userData.password && { password: userData.password }),
-    })
+    .update(updateData)
     .eq('id', userId)
     .select()
     .single();
@@ -717,6 +721,40 @@ export const createUserInterest = async (
   if (error) throw error;
 
   return userInterest;
+};
+
+/**
+ * Creates multiple user interest connections at once
+ * @param userId The ID of the user
+ * @param interestIds Array of interest IDs to associate with the user
+ * @returns Promise with an array of created user interests
+ */
+export const createMultipleUserInterests = async (
+  userId: string,
+  interestIds: string[]
+): Promise<UserInterestsTable[]> => {
+  if (!interestIds.length) {
+    return [];
+  }
+
+  // Create an array of user interest objects
+  const userInterests = interestIds.map(interestId => ({
+    user_id: userId,
+    interest_id: interestId
+  }));
+
+  // Insert all user interests in a single database operation
+  const { data, error } = await supabase
+    .from('user_interests')
+    .insert(userInterests)
+    .select();
+
+  if (error) {
+    console.error('Error creating multiple user interests:', error);
+    throw error;
+  }
+
+  return data as UserInterestsTable[];
 };
 
 // READ

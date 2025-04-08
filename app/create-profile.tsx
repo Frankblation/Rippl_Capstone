@@ -17,8 +17,6 @@ export default function CustomizeProfileScreen() {
   const [bio, setBio] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userPassword, setUserPassword] = useState<string | null>(null);
 
   // Get the current user on component mount
   useEffect(() => {
@@ -26,20 +24,6 @@ export default function CustomizeProfileScreen() {
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
         setUserId(data.user.id);
-
-        // Optionally fetch the current user data to pre-fill the form
-        const { data: userData } = await supabase
-          .from('users')
-          .select('email, name, description')
-          .eq('id', data.user.id)
-          .single();
-
-        if (userData) {
-          setUserEmail(userData.email);
-          setName(userData.name || '');
-          setBio(userData.description || '');
-          // You might also want to fetch and display the current profile image
-        }
       }
     };
 
@@ -65,7 +49,7 @@ export default function CustomizeProfileScreen() {
       return;
     }
 
-    if (!userId || !userEmail) {
+    if (!userId) {
       Alert.alert('Authentication Error', 'Please sign in to update your profile');
       return;
     }
@@ -96,17 +80,16 @@ export default function CustomizeProfileScreen() {
         }
 
         // Get the public URL
+        // Need to create this bucket_______________________\/
         const { data: urlData } = supabase.storage.from('profile-images').getPublicUrl(filePath);
 
         imageUrl = urlData.publicUrl;
       }
 
-      // Update the user profile using your existing function
+      // Update the user profile using db function
       await updateUser(userId, {
-        email: userEmail,
-        password: userPassword || '', // This might need adjustment based on your auth flow
         name: name,
-        image: imageUrl || '',
+        image: imageUrl || `https://ui-avatars.com/api/?name=${name}`,
         description: bio,
       });
 
