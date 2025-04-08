@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    paddingVertical: 20,
+    paddingVertical: 10,
   },
   statsContainer: {
     flexDirection: 'row',

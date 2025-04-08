@@ -6,7 +6,7 @@ import { useRef, useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet, View, Alert, ActivityIndicator, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+1;
 import CommentsBottomSheet, {
   type CommentsBottomSheetRef,
   type PostComment,
@@ -18,6 +18,7 @@ import { useUser } from '~/hooks/useUser';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { getPostsByUserId } from '~/utils/data';
 import { formatPostsForUI, UIPost } from '~/utils/formatPosts';
+import { StatusBar } from 'expo-status-bar';
 
 // Define feed item types
 type FeedItem = { id: string; type: 'header' } | UIPost;
@@ -132,6 +133,7 @@ const CurrentUser: React.FC = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
+        <StatusBar style="auto" />
         <View style={{ flex: 1 }}>
           <FlashList
             data={feed}
@@ -176,10 +178,10 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   headerContainer: {
-    paddingTop: 20,
+    paddingTop: 0,
   },
   interestsContainer: {
-    paddingTop: 20,
+    paddingTop: 0,
   },
   loadingContainer: {
     flex: 1,

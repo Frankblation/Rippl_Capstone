@@ -1,18 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, Platform, View } from 'react-native';
 import AddPostComponent from '../../components/AddPost';
-import { Container } from '~/components/Container';
-
-export default function AddPostScreen() {
-  return (
-    <SafeAreaView style={styles.safeAreaView}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Add a new post</Text>
-        <AddPostComponent />
-      </View>
-    </SafeAreaView>
-  );
-}
 
 const styles = StyleSheet.create({
   safeAreaView: {
@@ -21,11 +9,31 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    width: '100%',
+    paddingHorizontal: Platform.OS === 'ios' ? 18 : 16,
   },
   title: {
     fontSize: 26,
     fontFamily: 'SFProDisplayBold',
-    marginHorizontal: 18,
     paddingVertical: 20,
+    ...Platform.select({
+      android: {
+        fontFamily: 'sans-serif-medium',
+        fontWeight: 'bold',
+      },
+    }),
   },
 });
+
+const AddPostScreen = () => {
+  return (
+    <SafeAreaView style={styles.safeAreaView}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Add New Post</Text>
+        <AddPostComponent />
+      </View>
+    </SafeAreaView>
+  );
+};
+
+export default AddPostScreen;
