@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
-import Feather from '@expo/vector-icons/Feather';
-import * as FileSystem from 'expo-file-system';
 import { supabase } from '~/utils/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SupabaseImageUploader from '~/components/SupabaseImageUploader';
 
 import { updateUser } from '~/utils/data';
 
 export default function CustomizeProfileScreen() {
   const router = useRouter();
-  const [image, setImage] = useState<string | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -30,17 +28,8 @@ export default function CustomizeProfileScreen() {
     getCurrentUser();
   }, []);
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setImage(result.assets[0].uri);
-    }
+  const handleImageUploaded = (imageUrl: string) => {
+    setProfileImageUrl(imageUrl);
   };
 
   const goNext = async () => {
@@ -57,39 +46,10 @@ export default function CustomizeProfileScreen() {
     try {
       setIsLoading(true);
 
-      // Handle image upload if an image is selected
-      let imageUrl = null;
-      if (image) {
-        // For Supabase Storage approach:
-        const fileExt = image.split('.').pop();
-        const filePath = `${userId}-${Date.now()}.${fileExt}`;
-
-        // Upload to Supabase Storage
-        const { data, error } = await supabase.storage.from('profile-images').upload(
-          filePath,
-          await FileSystem.readAsStringAsync(image, {
-            encoding: FileSystem.EncodingType.Base64,
-          }),
-          {
-            contentType: `image/${fileExt}`,
-          }
-        );
-
-        if (error) {
-          throw new Error('Error uploading image: ' + error.message);
-        }
-
-        // Get the public URL
-        // Need to create this bucket_______________________\/
-        const { data: urlData } = supabase.storage.from('profile-images').getPublicUrl(filePath);
-
-        imageUrl = urlData.publicUrl;
-      }
-
       // Update the user profile using db function
       await updateUser(userId, {
         name: name,
-        image: imageUrl || `https://ui-avatars.com/api/?name=${name}`,
+        image: profileImageUrl || `https://ui-avatars.com/api/?name=${name}`,
         description: bio,
       });
 
@@ -110,18 +70,19 @@ export default function CustomizeProfileScreen() {
         <Text className="mb-8 text-3xl font-bold">Customize Your Profile</Text>
 
         <View className="mb-8 items-center">
-          <TouchableOpacity onPress={pickImage} className="mb-2">
-            {image ? (
-              <Image source={{ uri: image }} className="h-32 w-32 rounded-full" />
-            ) : (
-              <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
-                <Feather name="camera" size={24} color="#9ca3af" />
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={pickImage}>
-            <Text className="font-medium text-teal-500">Upload Photo</Text>
-          </TouchableOpacity>
+          {userId ? (
+            <SupabaseImageUploader
+              bucketName="profile-images"
+              userId={userId}
+              onUploadComplete={handleImageUploaded}
+              existingImageUrl={profileImageUrl}
+              placeholderLabel="Upload Photo"
+              imageSize={128} // 32 * 4 = 128px to match your h-32 w-32
+              aspectRatio={[1, 1]}
+            />
+          ) : (
+            <Text>Loading...</Text>
+          )}
         </View>
 
         <View className="mb-6">
