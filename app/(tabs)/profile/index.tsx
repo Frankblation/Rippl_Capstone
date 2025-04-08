@@ -159,7 +159,6 @@ const CurrentUser: React.FC = () => {
               ) : null
             }
           />
-
           <CommentsBottomSheet
             ref={commentsSheetRef}
             comments={selectedComments}

@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { updateUser } from '~/utils/data';
 
-export default function CustomizeProfile() {
+export default function CustomizeProfileScreen() {
   const router = useRouter();
   const [image, setImage] = useState<string | null>(null);
   const [name, setName] = useState('');

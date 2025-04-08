@@ -2,7 +2,7 @@ import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import Swipe from '~/components/Swiping';
 import { ChatButton } from '~/components/ChatButton';
 
-export default function App() {
+export default function MatchingScreen() {
   return (
     <SafeAreaView className="flex-1">
       <View style={styles.container}>
