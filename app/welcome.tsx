@@ -2,7 +2,7 @@ import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-export default function Welcome() {
+export default function WelcomeScreen() {
   const router = useRouter();
 
   const goHome = () => {

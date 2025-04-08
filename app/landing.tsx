@@ -35,7 +35,7 @@ const NUM_COLUMNS = 3;
 const ITEM_MARGIN = 6;
 const ITEM_WIDTH = (SCREEN_WIDTH - ITEM_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
-export default function Landing() {
+export default function LandingScreen() {
   const router = useRouter();
   const renderItem = ({ item }: { item: ImageItem }) => {
     const aspectRatio = item.width / item.height;
