@@ -1,6 +1,8 @@
 'use client';
 
-import { format, ISOStringFormat } from 'date-fns';
+import type React from 'react';
+
+import { format, type ISOStringFormat } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,13 +28,17 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { createPost, getUserInterests } from '~/utils/data';
-import { PostsTable } from '~/utils/db';
-
 import { PostType } from '~/utils/db';
+
+// Add this after imports
+const windowWidth = Dimensions.get('window').width;
+const isSmallDevice = windowWidth < 375;
+
 type DateTimeType = 'single' | 'range';
 
 interface FormData {
@@ -60,7 +66,14 @@ interface AccordionSectionProps {
   onToggle: () => void;
 }
 
-const AccordionSection = ({ title, icon, children, isRequired = false, isOpen, onToggle }: AccordionSectionProps) => {
+const AccordionSection = ({
+  title,
+  icon,
+  children,
+  isRequired = false,
+  isOpen,
+  onToggle,
+}: AccordionSectionProps) => {
   const animationValue = useSharedValue(isOpen ? 1 : 0);
 
   useEffect(() => {
@@ -91,7 +104,14 @@ const AccordionSection = ({ title, icon, children, isRequired = false, isOpen, o
     <View style={styles.accordionSection}>
       <TouchableOpacity style={styles.accordionHeader} onPress={onToggle} activeOpacity={0.7}>
         <View style={styles.accordionTitleContainer}>
-          {icon && <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color="#00AF9F" style={styles.accordionIcon} />}
+          {icon && (
+            <Ionicons
+              name={icon as keyof typeof Ionicons.glyphMap}
+              size={18}
+              color="#00AF9F"
+              style={styles.accordionIcon}
+            />
+          )}
           <Text style={styles.accordionTitle}>{title}</Text>
           {isRequired && <Text style={styles.requiredIndicator}>*</Text>}
         </View>
@@ -139,15 +159,13 @@ const AddPostForm = () => {
     [key: string]: boolean;
   }
 
-  interface ToggleSection {
-      (section: keyof typeof openSections): void;
-  }
+  type ToggleSection = (section: keyof typeof openSections) => void;
 
   const toggleSection: ToggleSection = (section: keyof OpenSections) => {
-      setOpenSections((prev) => ({
-        ...prev,
-        [section as keyof typeof openSections]: !prev[section as keyof typeof openSections],
-      }));
+    setOpenSections((prev) => ({
+      ...prev,
+      [section as keyof typeof openSections]: !prev[section as keyof typeof openSections],
+    }));
   };
 
   // Fetch user interests from database
@@ -160,9 +178,9 @@ const AddPostForm = () => {
         const userInterests = await getUserInterests(authUser.id);
 
         // Transform the data structure
-        const formattedInterests = userInterests.map(item => ({
+        const formattedInterests = userInterests.map((item) => ({
           id: item.interest_id,
-          name: item.interests?.name || 'Unknown Interest'
+          name: item.interests?.name || 'Unknown Interest',
         }));
 
         setInterests(formattedInterests);
@@ -349,7 +367,7 @@ const AddPostForm = () => {
         post_type: PostType;
         interest_id: string | null;
         location?: string;
-        event_date?: ISOStringFormat | null
+        event_date?: ISOStringFormat | null;
       } = {
         user_id: authUser.id,
         title: data.title,
@@ -384,9 +402,9 @@ const AddPostForm = () => {
           ...postData,
           image: postData.image ?? '',
           interest_id: postData.interest_id ?? '',
-          event_date: postData.event_date ?? undefined
+          event_date: postData.event_date ?? undefined,
         },
-        initializePopularity: true
+        initializePopularity: true,
       });
 
       console.log('Post created successfully:', createdPost);
@@ -412,7 +430,6 @@ const AddPostForm = () => {
         `Your ${data.type === PostType.NOTE ? 'post' : 'event'} has been created successfully!`,
         [{ text: 'OK', onPress: () => router.push('/(tabs)/home') }]
       );
-
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post. Please try again.');
@@ -426,7 +443,7 @@ const AddPostForm = () => {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
       <ScrollView
@@ -442,23 +459,37 @@ const AddPostForm = () => {
             onToggle={() => toggleSection('type')}>
             <View style={styles.radioGroup}>
               <TouchableOpacity
-                style={[styles.radioButton, postType === PostType.NOTE && styles.radioButtonSelected]}
+                style={[
+                  styles.radioButton,
+                  postType === PostType.NOTE && styles.radioButtonSelected,
+                ]}
                 onPress={() => {
                   setPostType(PostType.NOTE);
                   setValue('type', PostType.NOTE);
                 }}>
-                <Text style={[styles.radioText, postType === PostType.NOTE && styles.radioTextSelected]}>
+                <Text
+                  style={[
+                    styles.radioText,
+                    postType === PostType.NOTE && styles.radioTextSelected,
+                  ]}>
                   Post
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.radioButton, postType === PostType.EVENT && styles.radioButtonSelected]}
+                style={[
+                  styles.radioButton,
+                  postType === PostType.EVENT && styles.radioButtonSelected,
+                ]}
                 onPress={() => {
                   setPostType(PostType.EVENT);
                   setValue('type', PostType.EVENT);
                 }}>
-                <Text style={[styles.radioText, postType === PostType.EVENT && styles.radioTextSelected]}>
+                <Text
+                  style={[
+                    styles.radioText,
+                    postType === PostType.EVENT && styles.radioTextSelected,
+                  ]}>
                   Event
                 </Text>
               </TouchableOpacity>
@@ -823,7 +854,11 @@ const AddPostForm = () => {
                 <ActivityIndicator color="white" size="small" />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  {postType ? (postType === PostType.NOTE ? 'Create Post' : 'Create Event') : 'Create'}
+                  {postType
+                    ? postType === PostType.NOTE
+                      ? 'Create Post'
+                      : 'Create Event'
+                    : 'Create'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -840,15 +875,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: '100%',
-    paddingHorizontal: 10,
+    paddingHorizontal: Platform.OS === 'ios' ? 10 : 8,
   },
   contentContainer: {
-    paddingBottom: 80, // Add extra padding at the bottom
+    paddingBottom: Platform.OS === 'ios' ? 80 : 100, // More padding for Android
   },
   card: {
     width: '100%',
-    borderRadius: 50,
-
+    borderRadius: Platform.OS === 'ios' ? 50 : 25, // Less extreme radius for Android
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -891,6 +925,7 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
     borderRadius: 8,
     overflow: 'hidden',
+    width: '100%',
   },
   accordionHeader: {
     flexDirection: 'row',
@@ -908,7 +943,7 @@ const styles = StyleSheet.create({
   },
   accordionTitle: {
     fontSize: 16,
-    fontFamily: 'SFProTextSemiBold',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextSemiBold' : 'sans-serif-medium',
     color: '#333',
   },
   requiredIndicator: {
@@ -927,20 +962,21 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 8,
-    fontFamily: 'SFProTextSemiBold',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextSemiBold' : 'sans-serif-medium',
     color: '#333',
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
+    padding: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 16,
     backgroundColor: 'white',
   },
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
+    paddingTop: Platform.OS === 'android' ? 10 : 12, // Fix Android text alignment
   },
   radioGroup: {
     flexDirection: 'row',
@@ -962,11 +998,11 @@ const styles = StyleSheet.create({
   radioText: {
     fontSize: 16,
     color: '#00AF9F',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
   radioTextSelected: {
     color: 'white',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
     fontSize: 16,
   },
   errorText: {
@@ -978,7 +1014,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
+    padding: Platform.OS === 'ios' ? 12 : 10,
     backgroundColor: '#fafafa',
   },
   datePickerButtonText: {
@@ -1002,7 +1038,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 20,
+    padding: Platform.OS === 'ios' ? 20 : 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fafafa',
@@ -1044,7 +1080,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     color: '#666',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
   submitButton: {
     backgroundColor: '#00AF9F',
@@ -1055,7 +1091,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     color: 'white',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -1085,6 +1121,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     margin: 4,
     backgroundColor: 'white',
+    minWidth: isSmallDevice ? 80 : 100,
   },
   interestToggleSelected: {
     backgroundColor: '#00AF9F',
@@ -1093,11 +1130,11 @@ const styles = StyleSheet.create({
   interestToggleText: {
     fontSize: 14,
     color: '#00AF9F',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
   interestToggleTextSelected: {
     color: 'white',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
 });
 

@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '~/components/providers/AuthProvider';
 import { OverlayProvider } from 'stream-chat-expo';
 
 import 'global.css';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -92,11 +93,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <OverlayProvider>
-        <AuthProvider>
-          <RootLayoutNav />
-        </AuthProvider>
-      </OverlayProvider>
+      <SafeAreaProvider>
+        <OverlayProvider>
+          <AuthProvider>
+            <RootLayoutNav />
+          </AuthProvider>
+        </OverlayProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
