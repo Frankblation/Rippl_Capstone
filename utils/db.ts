@@ -1,3 +1,5 @@
+import { ISOStringFormat } from "date-fns";
+
 // ENUM Types
 export enum PostType {
     NOTE = 'note',
@@ -42,16 +44,14 @@ export interface PostsTable {
     id: string;
     post_type: PostType; // enum
     title: string;
-    location: string;
+    location?: string;
     description: string;
     image: string;
     user_id: string;
-    likes: number;
-    reposts: number;
     created_at: string;
     interest_id: string;
     attendees?: AttendeesTable;
-    event_date?: string;
+    event_date?: ISOStringFormat;
 }
 
 // Messages Data Type
