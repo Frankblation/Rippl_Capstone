@@ -1,14 +1,15 @@
-import React from 'react';
+import type React from 'react';
 import {
   StyleSheet,
   Image,
   Text,
   View,
-  ImageSourcePropType,
+  type ImageSourcePropType,
   useWindowDimensions,
   Platform,
 } from 'react-native';
 import Constants from 'expo-constants';
+import { BlurView } from 'expo-blur';
 
 const BORDER_RADIUS: number = 20;
 
@@ -43,6 +44,13 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
       width: '100%',
       height: '100%',
     },
+    blurContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
     profilePicture: {
       width: profilePicSize,
       height: profilePicSize,
@@ -56,7 +64,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
       left: 0,
       right: 0,
       width: '100%',
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      backgroundColor: 'rgba(0,0,0,0.3)',
       padding: Math.max(width * 0.03, 12),
       paddingTop: profilePicSize / 2 + 10,
       borderBottomLeftRadius: BORDER_RADIUS,
@@ -92,6 +100,9 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
     <View style={dynamicStyles.cardContainer}>
       {/* Background Image */}
       <Image style={dynamicStyles.backgroundImage} source={profileImage} resizeMode="cover" />
+
+      {/* BlurView on top of background image */}
+      <BlurView intensity={20} tint="default" style={dynamicStyles.blurContainer} />
 
       {/* Profile picture container - centered horizontally */}
       <View style={dynamicStyles.profilePictureContainer}>
@@ -133,7 +144,7 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   const statusBarHeight = Constants.statusBarHeight || 0;
 
   return (
-    <View style={[styles.headerContainer, { paddingTop: statusBarHeight + 10 }]}>
+    <View style={styles.headerContainer}>
       <ProfileCard
         name={name}
         profileImage={{ uri: profileImage }}

@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AnimationProvider } from '~/components/AnimationContext';
 
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { AuthProvider, useAuth } from '~/components/providers/AuthProvider';
@@ -93,13 +94,15 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <OverlayProvider>
-          <AuthProvider>
-            <RootLayoutNav />
-          </AuthProvider>
-        </OverlayProvider>
-      </SafeAreaProvider>
+      <AnimationProvider>
+        <SafeAreaProvider>
+          <OverlayProvider>
+            <AuthProvider>
+              <RootLayoutNav />
+            </AuthProvider>
+          </OverlayProvider>
+        </SafeAreaProvider>
+      </AnimationProvider>
     </GestureHandlerRootView>
   );
 }
