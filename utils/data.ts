@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import * as FileSystem from 'expo-file-system';
 
 // Data Types
 import { PostType, Status } from './db';
@@ -188,14 +189,16 @@ export const deleteUser = async (userId: string): Promise<UsersTable | null> => 
  * @param postData The post data to insert (id and created_at will be generated automatically)
  * @returns Promise with the created post data
  */
-export const createPost = async ({ postData, initializePopularity = true }: { postData: Omit<PostsTable, 'id' | 'created_at'>; initializePopularity?: boolean }) => {
+export const createPost = async ({
+  postData,
+  initializePopularity = true,
+}: {
+  postData: Omit<PostsTable, 'id' | 'created_at'>;
+  initializePopularity?: boolean;
+}) => {
   try {
     // Insert the post and get the new post ID
-    const { data: post, error } = await supabase
-      .from('posts')
-      .insert(postData)
-      .select()
-      .single();
+    const { data: post, error } = await supabase.from('posts').insert(postData).select().single();
 
     if (error) throw error;
 
@@ -206,12 +209,10 @@ export const createPost = async ({ postData, initializePopularity = true }: { po
         likes: 0,
         comments: 0,
         reposts: 0,
-        total_engagement: 0
+        total_engagement: 0,
       };
 
-      const { error: popError } = await supabase
-        .from('post_popularity')
-        .insert(popularityData);
+      const { error: popError } = await supabase.from('post_popularity').insert(popularityData);
 
       if (popError) {
         console.error('Failed to initialize post popularity:', popError);
@@ -738,16 +739,13 @@ export const createMultipleUserInterests = async (
   }
 
   // Create an array of user interest objects
-  const userInterests = interestIds.map(interestId => ({
+  const userInterests = interestIds.map((interestId) => ({
     user_id: userId,
-    interest_id: interestId
+    interest_id: interestId,
   }));
 
   // Insert all user interests in a single database operation
-  const { data, error } = await supabase
-    .from('user_interests')
-    .insert(userInterests)
-    .select();
+  const { data, error } = await supabase.from('user_interests').insert(userInterests).select();
 
   if (error) {
     console.error('Error creating multiple user interests:', error);
@@ -1319,4 +1317,43 @@ export const getCommentById = async (
   }
 
   return data;
+};
+
+// Storage Buckets CRUD
+
+export const uploadProfileImage = async (imageUri: string, userId: string): Promise<string> => {
+  try {
+    const fileExt = imageUri.split('.').pop() || 'jpg';
+    const filePath = `${userId}-profile.${fileExt}`;
+
+    // Read image as base64 string
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // Convert base64 to ArrayBuffer
+    const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+    // Upload as binary using the Uint8Array
+    const { error } = await supabase.storage
+      .from('profile-images')
+      .upload(filePath, buffer, {
+        contentType: `image/${fileExt}`,
+        upsert: true,
+      });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from('profile-images')
+      .getPublicUrl(filePath);
+
+    if (!urlData?.publicUrl) throw new Error('Could not retrieve public URL');
+
+    console.log('Uploaded to:', urlData.publicUrl);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
 };

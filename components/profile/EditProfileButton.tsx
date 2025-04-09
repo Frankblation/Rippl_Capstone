@@ -5,12 +5,8 @@ import Feather from '@expo/vector-icons/Feather';
 export function EditProfileButton() {
   const router = useRouter();
 
-  async function settings() {
-    router.replace('/(tabs)/profile/edit');
-  }
-
   return (
-    <Pressable onPress={settings}>
+    <Pressable onPress={() => router.push('/(tabs)/profile/edit')}>
       <Feather
         name="settings"
         size={24}

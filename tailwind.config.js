@@ -11,6 +11,9 @@ module.exports = {
         heading: ['"Subjectivity Bold"', 'sans-serif'],
         body: ['"SF Pro Text"', 'sans-serif'],
       },
+      colors: {
+        atlantis: '#00AF9F',
+      },
     },
     plugins: [],
   },

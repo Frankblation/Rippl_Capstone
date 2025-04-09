@@ -158,7 +158,7 @@ const HomeScreen = () => {
         <View style={{ flex: 1 }}>
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#0000ff" />
+              <ActivityIndicator size="large" color="#00AF9F" />
               <Text style={styles.loadingText}>Loading your feed...</Text>
             </View>
           ) : (

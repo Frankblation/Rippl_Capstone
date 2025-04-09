@@ -86,35 +86,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile/index"
+        name="profile"
         options={{
-          title: 'My Profile',
           tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,
-          headerShown: true,
-          headerRight: () => <EditProfileButton />,
+          headerShown: false, // Handled in profile/_layout.tsx
         }}
         listeners={{
           tabPress: () => {
             Haptics.selectionAsync();
           },
-        }}
-      />
-      <Tabs.Screen
-        name="profile/[id]"
-        options={{
-          href: null,
-          title: '',
-          headerShown: true,
-          headerRight: () => <AddUserButton />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile/edit"
-        options={{
-          href: null,
-          title: 'Edit My Profile',
-          headerShown: true,
-          headerRight: () => <LogOutButton />,
         }}
       />
     </Tabs>

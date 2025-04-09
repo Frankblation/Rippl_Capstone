@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Swiper from 'react-native-deck-swiper';
 import { View, StyleSheet, Vibration } from 'react-native';
 import UserCard from './UserSwipingCard';
+import { useAnimation } from '~/components/AnimationContext';
+import LottieView from 'lottie-react-native';
 
 import { useRouter } from 'expo-router';
 
@@ -75,29 +77,47 @@ export default function Swipe() {
   const [matchedUser, setMatchedUser] = useState<User | null>(null);
   const [cardIndex, setCardIndex] = useState(0);
   const router = useRouter();
-
+  const { showAnimationOverlay, hideAnimationOverlay } = useAnimation();
   const handleSwipe = (direction: string, cardIndex: number) => {
     if (direction === 'right') {
       const matched = users[cardIndex];
       Vibration.vibrate([0, 100, 0, 300, 0, 500]);
-      router.push({
-        pathname: '/(tabs)/matched-users',
-        params: {
-          matchedUser: JSON.stringify(matched),
-          currentUser: JSON.stringify(currentUser),
-        },
-      });
+
+      const AnimationOverlay = () => {
+        const animationRef = useRef<LottieView>(null);
+
+        useEffect(() => {
+          if (animationRef.current) {
+            animationRef.current.play();
+          }
+        }, []);
+
+        return (
+          <View style={[StyleSheet.absoluteFillObject, styles.animationContainer]}>
+            <LottieView
+              ref={animationRef}
+              source={require('../assets/animations/Splash Transition.json')}
+              style={styles.animation}
+              autoPlay
+              loop={false}
+              speed={0.4}
+              onAnimationFinish={() => {
+                hideAnimationOverlay();
+                router.push({
+                  pathname: '/(tabs)/matched-users',
+                  params: {
+                    matchedUser: JSON.stringify(matched),
+                    currentUser: JSON.stringify(currentUser),
+                  },
+                });
+              }}
+            />
+          </View>
+        );
+      };
+
+      showAnimationOverlay(<AnimationOverlay />);
     }
-  };
-
-  const handleCloseMatch = () => {
-    setShowMatch(false);
-    setMatchedUser(null);
-  };
-
-  const handleStartChat = () => {
-    console.log('Starting chat with', matchedUser?.name);
-    handleCloseMatch();
   };
 
   return (
@@ -123,5 +143,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
+  },
+  animationContainer: {
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  animation: {
+    width: '100%',
+    height: '100%',
   },
 });
