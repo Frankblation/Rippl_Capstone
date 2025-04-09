@@ -54,7 +54,7 @@ export default function CustomizeProfileScreen() {
       });
 
       // Navigate to the next screen on success
-      router.replace('/create-interests');
+      router.replace('/create-categories');
     } catch (error) {
       console.error('Failed to update profile:', error);
       Alert.alert('Error', 'There was a problem updating your profile. Please try again.');
@@ -79,7 +79,7 @@ export default function CustomizeProfileScreen() {
               placeholderLabel="Upload Photo"
               imageSize={128} // 32 * 4 = 128px to match your h-32 w-32
               aspectRatio={[1, 1]}
-              folder={"profiles"}
+              folder={'profiles'}
             />
           ) : (
             <Text>Loading...</Text>

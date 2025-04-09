@@ -156,9 +156,6 @@ const HomeScreen = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.carouselHeaderContainer}>
-          <Text style={styles.carouselHeader}>Next on Your Calendar</Text>
-        </View>
         <View style={{ flex: 1 }}>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -186,6 +183,11 @@ const HomeScreen = () => {
                   <Text style={styles.emptySubtext}>
                     Follow interests or connect with friends to see posts
                   </Text>
+                </View>
+              }
+              ListHeaderComponent={
+                <View style={styles.carouselHeaderContainer}>
+                  <Text style={styles.carouselHeader}>Next on Your Calendar</Text>
                 </View>
               }
             />
