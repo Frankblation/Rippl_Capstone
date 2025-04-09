@@ -19,6 +19,8 @@ import { useAuth } from '~/components/providers/AuthProvider';
 import { getPostsByUserId } from '~/utils/data';
 import { formatPostsForUI, UIPost } from '~/utils/formatPosts';
 import { StatusBar } from 'expo-status-bar';
+import { useTabsReload } from '~/app/(tabs)/_layout';
+
 
 // Define feed item types
 type FeedItem = { id: string; type: 'header' } | UIPost;
@@ -30,6 +32,7 @@ const CurrentUser: React.FC = () => {
   const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
   const [feed, setFeed] = useState<FeedItem[]>([{ id: 'header', type: 'header' }]);
   const [loading, setLoading] = useState(true);
+  const { reloadFlag } = useTabsReload();
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
@@ -65,7 +68,7 @@ const CurrentUser: React.FC = () => {
     };
 
     fetchUserPosts();
-  }, [user.id, user.isLoading]);
+  }, [user.id, user.isLoading, reloadFlag]);
 
   // Handle comments
   const handleOpenComments = (post: UIPost) => {
