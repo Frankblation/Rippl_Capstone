@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   },
   carouselHeaderContainer: {
     marginHorizontal: 20,
-    marginVertical: 12,
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
