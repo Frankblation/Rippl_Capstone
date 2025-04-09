@@ -44,7 +44,7 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
-          name="create-catagories"
+          name="create-categories"
           options={{ headerShown: false, headerBackVisible: false }}
         />
         <Stack.Screen
