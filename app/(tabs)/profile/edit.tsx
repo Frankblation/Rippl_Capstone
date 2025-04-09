@@ -17,9 +17,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTabsReload } from '~/app/(tabs)/_layout';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
-import { createUserInterest, updateUser, getAllInterests } from '~/utils/data';
 import { InterestsTable } from '~/utils/db';
 import { useRouter } from 'expo-router';
+
+import { createUserInterest, updateUser, getAllInterests } from '~/utils/data';
 import SupabaseImageUploader from '~/components/SupabaseImageUploader';
 
 
@@ -82,31 +83,6 @@ export default function EditProfileScreen() {
 
     fetchData();
   }, [user.id, user.interests, user.isLoading]);
-
-  const pickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'We need camera roll permissions to change your profile picture');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 1,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image');
-    }
-  };
 
 
   const handleInterestInput = (text: string) => {
@@ -217,6 +193,7 @@ export default function EditProfileScreen() {
                 bucketName="images"
                 userId={authUser.id}
                 onUploadComplete={(imageUrl) => {
+                  // Simply update the image state without handling deletion
                   setImage(imageUrl);
                 }}
                 existingImageUrl={image}
