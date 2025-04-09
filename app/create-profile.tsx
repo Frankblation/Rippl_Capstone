@@ -89,7 +89,7 @@ export default function CustomizeProfileScreen() {
         description: bio,
       });
 
-      router.replace('/create-categories');
+      router.replace('/create-interests');
     } catch (error) {
       console.error('Failed to update profile:', error);
       Alert.alert('Error', 'There was a problem updating your profile. Please try again.');
