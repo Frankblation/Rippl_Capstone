@@ -1342,29 +1342,42 @@ export const uploadImage = async (
       buffer[i] = binary.charCodeAt(i);
     }
 
-    const contentType =
-      fileExt === 'jpg' ? 'image/jpeg' : `image/${fileExt}`;
+    const contentType = fileExt === 'jpg' ? 'image/jpeg' : `image/${fileExt}`;
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, buffer, {
-        contentType,
-        upsert: true,
-      });
+    const { error } = await supabase.storage.from(bucket).upload(filePath, buffer, {
+      contentType,
+      upsert: true,
+    });
 
     if (error) throw error;
 
-    const { data: publicUrlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
+    const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-    if (!publicUrlData?.publicUrl)
-      throw new Error('Could not retrieve public URL');
+    if (!publicUrlData?.publicUrl) throw new Error('Could not retrieve public URL');
 
     console.log('Uploaded to:', publicUrlData.publicUrl);
     return publicUrlData.publicUrl;
   } catch (error) {
     console.error('Upload error:', error);
     throw error;
+  }
+};
+
+export const deleteImage = async (imageUrl: string, bucket: string, folder?: string) => {
+  try {
+    const path = new URL(imageUrl).pathname.split(`/${bucket}/`)[1];
+    if (!path) throw new Error('Invalid path');
+
+    const finalPath = folder ? `${folder}/${path.split('/').pop()}` : path;
+
+    const { error } = await supabase.storage.from(bucket).remove([finalPath]);
+
+    if (error) {
+      console.error('Failed to delete image:', error);
+    } else {
+      console.log('Old image deleted:', finalPath);
+    }
+  } catch (err) {
+    console.error('Error while deleting image:', err);
   }
 };
