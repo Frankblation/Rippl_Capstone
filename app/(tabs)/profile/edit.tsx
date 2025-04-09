@@ -22,6 +22,7 @@ import { InterestsTable } from '~/utils/db';
 import { useRouter } from 'expo-router';
 import SupabaseImageUploader from '~/components/SupabaseImageUploader';
 
+
 interface Interest {
   id: string;
   name: string;
@@ -106,6 +107,7 @@ export default function EditProfileScreen() {
       Alert.alert('Error', 'Failed to select image');
     }
   };
+
 
   const handleInterestInput = (text: string) => {
     setNewInterest(text);
