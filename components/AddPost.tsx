@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-
+import { useTabsReload } from '~/app/(tabs)/_layout';
 import { format, type ISOStringFormat } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -32,6 +32,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
+
+import SupabaseImageUploader from '~/components/SupabaseImageUploader';
+
 import { createPost, getUserInterests } from '~/utils/data';
 import { PostType } from '~/utils/db';
 
@@ -136,6 +139,8 @@ const AddPostForm = () => {
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { triggerReload } = useTabsReload();
+
 
   // State for user interests from database
   const [interests, setInterests] = useState<{ id: string; name: string }[]>([]);
@@ -430,6 +435,7 @@ const AddPostForm = () => {
         `Your ${data.type === PostType.NOTE ? 'post' : 'event'} has been created successfully!`,
         [{ text: 'OK', onPress: () => router.push('/(tabs)/home') }]
       );
+      triggerReload();
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post. Please try again.');
@@ -802,20 +808,22 @@ const AddPostForm = () => {
                 : 'Adding an image to your post is optional but recommended.'}
             </Text>
 
-            <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
-              <Ionicons name="cloud-upload-outline" size={24} color="#00AF9F" />
-              <Text style={styles.imagePickerText}>Choose an image</Text>
-            </TouchableOpacity>
-
-            {imageUri && (
-              <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => setValue('image', null)}>
-                  <Ionicons name="close-circle" size={24} color="white" />
-                </TouchableOpacity>
-              </View>
+            {authUser?.id ? (
+              <SupabaseImageUploader
+                bucketName="images"
+                userId={authUser.id}
+                onUploadComplete={(imageUrl) => {
+                  setValue('image', imageUrl);
+                  trigger('image'); // Trigger validation after setting the image
+                }}
+                existingImageUrl={imageUri}
+                placeholderLabel="Choose an image"
+                imageSize={200} 
+                aspectRatio={[4, 3]}
+                folder={"posts"}
+              />
+            ) : (
+              <Text style={styles.errorText}>You must be logged in to upload images</Text>
             )}
 
             {isImageRequired && !imageUri && (

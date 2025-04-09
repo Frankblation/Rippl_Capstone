@@ -72,13 +72,14 @@ export default function CustomizeProfileScreen() {
         <View className="mb-8 items-center">
           {userId ? (
             <SupabaseImageUploader
-              bucketName="profile-images"
+              bucketName="images"
               userId={userId}
               onUploadComplete={handleImageUploaded}
               existingImageUrl={profileImageUrl}
               placeholderLabel="Upload Photo"
               imageSize={128} // 32 * 4 = 128px to match your h-32 w-32
               aspectRatio={[1, 1]}
+              folder={"profiles"}
             />
           ) : (
             <Text>Loading...</Text>
