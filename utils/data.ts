@@ -1321,37 +1321,48 @@ export const getCommentById = async (
 
 // Storage Buckets CRUD
 
-export const uploadProfileImage = async (imageUri: string, userId: string): Promise<string> => {
+export const uploadImage = async (
+  imageUri: string,
+  userId: string,
+  bucket: string = 'images',
+  folder?: string
+): Promise<string> => {
   try {
     const fileExt = imageUri.split('.').pop() || 'jpg';
-    const filePath = `${userId}-profile.${fileExt}`;
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const filePath = folder ? `${folder}/${fileName}` : fileName;
 
-    // Read image as base64 string
     const base64 = await FileSystem.readAsStringAsync(imageUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    // Convert base64 to ArrayBuffer
-    const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const binary = atob(base64);
+    const buffer = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      buffer[i] = binary.charCodeAt(i);
+    }
 
-    // Upload as binary using the Uint8Array
+    const contentType =
+      fileExt === 'jpg' ? 'image/jpeg' : `image/${fileExt}`;
+
     const { error } = await supabase.storage
-      .from('profile-images')
+      .from(bucket)
       .upload(filePath, buffer, {
-        contentType: `image/${fileExt}`,
+        contentType,
         upsert: true,
       });
 
     if (error) throw error;
 
-    const { data: urlData } = supabase.storage
-      .from('profile-images')
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
       .getPublicUrl(filePath);
 
-    if (!urlData?.publicUrl) throw new Error('Could not retrieve public URL');
+    if (!publicUrlData?.publicUrl)
+      throw new Error('Could not retrieve public URL');
 
-    console.log('Uploaded to:', urlData.publicUrl);
-    return urlData.publicUrl;
+    console.log('Uploaded to:', publicUrlData.publicUrl);
+    return publicUrlData.publicUrl;
   } catch (error) {
     console.error('Upload error:', error);
     throw error;
