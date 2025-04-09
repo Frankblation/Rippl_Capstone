@@ -156,6 +156,9 @@ const HomeScreen = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
+        <View style={styles.carouselHeaderContainer}>
+          <Text style={styles.carouselHeader}>Next on Your Calendar</Text>
+        </View>
         <View style={{ flex: 1 }}>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -224,6 +227,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  carouselHeaderContainer: {
+    marginHorizontal: 20,
+    marginVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  carouselHeader: {
+    fontSize: 20,
+    fontFamily: 'geistBold',
+    color: '#333',
   },
 });
 
