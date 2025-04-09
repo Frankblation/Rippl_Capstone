@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '~/components/providers/AuthProvider'; // Update this path if needed
+import { useAuth } from '~/components/providers/AuthProvider';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { email, setEmail, password, setPassword, signUpWithEmail, authLoading } = useAuth();
+  const { email, setEmail, password, setPassword, signUpWithEmail, signInWithEmail, authLoading } =
+    useAuth();
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -43,6 +45,19 @@ export default function SignupScreen() {
     return true;
   };
 
+  const handleVerifiedEmail = async () => {
+    // Force sign in with email after verification
+    const { data, error } = await signInWithEmail();
+
+    if (error) {
+      setErrorMessage(`Error signing in: ${error.message}`);
+      return;
+    }
+
+    // Proceed to profile creation
+    router.replace('/create-profile');
+  };
+
   const handleSignup = async () => {
     // First validate inputs
     if (!validateInputs()) {
@@ -63,18 +78,18 @@ export default function SignupScreen() {
       Alert.alert(
         'Check your email',
         'We sent you a confirmation link. Please check your email to complete signup.',
-        [{ text: 'OK', onPress: () => router.replace('/login') }]
+        [{ text: 'I Verified My Email', onPress: handleVerifiedEmail }]
       );
     } else {
       // Email confirmation not required, go to onboarding
-      router.replace('/customize-profile');
+      router.replace('/create-profile');
     }
   };
 
   return (
-    <ScrollView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
-      <View className="flex-1 px-6 py-12">
+      <View className="flex-1 justify-center px-6 py-12">
         <View className="mb-8">
           <Text className="mb-2 text-3xl font-bold">Create Account</Text>
           <Text className="text-gray-600">Sign up to get started with our app</Text>
@@ -98,6 +113,7 @@ export default function SignupScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               editable={!authLoading}
+              style={{ textAlignVertical: 'center', minHeight: 50 }}
             />
           </View>
 
@@ -110,6 +126,7 @@ export default function SignupScreen() {
               placeholder="Create a password"
               secureTextEntry
               editable={!authLoading}
+              style={{ textAlignVertical: 'center', minHeight: 50 }}
             />
           </View>
 
@@ -122,6 +139,7 @@ export default function SignupScreen() {
               placeholder="Confirm your password"
               secureTextEntry
               editable={!authLoading}
+              style={{ textAlignVertical: 'center', minHeight: 50 }}
             />
           </View>
         </View>
@@ -142,10 +160,10 @@ export default function SignupScreen() {
         <View className="flex-row justify-center">
           <Text className="text-gray-600">Already have an account? </Text>
           <TouchableOpacity onPress={() => router.push('/login')} disabled={authLoading}>
-            <Text className="font-medium text-teal-500">Log In</Text>
+            <Text className="font-medium text-[#00AF9F]">Log In</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }

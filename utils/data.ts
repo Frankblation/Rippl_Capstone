@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import * as FileSystem from 'expo-file-system';
 
 // Data Types
 import { PostType, Status } from './db';
@@ -74,25 +75,85 @@ export const getUserById = async (userId: string): Promise<UsersTable | null> =>
   return data as UsersTable;
 };
 
-// UPDATE
 /**
- * Updates a user in the database
- * @param userData User data to insert (excluding id and created_at)
- * @returns Promise with the created user data
+ * Search for users by name or id
+ * @param query The search query to use
+ * @returns An array of user objects matching the query
+ */
+export const searchUsers = async (query: string): Promise<UsersTable[]> => {
+  if (!query.trim()) {
+    return [];
+  }
+
+  try {
+    // Only search by name using ilike (case-insensitive pattern matching)
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .ilike('name', `%${query}%`)
+      .limit(10);
+
+    if (error) {
+      console.error('Error searching users:', error);
+      throw error;
+    }
+
+    // If the query looks like a UUID (for exact ID matching), try that as a separate query
+    // We do this as a separate query to avoid UUID syntax errors when searching by name
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query)) {
+      const { data: idData, error: idError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', query);
+
+      if (!idError && idData.length > 0) {
+        // Combine with the name search results, ensuring no duplicates
+        const allIds = new Set(data.map((user) => user.id));
+        const combinedData = [...data];
+
+        for (const user of idData) {
+          if (!allIds.has(user.id)) {
+            combinedData.push(user);
+          }
+        }
+
+        return combinedData as UsersTable[];
+      }
+    }
+
+    return data as UsersTable[];
+  } catch (error) {
+    console.error('Error searching users:', error);
+    throw error;
+  }
+};
+
+/**
+ * UPDATE
+ * Updates an existing user record in Supabase
+ * @param userId The ID of the user to update
+ * @param userData The user data to update
+ * @returns Promise with the updated user data
  */
 export const updateUser = async (
-  userData: Omit<UsersTable, 'id' | 'created_at'>
+  userId: string,
+  userData: Partial<Omit<UsersTable, 'id' | 'created_at'>>
 ): Promise<UsersTable> => {
+  // Prepare the update object with only fields that are provided
+  const updateData: any = {};
+
+  // Only add fields that are provided in userData
+  if (userData.name !== undefined || null) updateData.name = userData.name;
+  if (userData.image !== undefined || null) updateData.image = userData.image;
+  if (userData.description !== undefined || null) updateData.description = userData.description;
+  if (userData.email) updateData.email = userData.email;
+  if (userData.password) updateData.password = userData.password;
+
+  // Execute the update with only the provided fields
   const { data, error } = await supabase
     .from('users')
-    .insert([
-      {
-        email: userData.email,
-        password: userData.password,
-        name: userData.name,
-        image: userData.image,
-      },
-    ])
+    .update(updateData)
+    .eq('id', userId)
     .select()
     .single();
 
@@ -128,13 +189,42 @@ export const deleteUser = async (userId: string): Promise<UsersTable | null> => 
  * @param postData The post data to insert (id and created_at will be generated automatically)
  * @returns Promise with the created post data
  */
-export const createPost = async (
-  postData: Omit<PostsTable, 'id' | 'created_at'>
-): Promise<PostsTable> => {
-  const { data, error } = await supabase.from('posts').insert([postData]).select().single();
+export const createPost = async ({
+  postData,
+  initializePopularity = true,
+}: {
+  postData: Omit<PostsTable, 'id' | 'created_at'>;
+  initializePopularity?: boolean;
+}) => {
+  try {
+    // Insert the post and get the new post ID
+    const { data: post, error } = await supabase.from('posts').insert(postData).select().single();
 
-  if (error) throw error;
-  return data as PostsTable;
+    if (error) throw error;
+
+    // Initialize post popularity row for this post
+    if (initializePopularity && post) {
+      const popularityData = {
+        post_id: post.id,
+        likes: 0,
+        comments: 0,
+        reposts: 0,
+        total_engagement: 0,
+      };
+
+      const { error: popError } = await supabase.from('post_popularity').insert(popularityData);
+
+      if (popError) {
+        console.error('Failed to initialize post popularity:', popError);
+        // Consider whether to throw this error or just log it
+      }
+    }
+
+    return post;
+  } catch (error) {
+    console.error('Error in createPost:', error);
+    throw error;
+  }
 };
 
 // READ
@@ -162,6 +252,22 @@ export const getPostsByUserId = async (userId: string): Promise<PostsTable[]> =>
     .from('posts')
     .select('*')
     .eq('user_id', userId)
+    .order('created_at', { ascending: false }); // Latest posts first
+
+  if (error) throw error;
+  return data as PostsTable[];
+};
+
+/**
+ * Fetches all posts by a specific Interest
+ * @param interestId The ID of the Interest whose posts to fetch
+ * @returns Promise with array of the posts with that interest
+ */
+export const getPostsByInterestId = async (interestId: string): Promise<PostsTable[]> => {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('interest_id', interestId)
     .order('created_at', { ascending: false }); // Latest posts first
 
   if (error) throw error;
@@ -618,25 +724,64 @@ export const createUserInterest = async (
   return userInterest;
 };
 
+/**
+ * Creates multiple user interest connections at once
+ * @param userId The ID of the user
+ * @param interestIds Array of interest IDs to associate with the user
+ * @returns Promise with an array of created user interests
+ */
+export const createMultipleUserInterests = async (
+  userId: string,
+  interestIds: string[]
+): Promise<UserInterestsTable[]> => {
+  if (!interestIds.length) {
+    return [];
+  }
+
+  // Create an array of user interest objects
+  const userInterests = interestIds.map((interestId) => ({
+    user_id: userId,
+    interest_id: interestId,
+  }));
+
+  // Insert all user interests in a single database operation
+  const { data, error } = await supabase.from('user_interests').insert(userInterests).select();
+
+  if (error) {
+    console.error('Error creating multiple user interests:', error);
+    throw error;
+  }
+
+  return data as UserInterestsTable[];
+};
+
 // READ
 /**
  * Gets all interests for a specific user
  * @param userId The ID of the user
  * @returns Promise with an array of user interests with interest details
  */
-export const getUserInterests = async (
-  userId: string
-): Promise<(UserInterestsTable & InterestsTable)[]> => {
+export const getUserInterests = async (userId: string): Promise<any[]> => {
   const { data, error } = await supabase
     .from('user_interests')
-    .select('*, interests(*)')
+    .select(
+      `
+      *,
+      interests (
+        id,
+        name,
+        category_id
+      )
+    `
+    )
     .eq('user_id', userId);
 
-  if (error) throw error;
-  return data.map((item) => ({
-    ...item,
-    ...item.interests,
-  }));
+  if (error) {
+    console.error('Supabase error:', error);
+    throw error;
+  }
+
+  return data || [];
 };
 
 /**
@@ -1172,4 +1317,54 @@ export const getCommentById = async (
   }
 
   return data;
+};
+
+// Storage Buckets CRUD
+
+export const uploadImage = async (
+  imageUri: string,
+  userId: string,
+  bucket: string = 'images',
+  folder?: string
+): Promise<string> => {
+  try {
+    const fileExt = imageUri.split('.').pop() || 'jpg';
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const filePath = folder ? `${folder}/${fileName}` : fileName;
+
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    const binary = atob(base64);
+    const buffer = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      buffer[i] = binary.charCodeAt(i);
+    }
+
+    const contentType =
+      fileExt === 'jpg' ? 'image/jpeg' : `image/${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, buffer, {
+        contentType,
+        upsert: true,
+      });
+
+    if (error) throw error;
+
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    if (!publicUrlData?.publicUrl)
+      throw new Error('Could not retrieve public URL');
+
+    console.log('Uploaded to:', publicUrlData.publicUrl);
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
 };

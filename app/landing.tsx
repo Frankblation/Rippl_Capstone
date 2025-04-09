@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import WavyTop from '../components/WavyTop';
+import * as Haptics from 'expo-haptics';
 
 type ImageItem = {
   id: string;
@@ -34,7 +35,7 @@ const NUM_COLUMNS = 3;
 const ITEM_MARGIN = 6;
 const ITEM_WIDTH = (SCREEN_WIDTH - ITEM_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
-export default function Landing() {
+export default function LandingScreen() {
   const router = useRouter();
   const renderItem = ({ item }: { item: ImageItem }) => {
     const aspectRatio = item.width / item.height;
@@ -82,22 +83,28 @@ export default function Landing() {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image source={require('../assets/rippl-logo.png')} style={styles.logo} />
-        <Text style={styles.missionText}>Where small connections make big waves.</Text>
+        <Text style={styles.missionText}>Where Small Connections Make Big Waves.</Text>
       </View>
 
       <View style={styles.buttonContainer}>
         <View style={styles.blurButtonContainer}>
           <View style={styles.buttonsRow}>
-            <Pressable onPress={() => router.push('/login')} style={styles.button}>
-              <Text style={styles.buttonText}>LOGIN</Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push('/login');
+              }}
+              style={styles.button}>
+              <Text style={styles.buttonText}>Login</Text>
             </Pressable>
 
-            <Pressable onPress={() => router.push('/signup')} style={styles.button}>
-              <Text style={styles.buttonText}>SIGN UP</Text>
-            </Pressable>
-
-            <Pressable onPress={() => router.push('/(tabs)/home')} style={styles.button}>
-              <Text style={styles.buttonText}>Go to app</Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push('/signup');
+              }}
+              style={styles.button}>
+              <Text style={styles.buttonText}>Sign Up</Text>
             </Pressable>
           </View>
         </View>
@@ -143,7 +150,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   missionText: {
-    fontFamily: 'SFProTextSemiBold',
+    fontFamily: 'geistBold',
     color: '#DFF8EB',
     fontSize: 18,
   },
@@ -167,7 +174,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   button: {
-    width: '30%',
+    width: '40%',
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -177,6 +184,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     color: 'white',
-    fontFamily: 'SFProTextMedium',
+    fontFamily: 'geistSemiBold',
   },
 });

@@ -7,11 +7,15 @@ import {
   TouchableOpacity,
   Platform,
   ImageSourcePropType,
+  Alert,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import AvatarGroup from './AvatarGroup';
 import LottieView from 'lottie-react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import * as Calendar from 'expo-calendar';
+import { parse, format, parseISO } from 'date-fns';
 
 interface EventCardProps {
   title: string;
@@ -51,19 +55,133 @@ const EventCard: React.FC<EventCardProps> = ({
   timePosted,
 }) => {
   const [isGoing, setIsGoing] = useState(false);
-  const [isNotGoing, setIsNotGoing] = useState(false);
+  const [isinterested, setIsinterested] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
   const [isLiked, setIsLiked] = useState(false);
+  const [hasCalendarPermission, setHasCalendarPermission] = useState(false);
   const animationRef = useRef<LottieView>(null);
 
-  const toggleGoing = () => {
-    setIsGoing(!isGoing);
-    if (!isGoing) setIsNotGoing(false);
+  useEffect(() => {
+    (async () => {
+      const { status } = await Calendar.requestCalendarPermissionsAsync();
+      setHasCalendarPermission(status === 'granted');
+    })();
+  }, []);
+
+  const toggleGoing = async () => {
+    const newGoingState = !isGoing;
+    setIsGoing(newGoingState);
+
+    if (newGoingState) {
+      setIsinterested(false);
+      if (hasCalendarPermission) {
+        await addEventToCalendar();
+      } else {
+        Alert.alert(
+          'Calendar Permission Required',
+          'To add this event to your calendar, please grant calendar access in your device settings.'
+        );
+      }
+    }
   };
 
-  const toggleNotGoing = () => {
-    setIsNotGoing(!isNotGoing);
-    if (!isNotGoing) setIsGoing(false);
+  const addEventToCalendar = async () => {
+    try {
+      // Get default calendar ID
+      const defaultCalendarSource =
+        Platform.OS === 'ios'
+          ? await getDefaultCalendarSource()
+          : { isLocalAccount: true, name: 'Expo Calendar' };
+
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const defaultCalendar = calendars.find(
+        (cal: Calendar.Calendar) => cal.source.name === defaultCalendarSource.name
+      );
+
+      if (!defaultCalendar) {
+        Alert.alert('Calendar Error', 'Could not find a default calendar');
+        return;
+      }
+
+      // Parse date and time strings to create Date objects
+      const { startDate, endDate } = parseEventDateRange(date, time);
+
+      const eventId = await Calendar.createEventAsync(defaultCalendar.id, {
+        title,
+        location,
+        startDate,
+        endDate,
+        notes: description || '',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        alarms: [{ relativeOffset: -60 }],
+      });
+
+      Alert.alert('Added to Calendar', 'You’ll get a reminder before it starts.', [
+        { text: 'Great' },
+      ]);
+
+      return eventId;
+    } catch (error) {
+      console.error('Error adding event to calendar:', error);
+      Alert.alert('Error', 'Failed to add event to calendar');
+    }
+  };
+
+  const getDefaultCalendarSource = async () => {
+    const defaultCalendar =
+      Platform.OS === 'ios'
+        ? await Calendar.getDefaultCalendarAsync()
+        : { isLocalAccount: true, name: 'Expo Calendar' };
+
+    if ('source' in defaultCalendar) {
+      return defaultCalendar.source;
+    }
+    return defaultCalendar;
+  };
+
+  const parseEventDateRange = (
+    dateStr: string,
+    timeStr: string
+  ): { startDate: Date; endDate: Date } => {
+    try {
+      // Extract year
+      const yearMatch = dateStr.match(/\d{4}$/);
+      const year = yearMatch ? yearMatch[0] : `${new Date().getFullYear()}`;
+
+      const dateWithoutYear = dateStr.replace(year, '').replace(',', '').trim();
+      const [startDateRaw, endDateRaw] = dateWithoutYear.split(/[–-]/).map((s) => s.trim());
+
+      const startDateText = `${startDateRaw} ${year}`;
+      const endDateText = endDateRaw
+        ? isNaN(Number(endDateRaw))
+          ? `${endDateRaw} ${year}` // "June 17"
+          : `${startDateRaw.split(' ')[0]} ${endDateRaw} ${year}` // "15–17" becomes "June 17"
+        : startDateText;
+
+      // Parse time range (e.g., "12:00 PM - 11:00 PM")
+      const [startTimeRaw, endTimeRaw] = timeStr.split(/[–-]/).map((s) => s.trim());
+      const startTime = startTimeRaw || '12:00 PM';
+      const endTime = endTimeRaw || startTime;
+
+      // Use date-fns to parse full datetimes
+      const formatStr = 'MMMM d yyyy h:mm a';
+      const startDate = parse(`${startDateText} ${startTime}`, formatStr, new Date());
+      const endDate = parse(`${endDateText} ${endTime}`, formatStr, new Date());
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error('Could not parse date range');
+      }
+
+      return { startDate, endDate };
+    } catch (error) {
+      console.error('Error parsing date and time range:', error);
+      throw new RangeError('Date or time range could not be parsed');
+    }
+  };
+
+  const toggleinterested = () => {
+    setIsinterested(!isinterested);
+    if (!isinterested) setIsGoing(false);
   };
 
   const handleLikePress = () => {
@@ -161,17 +279,19 @@ const EventCard: React.FC<EventCardProps> = ({
                   isGoing ? styles.goingButtonActiveGreen : styles.goingButtonInactive,
                 ]}
                 onPress={toggleGoing}>
-                <Feather name="check" size={20} color={isGoing ? '#fff' : '#10b981'} />
+                <AntDesign name="check" size={20} color={isGoing ? '#fff' : '#00AF9F'} />
               </TouchableOpacity>
 
               {/* NOT GOING */}
               <TouchableOpacity
                 style={[
                   styles.iconButton,
-                  isNotGoing ? styles.notGoingButtonActiveGray : styles.notGoingButtonInactive,
+                  isinterested
+                    ? styles.interestedButtonActiveGray
+                    : styles.interestedButtonInactive,
                 ]}
-                onPress={toggleNotGoing}>
-                <Feather name="x" size={20} color={isNotGoing ? '#fff' : '#f87171'} />
+                onPress={toggleinterested}>
+                <AntDesign name="staro" size={20} color={isinterested ? '#fff' : '#F39237'} />
               </TouchableOpacity>
             </View>
           )}
@@ -295,19 +415,19 @@ const styles = StyleSheet.create({
   },
   goingButtonInactive: {
     backgroundColor: 'white',
-    borderColor: '#10b981',
+    borderColor: '#00AF9F',
   },
-  notGoingButtonInactive: {
+  interestedButtonInactive: {
     backgroundColor: 'white',
-    borderColor: '#f87171',
+    borderColor: '#F39237',
   },
   goingButtonActiveGreen: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
+    backgroundColor: '#00AF9F',
+    borderColor: '#00AF9F',
   },
-  notGoingButtonActiveGray: {
-    backgroundColor: '#f87171',
-    borderColor: '#f87171',
+  interestedButtonActiveGray: {
+    backgroundColor: '#F39237',
+    borderColor: '#F39237',
   },
   // ATTENDEES SELECTION
   attendeesSection: {

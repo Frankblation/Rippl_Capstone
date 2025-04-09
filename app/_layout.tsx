@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AnimationProvider } from '~/components/AnimationContext';
 
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { AuthProvider, useAuth } from '~/components/providers/AuthProvider';
@@ -11,6 +12,7 @@ import { AuthProvider, useAuth } from '~/components/providers/AuthProvider';
 import { OverlayProvider } from 'stream-chat-expo';
 
 import 'global.css';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,27 +33,30 @@ function RootLayoutNav() {
         <Stack.Screen name="landing" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
-        
+
         {/* Onboarding screens - auth required */}
-        <Stack.Screen 
-          name="customize-profile" 
-          options={{ 
+        <Stack.Screen
+          name="create-profile"
+          options={{
             headerShown: false,
             // Prevent going to these screens if not authenticated
-            headerBackVisible: false
-          }} 
+            headerBackVisible: false,
+          }}
         />
-        <Stack.Screen name="create-interests" options={{ headerShown: false, headerBackVisible: false }} />
+        <Stack.Screen
+          name="create-interests"
+          options={{ headerShown: false, headerBackVisible: false }}
+        />
         <Stack.Screen name="welcome" options={{ headerShown: false, headerBackVisible: false }} />
-        
+
         {/* Main app - auth required */}
-        <Stack.Screen 
-          name="(tabs)" 
-          options={{ 
+        <Stack.Screen
+          name="(tabs)"
+          options={{
             headerShown: false,
             // Prevent going back to auth screens
-            headerBackVisible: false
-          }} 
+            headerBackVisible: false,
+          }}
         />
         <Stack.Screen name="+not-found" />
       </Stack>
@@ -67,7 +72,14 @@ export default function RootLayout() {
     SFProTextSemiBold: require('../assets/fonts/SF-Pro-Text-Semibold.otf'),
     SFProTextMedium: require('../assets/fonts/SF-Pro-Text-Medium.otf'),
     SFProDisplayRegular: require('../assets/fonts/SF-Pro-Display-Regular.otf'),
+    SFProDisplayBold: require('../assets/fonts/SF-Pro-Display-Bold.otf'),
     rlAqva: require('../assets/fonts/rlAqva.otf'),
+    geistBold: require('../assets/fonts/Geist-Bold.otf'),
+    geistRegular: require('../assets/fonts/Geist-Regular.otf'),
+    geistSemiBold: require('../assets/fonts/Geist-SemiBold.otf'),
+    geistMedium: require('../assets/fonts/Geist-Medium.otf'),
+    brush: require('../assets/fonts/Astakhov-Brush-Hooliganism.otf'),
+    bubbles: require('../assets/fonts/Pearly-Smiles.ttf'),
   });
 
   useEffect(() => {
@@ -82,11 +94,15 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <OverlayProvider>
-        <AuthProvider>
-          <RootLayoutNav />
-        </AuthProvider>
-      </OverlayProvider>
+      <AnimationProvider>
+        <SafeAreaProvider>
+          <OverlayProvider>
+            <AuthProvider>
+              <RootLayoutNav />
+            </AuthProvider>
+          </OverlayProvider>
+        </SafeAreaProvider>
+      </AnimationProvider>
     </GestureHandlerRootView>
   );
 }

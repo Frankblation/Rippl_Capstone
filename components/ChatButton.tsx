@@ -1,17 +1,23 @@
-import { Pressable } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import Feather from '@expo/vector-icons/Feather';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 export function ChatButton() {
   const router = useRouter();
 
-  async function chat() {
-    router.push('/(tabs)/chat/chat-list');
+  function chat() {
+    router.push('/(chat)/chat-list');
   }
 
   return (
     <Pressable onPress={chat}>
-      <Feather name="message-square" size={24} color="black" />
+      <Ionicons name="chatbubbles-outline" size={30} color="#00AF9F" style={styles.chat} />
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  chat: {
+    marginRight: 10,
+  },
+});

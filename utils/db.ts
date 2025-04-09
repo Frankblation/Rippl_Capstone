@@ -1,3 +1,5 @@
+import { ISOStringFormat } from "date-fns";
+
 // ENUM Types
 export enum PostType {
     NOTE = 'note',
@@ -34,6 +36,7 @@ export interface UsersTable {
     name: string;
     image: string;
     created_at: string;
+    description: string;
 }
 
 // Posts Data Type
@@ -41,14 +44,14 @@ export interface PostsTable {
     id: string;
     post_type: PostType; // enum
     title: string;
-    location: string;
+    location?: string;
     description: string;
     image: string;
     user_id: string;
-    likes: number;
-    reposts: number;
     created_at: string;
     interest_id: string;
+    attendees?: AttendeesTable;
+    event_date?: ISOStringFormat;
 }
 
 // Messages Data Type
@@ -136,4 +139,56 @@ export interface UserInterestsTable {
 export interface UserMatchesTable {
     user_id: string;
     matched_user_id: string;
+}
+
+export interface SupabaseUser {
+  id: string;
+  aud: string;
+  role: string;
+  email: string;
+  phone: string;
+  is_anonymous: boolean;
+  created_at: string;
+  confirmed_at: string;
+  email_confirmed_at: string;
+  confirmation_sent_at: string;
+  last_sign_in_at: string;
+  updated_at: string;
+
+  app_metadata: {
+    provider: string;
+    providers: string[];
+  };
+
+  user_metadata: {
+    email: string;
+    email_verified: boolean;
+    phone_verified: boolean;
+    sub: string;
+  };
+
+  identities: {
+    id: string;
+    user_id: string;
+    identity_id: string;
+    provider: string;
+    email: string;
+    created_at: string;
+    updated_at: string;
+    last_sign_in_at: string;
+    identity_data: Record<string, unknown>;
+  }[];
+}
+
+export interface SupabaseSession {
+  data: {
+    session: {
+      access_token: string;
+      refresh_token: string;
+      user: SupabaseUser | null;
+    };
+  };
+  error: {
+    message: string;
+  } | null;
 }

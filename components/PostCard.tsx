@@ -12,11 +12,14 @@ import {
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
+
 interface PostCardProps {
   interest: string;
   username: string;
   userAvatar: ImageSourcePropType;
   timePosted: string;
+  userId: string;
   title?: string;
   postText?: string;
   postImage?: ImageSourcePropType;
@@ -34,6 +37,7 @@ const PostCard: React.FC<PostCardProps> = ({
   userAvatar,
   timePosted,
   postText,
+  userId,
   title,
   postImage,
   onPress,
@@ -46,7 +50,12 @@ const PostCard: React.FC<PostCardProps> = ({
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
   const animationRef = useRef<LottieView>(null);
-
+  const router = useRouter();
+  /**
+   * Data needed:
+   * user (user_id, name, image, interest)
+   * post (created_at, title, description, image)
+   */
   const handleLikePress = () => {
     setIsLiked(!isLiked);
     setLikesCount(!isLiked ? likesCount + 1 : likesCount - 1);
@@ -70,7 +79,9 @@ const PostCard: React.FC<PostCardProps> = ({
       <View style={styles.card}>
         {/* HEADER WITH INTEREST, PROFILE PIC AND USERNAME */}
         <View style={styles.cardHeader}>
-          <TouchableOpacity onPress={onProfilePress} style={styles.userInfo}>
+          <TouchableOpacity
+            onPress={() => router.push(`/(tabs)/profile/${userId}`)}
+            style={styles.userInfo}>
             <Image source={userAvatar} style={styles.avatar} />
             <View>
               <Text style={styles.interest}>{interest}</Text>

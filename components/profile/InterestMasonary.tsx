@@ -29,6 +29,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
+    paddingVertical: 6,
     justifyContent: 'center',
   },
   chip: {
