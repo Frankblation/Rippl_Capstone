@@ -12,7 +12,9 @@ import {
   Keyboard,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+
+import SupabaseImageUploader from '~/components/SupabaseImageUploader';
+import { useAuth } from '~/components/providers/AuthProvider';
 
 // Sample interests for autocomplete
 const SAMPLE_INTERESTS = [
@@ -50,25 +52,7 @@ export default function EditProfileScreen() {
 
   const bioInputRef = useRef<TextInput>(null);
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (status !== 'granted') {
-      alert('Sorry, we need camera roll permissions to make this work!');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setImage(result.assets[0].uri);
-    }
-  };
+  const { user: authUser } = useAuth();
 
   const handleInterestInput = (text: string) => {
     setNewInterest(text);
@@ -115,20 +99,25 @@ export default function EditProfileScreen() {
       <ScrollView>
         <View className="p-6">
           <View className="mb-6 items-center">
-            <View className="relative">
-              {image ? (
-                <Image source={{ uri: image }} className="h-32 w-32 rounded-full" />
-              ) : (
-                <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
-                  <Feather name="user" size={50} color="#9ca3af" />
-                </View>
-              )}
-              <TouchableOpacity
-                onPress={pickImage}
-                className="absolute bottom-0 right-0 rounded-full bg-[#00AF9F] p-2">
-                <Feather name="camera" size={18} color="white" />
-              </TouchableOpacity>
-            </View>
+            {authUser?.id ? (
+              <SupabaseImageUploader
+                bucketName="images"
+                userId={authUser.id}
+                onUploadComplete={(imageUrl) => {
+                  setImage(imageUrl);
+                }}
+                existingImageUrl={image}
+                placeholderLabel="Update Photo"
+                imageSize={128}
+                aspectRatio={[1, 1]}
+                folder="profiles"
+              />
+            ) : (
+              <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
+                <Feather name="user" size={50} color="#9ca3af" />
+                <Text className="mt-2 text-sm text-gray-500">Sign in to update photo</Text>
+              </View>
+            )}
           </View>
 
           <View className="mb-6">

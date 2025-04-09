@@ -2,24 +2,28 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Feather from '@expo/vector-icons/Feather';
-import { uploadProfileImage } from '~/utils/data';
+import { uploadImage } from '~/utils/data';
 
 interface SupabaseImageUploaderProps {
   userId: string;
+  bucketName: string;
   onUploadComplete: (url: string) => void;
   existingImageUrl?: string | null;
   placeholderLabel?: string;
   imageSize?: number;
   aspectRatio?: [number, number];
+  folder?: string;
 }
 
 export default function SupabaseImageUploader({
+  bucketName,
   userId,
   onUploadComplete,
   existingImageUrl = null,
   placeholderLabel = 'Upload Photo',
   imageSize = 100,
   aspectRatio = [1, 1],
+  folder = '',
 }: SupabaseImageUploaderProps) {
   const [image, setImage] = useState<string | null>(existingImageUrl);
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -58,7 +62,7 @@ export default function SupabaseImageUploader({
 
     try {
       setIsUploading(true);
-      const imageUrl = await uploadProfileImage(imageUri, userId);
+      const imageUrl = await uploadImage(imageUri, userId, bucketName, folder);
       onUploadComplete(imageUrl);
     } catch (error: unknown) {
       console.error('Error uploading file:', error);
