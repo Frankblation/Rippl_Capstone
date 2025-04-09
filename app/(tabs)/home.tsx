@@ -28,7 +28,7 @@ import {
 import { formatPostsForUI, UIPost, PostComment } from '~/utils/formatPosts';
 
 import { PostsTable } from '~/utils/db';
-
+import { useTabsReload } from '~/app/(tabs)/_layout';
 import EventCard from '../../components/EventCard';
 import PostCard from '../../components/PostCard';
 import EventCarousel from '../../components/UpcomingEventsCarousel';
@@ -44,6 +44,7 @@ const HomeScreen = () => {
   const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
   const [feed, setFeed] = useState<FeedItem[]>([{ type: 'carousel' }]);
   const [loading, setLoading] = useState(true);
+  const { reloadFlag } = useTabsReload();
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
@@ -103,7 +104,7 @@ const HomeScreen = () => {
     };
 
     fetchFeedData();
-  }, [user.id, user.interests, user.isLoading]);
+  }, [user.id, user.interests, user.isLoading, reloadFlag]);
 
   const handleOpenComments = (post: UIPost) => {
     // Use the comments from the formatted post

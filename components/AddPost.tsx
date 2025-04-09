@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-
+import { useTabsReload } from '~/app/(tabs)/_layout';
 import { format, type ISOStringFormat } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -136,6 +136,8 @@ const AddPostForm = () => {
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { triggerReload } = useTabsReload();
+
 
   // State for user interests from database
   const [interests, setInterests] = useState<{ id: string; name: string }[]>([]);
@@ -430,6 +432,7 @@ const AddPostForm = () => {
         `Your ${data.type === PostType.NOTE ? 'post' : 'event'} has been created successfully!`,
         [{ text: 'OK', onPress: () => router.push('/(tabs)/home') }]
       );
+      triggerReload();
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post. Please try again.');
