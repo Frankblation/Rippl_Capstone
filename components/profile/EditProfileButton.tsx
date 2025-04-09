@@ -7,12 +7,7 @@ export function EditProfileButton() {
 
   return (
     <Pressable onPress={() => router.push('/(tabs)/profile/edit')}>
-      <Feather
-        name="settings"
-        size={34}
-        color="black"
-        style={{ marginRight: 20 }}
-      />
+      <Feather name="settings" size={24} color="black" style={{ marginRight: 16 }} />
     </Pressable>
   );
 }
