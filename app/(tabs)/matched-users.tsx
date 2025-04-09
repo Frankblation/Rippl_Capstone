@@ -39,7 +39,7 @@ const MatchScreen = () => {
       onStartChat={() => {
         console.log('Start chat with', parsedMatchedUser.name);
         router.push({
-          pathname: '/(tabs)/matching',
+          pathname: '/(chat)/chat-list',
         });
       }}
     />

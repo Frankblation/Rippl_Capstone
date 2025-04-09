@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Feather from '@expo/vector-icons/Feather';
-import LottieView from 'lottie-react-native';
 import { useRef, useEffect } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 type User = {
   name: string;
@@ -33,14 +33,6 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
 
   const interestsToShow =
     sharedInterests.length > 0 ? sharedInterests : matchedUser.interests.slice(0, 3);
-
-  const animationRef = useRef<LottieView>(null);
-
-  useEffect(() => {
-    if (animationRef.current) {
-      animationRef.current.play();
-    }
-  }, []);
 
   return (
     <ImageBackground
@@ -67,24 +59,18 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
                     ))}
                   </View>
                 </View>
-                <View style={styles.chatContainer}>
-                  <View style={styles.buttonWrapper}>
-                    <LottieView
-                      ref={animationRef}
-                      source={require('../assets/animations/orange-ripple.json')}
-                      style={styles.rippleAnimation}
-                      loop={true}
-                      autoPlay={true}
-                    />
-                    <TouchableOpacity
-                      style={styles.chatButton}
-                      onPress={onStartChat}
-                      activeOpacity={0.8}>
-                      <Text style={styles.chatButtonText}>Let's Go</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
               </View>
+              <TouchableOpacity style={styles.chatButton} onPress={onStartChat} activeOpacity={0.8}>
+                <View style={styles.buttonContent}>
+                  <Text style={styles.chatButtonText}>Jump In</Text>
+                  <Ionicons
+                    style={styles.chatButtonText}
+                    name="chatbubbles-outline"
+                    size={24}
+                    color="black"
+                  />
+                </View>
+              </TouchableOpacity>
             </View>
           </BlurView>
         ) : (
@@ -104,22 +90,18 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
                     ))}
                   </View>
                 </View>
-                <View style={styles.buttonWrapper}>
-                  <LottieView
-                    ref={animationRef}
-                    source={require('../assets/animations/orange-ripple.json')}
-                    style={styles.rippleAnimation}
-                    loop={true}
-                    autoPlay={true}
-                  />
-                  <TouchableOpacity
-                    style={styles.chatButton}
-                    onPress={onStartChat}
-                    activeOpacity={0.8}>
-                    <Text style={styles.chatButtonText}>Let's Go</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
+              <TouchableOpacity style={styles.chatButton} onPress={onStartChat} activeOpacity={0.8}>
+                <View style={styles.buttonContent}>
+                  <Text style={styles.chatButtonText}>Jump In</Text>
+                  <Ionicons
+                    style={styles.chatButtonText}
+                    name="chatbubbles-outline"
+                    size={24}
+                    color="black"
+                  />
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -205,11 +187,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 120,
     paddingBottom: 30,
+    position: 'absolute',
   },
   bottomContent: {
     width: '100%',
     marginTop: 'auto',
     alignItems: 'center',
+    marginBottom: 60,
   },
   profileContainer: {
     position: 'absolute',
@@ -232,6 +216,11 @@ const styles = StyleSheet.create({
     width: 80,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 10,
   },
   profileImageRight: {
     position: 'absolute',
@@ -241,40 +230,42 @@ const styles = StyleSheet.create({
     width: 80,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 10,
   },
   profileImage: {
     width: 200,
     height: 200,
   },
-  chatContainer: {
+  buttonContent: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    width: '100%',
-    marginTop: 20,
-  },
-  buttonWrapper: {
-    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    gap: 8,
   },
-  rippleAnimation: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-  },
+
   chatButton: {
-    width: 90,
-    height: 90,
-    borderRadius: 50,
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 140,
+    height: 50,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(243, 146, 55, 0.8)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   chatButtonText: {
     color: 'white',
-    fontSize: 20,
+    fontSize: 18,
     textAlign: 'center',
     fontFamily: 'geistBold',
   },
@@ -303,8 +294,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backdropFilter: 'blur(10px)',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderColor: 'rgba(243, 146, 55, 0.3)',
     borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
   },
   interestTagText: {
     color: 'white',
