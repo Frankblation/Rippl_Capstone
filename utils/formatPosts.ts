@@ -65,19 +65,43 @@ export type UIPost = NotePost | EventPost;
 
 /**
  * Helper function to calculate relative time
+ * - Shows minutes for less than an hour
+ * - Shows hours for less than a day
+ * - Shows days up to 30 days
+ * - Shows actual date for anything older than 30 days
  */
 export function getTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.round(diffMs / 1000);
-  const diffMins = Math.round(diffSecs / 60);
-  const diffHours = Math.round(diffMins / 60);
-  const diffDays = Math.round(diffHours / 24);
 
-  if (diffSecs < 60) return `${diffSecs} seconds ago`;
-  if (diffMins < 60) return `${diffMins} minutes ago`;
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  return `${diffDays} days ago`;
+  const now = new Date();
+
+  const diffMs = now.getTime() - date.getTime();
+  
+  if (diffMs < 0 || isNaN(diffMs)) {
+    return '< 1 day ago';
+  }
+
+  const diffSecs = Math.round(diffMs / 1000);
+
+
+  const diffMins = Math.floor(diffSecs / 60);
+
+  // Rest of function remains the same
+  const diffHours = Math.floor(diffMins / 60);
+
+  // Less than a day - show in hours
+  if (diffHours < 24) {
+    return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+
+  // Less than 30 days - show in days
+  if (diffDays < 30) {
+    return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+  }
+
+  // More than 30 days - show the actual date
+  return format(date, 'MMM d, yyyy');
 }
 
 /**

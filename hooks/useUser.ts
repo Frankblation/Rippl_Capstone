@@ -86,10 +86,6 @@ export function useUser(userId: string | null) {
         isLoading: false,
         error: null
       };
-
-      // Log the full user data when it's loaded
-      console.log('User data loaded:', JSON.stringify(updatedUserData, null, 2));
-
       // Log specific details
       console.log(`User Profile - ${updatedUserData.name || 'Unnamed User'}`);
       console.log(`ID: ${updatedUserData.id}`);
@@ -117,11 +113,11 @@ export function useUser(userId: string | null) {
   }, [fetchUserData]);
 
   // The refreshUser function that can be called from components
-  const refreshUser = useCallback(async () => {
+  const refreshUser = async () => {
     console.log('Manually refreshing user data...');
     await fetchUserData();
-    return true; // Return success indicator
-  }, [fetchUserData]);
+    return true;
+  };
 
   // Helper function to get interest IDs
   const getInterestIds = () => {
@@ -174,6 +170,6 @@ export function useUser(userId: string | null) {
     getFriendsCount,
     hasInterest,
     isFriendsWith,
-    refreshUser 
+    refreshUser
   };
 }
