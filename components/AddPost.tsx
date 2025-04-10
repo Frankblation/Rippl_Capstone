@@ -141,7 +141,6 @@ const AddPostForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { triggerReload } = useTabsReload();
 
-
   // State for user interests from database
   const [interests, setInterests] = useState<{ id: string; name: string }[]>([]);
   const [loadingInterests, setLoadingInterests] = useState(false);
@@ -521,6 +520,8 @@ const AddPostForm = () => {
                     onChangeText={onChange}
                     value={value}
                     placeholder="Enter a title"
+                    autoCapitalize="sentences"
+                    autoCorrect
                   />
                 )}
                 name="title"
@@ -542,6 +543,8 @@ const AddPostForm = () => {
                     placeholder="Write your content here..."
                     multiline
                     numberOfLines={4}
+                    autoCapitalize="sentences"
+                    autoCorrect
                   />
                 )}
                 name="description"
@@ -818,9 +821,9 @@ const AddPostForm = () => {
                 }}
                 existingImageUrl={imageUri}
                 placeholderLabel="Choose an image"
-                imageSize={200} 
+                imageSize={200}
                 aspectRatio={[4, 3]}
-                folder={"posts"}
+                folder={'posts'}
               />
             ) : (
               <Text style={styles.errorText}>You must be logged in to upload images</Text>

@@ -22,11 +22,10 @@ import {
   getUserFriendships,
   getPostsByInterestId,
   getInterestById,
+  getRecommendedPostsForUser,
 } from '~/utils/data';
-
 // Import the formatter
 import { formatPostsForUI, UIPost, PostComment } from '~/utils/formatPosts';
-import { getRecommendedPostsForUser } from '~/utils/data';
 import { PostsTable } from '~/utils/db';
 import { useTabsReload } from '~/app/(tabs)/_layout';
 import EventCard from '../../components/EventCard';
@@ -59,7 +58,7 @@ const HomeScreen = () => {
   useEffect(() => {
     // Fetch the feed when user logs in or reloadFlag updates
     fetchFeedData();
-  }, [reloadFlag, user, user.id, user.isLoading])
+  }, [reloadFlag, user, user.id, user.isLoading]);
 
   // Fetch feed data when user data is available
   const fetchFeedData = async (loadMore = false) => {
@@ -70,8 +69,8 @@ const HomeScreen = () => {
         setIsLoadingMore(true);
       }
 
-      if( !user.id ) return;
-      
+      if (!user.id) return;
+
       const currentPage = loadMore ? page + 1 : 1;
       const POSTS_PER_INTEREST = 3; // Posts per interest per page
       const MAX_AGE_DAYS = 30; // Only show posts from the last 30 days
@@ -81,11 +80,8 @@ const HomeScreen = () => {
       let supabasePosts: PostsTable[] = [];
 
       // 1. Get recommended posts for the user (if not loading more)
-      const recommendedPosts = await getRecommendedPostsForUser(
-        user.id,
-        RECOMMENDATIONS_PER_PAGE
-      );
-      console.log(recommendedPosts)
+      const recommendedPosts = await getRecommendedPostsForUser(user.id, RECOMMENDATIONS_PER_PAGE);
+      console.log(recommendedPosts);
       supabasePosts = [...supabasePosts, ...recommendedPosts];
 
       // 2. Get posts for user's interests with age filtering and randomization
@@ -96,7 +92,7 @@ const HomeScreen = () => {
             maxAgeDays: MAX_AGE_DAYS,
             random: true,
             limit: POSTS_PER_INTEREST,
-            page: currentPage
+            page: currentPage,
           });
           supabasePosts = [...supabasePosts, ...posts];
         }
@@ -109,7 +105,7 @@ const HomeScreen = () => {
           const posts = await getPostsByUserId(friendId, {
             maxAgeDays: MAX_AGE_DAYS,
             limit: 2, // Limit to 2 posts per friend
-            page: currentPage
+            page: currentPage,
           });
           supabasePosts = [...supabasePosts, ...posts];
         }
@@ -129,13 +125,13 @@ const HomeScreen = () => {
 
         if (loadMore) {
           // Append to existing feed for pagination
-          setFeed(prevFeed => {
+          setFeed((prevFeed) => {
             // Filter out duplicates from new posts
-            const existingIds = new Set(prevFeed
-              .filter(item => 'id' in item)
-              .map(item => (item as UIPost).id));
+            const existingIds = new Set(
+              prevFeed.filter((item) => 'id' in item).map((item) => (item as UIPost).id)
+            );
 
-            const newPosts = formattedPosts.filter(post => !existingIds.has(post.id));
+            const newPosts = formattedPosts.filter((post) => !existingIds.has(post.id));
 
             if (newPosts.length === 0) {
               setHasMoreContent(false);
@@ -276,7 +272,6 @@ const HomeScreen = () => {
               comments={selectedComments}
               commentsCount={selectedCommentsCount}
               onAddComment={handleAddComment}
-              currentUserAvatar={{ uri: user.image }}
             />
           </Suspense>
         </View>
@@ -295,7 +290,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
   },
-    loadingMoreContainer: {
+  loadingMoreContainer: {
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
