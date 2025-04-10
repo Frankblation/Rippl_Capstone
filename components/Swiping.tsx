@@ -81,7 +81,7 @@ export default function Swipe() {
   const handleSwipe = (direction: string, cardIndex: number) => {
     if (direction === 'right') {
       const matched = users[cardIndex];
-      Vibration.vibrate([0, 100, 0, 300, 0, 500]);
+      Vibration.vibrate([0, 100, 0, 300, 0, 400]);
 
       const AnimationOverlay = () => {
         const animationRef = useRef<LottieView>(null);
@@ -100,7 +100,7 @@ export default function Swipe() {
               style={styles.animation}
               autoPlay
               loop={false}
-              speed={0.4}
+              speed={0.3}
               onAnimationFinish={() => {
                 hideAnimationOverlay();
                 router.push({

@@ -44,6 +44,10 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
+          name="create-categories"
+          options={{ headerShown: false, headerBackVisible: false }}
+        />
+        <Stack.Screen
           name="create-interests"
           options={{ headerShown: false, headerBackVisible: false }}
         />

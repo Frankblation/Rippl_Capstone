@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -19,6 +20,11 @@ export default function SignupScreen() {
     useAuth();
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   const validateInputs = () => {
     // Reset error message
@@ -119,28 +125,60 @@ export default function SignupScreen() {
 
           <View className="gap-y-2">
             <Text className="font-medium text-gray-700">Password</Text>
-            <TextInput
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Create a password"
-              secureTextEntry
-              editable={!authLoading}
-              style={{ textAlignVertical: 'center', minHeight: 50 }}
-            />
+            <View className="relative flex-row items-center">
+              <TextInput
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Create a password"
+                secureTextEntry={!showPassword}
+                editable={!authLoading}
+                style={{ textAlignVertical: 'center', minHeight: 50 }}
+              />
+              <TouchableOpacity
+                onPress={togglePasswordVisibility}
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  height: 50,
+                  justifyContent: 'center',
+                }}>
+                {showPassword ? (
+                  <Feather name="eye-off" size={20} color="#6B7280" />
+                ) : (
+                  <Feather name="eye" size={20} color="#6B7280" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View className="gap-y-2">
             <Text className="font-medium text-gray-700">Confirm Password</Text>
-            <TextInput
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm your password"
-              secureTextEntry
-              editable={!authLoading}
-              style={{ textAlignVertical: 'center', minHeight: 50 }}
-            />
+            <View className="relative flex-row items-center">
+              <TextInput
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm your password"
+                secureTextEntry={!showPassword}
+                editable={!authLoading}
+                style={{ textAlignVertical: 'center', minHeight: 50 }}
+              />
+              <TouchableOpacity
+                onPress={togglePasswordVisibility}
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  height: 50,
+                  justifyContent: 'center',
+                }}>
+                {showPassword ? (
+                  <Feather name="eye-off" size={20} color="#6B7280" />
+                ) : (
+                  <Feather name="eye" size={20} color="#6B7280" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 

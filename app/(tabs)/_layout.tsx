@@ -13,7 +13,6 @@ import { AddUserButton } from '~/components/profile/AddUserButton';
 import { LogOutButton } from '~/components/profile/LogOutButton';
 import { createContext, useContext, useState } from 'react';
 
-
 // Create a simple context for the reload flag
 interface TabsReloadContextType {
   reloadFlag: number;
@@ -30,14 +29,12 @@ export const useTabsReload = () => {
   return useContext(TabsReloadContext);
 };
 
-
-
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
   const [reloadFlag, setReloadFlag] = useState(0);
 
   const triggerReload = () => {
-    setReloadFlag(prev => prev + 1);
+    setReloadFlag((prev) => prev + 1);
   };
   return (
     <TabsReloadContext.Provider value={{ reloadFlag, triggerReload }}>
@@ -109,6 +106,7 @@ export default function TabsLayout() {
           options={{
             title: 'Matched Users',
             href: null,
+            headerTransparent: true,
           }}
         />
         <Tabs.Screen

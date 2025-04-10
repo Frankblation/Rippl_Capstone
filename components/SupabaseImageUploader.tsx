@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Feather from '@expo/vector-icons/Feather';
-import { uploadImage } from '~/utils/data';
+import { uploadImage, deleteImage, updateUser } from '~/utils/data';
 
 interface SupabaseImageUploaderProps {
   userId: string;
@@ -63,6 +63,18 @@ export default function SupabaseImageUploader({
     try {
       setIsUploading(true);
       const imageUrl = await uploadImage(imageUri, userId, bucketName, folder);
+
+      // Delete the old image if it exists and is different
+      if (existingImageUrl && existingImageUrl !== imageUrl) {
+        await deleteImage(existingImageUrl, bucketName, folder);
+      }
+
+      // Update the user profile in the database with the new image URL
+      await updateUser(userId, {
+        image: imageUrl,
+      });
+
+      // Call the callback to update the UI
       onUploadComplete(imageUrl);
     } catch (error: unknown) {
       console.error('Error uploading file:', error);

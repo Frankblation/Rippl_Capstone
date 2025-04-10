@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTabsReload } from '~/app/(tabs)/_layout';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
-import { createUserInterest, updateUser, getAllInterests } from '~/utils/data';
 import { InterestsTable } from '~/utils/db';
 import { useRouter } from 'expo-router';
-import SupabaseImageUploader from '~/components/SupabaseImageUploader';
 
+import { createUserInterest, updateUser, getAllInterests } from '~/utils/data';
+const SupabaseImageUploader = React.lazy(() => import('~/components/SupabaseImageUploader'));
 
 interface Interest {
   id: string;
@@ -66,10 +66,10 @@ export default function EditProfileScreen() {
           // Get user interests if available
           if (user.interests && user.interests.length > 0) {
             const formattedInterests = user.interests
-              .filter(interest => interest.interests?.id && interest.interests?.name)
-              .map(interest => ({
+              .filter((interest) => interest.interests?.id && interest.interests?.name)
+              .map((interest) => ({
                 id: interest.interests!.id,
-                name: interest.interests!.name
+                name: interest.interests!.name,
               }));
             setUserInterests(formattedInterests);
           }
@@ -83,39 +83,14 @@ export default function EditProfileScreen() {
     fetchData();
   }, [user.id, user.interests, user.isLoading]);
 
-  const pickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'We need camera roll permissions to change your profile picture');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 1,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image');
-    }
-  };
-
-
   const handleInterestInput = (text: string) => {
     setNewInterest(text);
 
     if (text.length > 0) {
-      const filtered = availableInterests.filter((interest) =>
-        interest.name.toLowerCase().includes(text.toLowerCase()) &&
-        !userInterests.some(ui => ui.id === interest.id)
+      const filtered = availableInterests.filter(
+        (interest) =>
+          interest.name.toLowerCase().includes(text.toLowerCase()) &&
+          !userInterests.some((ui) => ui.id === interest.id)
       );
       setFilteredSuggestions(filtered);
       setShowSuggestions(true);
@@ -129,24 +104,27 @@ export default function EditProfileScreen() {
 
     // Find if this interest exists in our available interests
     const existingInterest = availableInterests.find(
-      int => int.name.toLowerCase() === interestName.toLowerCase()
+      (int) => int.name.toLowerCase() === interestName.toLowerCase()
     );
 
     if (existingInterest) {
       // Check if user already has this interest
-      if (!userInterests.some(ui => ui.id === existingInterest.id)) {
+      if (!userInterests.some((ui) => ui.id === existingInterest.id)) {
         try {
           // Add interest to user in the database
           await createUserInterest({
             user_id: user.id,
-            interest_id: existingInterest.id
+            interest_id: existingInterest.id,
           });
 
           // Add to local state
-          setUserInterests([...userInterests, {
-            id: existingInterest.id,
-            name: existingInterest.name
-          }]);
+          setUserInterests([
+            ...userInterests,
+            {
+              id: existingInterest.id,
+              name: existingInterest.name,
+            },
+          ]);
         } catch (error) {
           console.error('Error adding interest:', error);
           Alert.alert('Error', 'Failed to add interest');
@@ -197,7 +175,7 @@ export default function EditProfileScreen() {
       triggerReload();
 
       Alert.alert('Success', 'Profile updated successfully!', [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -213,18 +191,21 @@ export default function EditProfileScreen() {
         <View className="p-6">
           <View className="mb-6 items-center">
             {authUser?.id ? (
-              <SupabaseImageUploader
-                bucketName="images"
-                userId={authUser.id}
-                onUploadComplete={(imageUrl) => {
-                  setImage(imageUrl);
-                }}
-                existingImageUrl={image}
-                placeholderLabel="Update Photo"
-                imageSize={128}
-                aspectRatio={[1, 1]}
-                folder="profiles"
-              />
+              <Suspense fallback={<Text>Loading uploader...</Text>}>
+                <SupabaseImageUploader
+                  bucketName="images"
+                  userId={authUser.id}
+                  onUploadComplete={(imageUrl) => {
+                    // Simply update the image state without handling deletion
+                    setImage(imageUrl);
+                  }}
+                  existingImageUrl={image}
+                  placeholderLabel="Update Photo"
+                  imageSize={128}
+                  aspectRatio={[1, 1]}
+                  folder="profiles"
+                />
+              </Suspense>
             ) : (
               <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
                 <Feather name="user" size={50} color="#9ca3af" />
