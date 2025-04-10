@@ -1,11 +1,12 @@
-'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import Swiper from 'react-native-deck-swiper';
-import { View, StyleSheet, Vibration } from 'react-native';
+import { View, Text, StyleSheet, Vibration, ActivityIndicator } from 'react-native';
 import UserCard from './UserSwipingCard';
 import { useAnimation } from '~/components/AnimationContext';
 import LottieView from 'lottie-react-native';
+
+import { getRecommendedUsers } from '~/utils/data';
+import { getUserInterests } from '~/utils/data';
 
 import { useRouter } from 'expo-router';
 
@@ -16,7 +17,7 @@ type User = {
   interests: string[];
 };
 
-const users: User[] = [
+const dummyUsers: User[] = [
   {
     name: 'Alex Johnson',
     bio: 'Photography enthusiast capturing urban landscapes and street art.',
@@ -67,26 +68,90 @@ const users: User[] = [
   },
 ];
 
-const currentUser = {
-  name: 'You',
+const currentAuthUser = {
+  id: '123f2785-cbed-4e04-863a-fa0f0e376d53',
+  name: 'Test User',
   interests: ['Reading', 'Gardening', 'Knitting', 'Photography', 'Hiking'],
 };
 
 export default function Swipe() {
-  const [showMatch, setShowMatch] = useState(false);
-  const [matchedUser, setMatchedUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [cardIndex, setCardIndex] = useState(0);
+
+  // Fetch recommended users when component mounts
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        // First get recommended users
+        const { data, error } = await getRecommendedUsers(currentAuthUser.id);
+        
+        if (error) {
+          console.error('Error fetching recommended users:', error);
+          setUsers([]);
+          return;
+        }
+        
+        if (!data || data.length === 0) {
+          setUsers([]);
+          return;
+        }
+        
+        // Then get interests for each user and merge the data
+        const usersWithInterests = await Promise.all(
+          data.map(async (user) => {
+            try {
+              const interestsData = await getUserInterests(user.id);
+              
+              // Extract just the interest names from the interests data
+              const interestNames = interestsData.map(item => 
+                item.interests?.name || ''
+              ).filter(name => name !== '');
+              
+              // Return user with interests added
+              return {
+                ...user,
+                interests: interestNames
+              };
+            } catch (err) {
+              console.error(`Error fetching interests for user ${user.id}:`, err);
+              return {
+                ...user,
+                interests: []
+              };
+            }
+          })
+        );
+        
+        setUsers(usersWithInterests);
+      } catch (err) {
+        console.error('Exception loading data:', err);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
+  }, []);
+
   const router = useRouter();
+
   const { showAnimationOverlay, hideAnimationOverlay } = useAnimation();
+
+  // Handle swipe gesture
   const handleSwipe = (direction: string, cardIndex: number) => {
     if (direction === 'right') {
       const matched = users[cardIndex];
+
       Vibration.vibrate([0, 100, 0, 300, 0, 500]);
 
       const AnimationOverlay = () => {
         const animationRef = useRef<LottieView>(null);
 
         useEffect(() => {
+          fetch;
           if (animationRef.current) {
             animationRef.current.play();
           }
@@ -107,7 +172,7 @@ export default function Swipe() {
                   pathname: '/(tabs)/matched-users',
                   params: {
                     matchedUser: JSON.stringify(matched),
-                    currentUser: JSON.stringify(currentUser),
+                    currentUser: JSON.stringify(currentAuthUser),
                   },
                 });
               }}
@@ -120,20 +185,55 @@ export default function Swipe() {
     }
   };
 
+  // Get the recommended user data
+  const fetchRecommendedUsers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await getRecommendedUsers(currentAuthUser.id);
+
+      if (error) {
+        console.error('Error fetching recommended users:', error);
+        setUsers([]);
+      } else if (data && data.length > 0) {
+        setUsers(data);
+      } else {
+        // No recommendations, set empty array
+        setUsers([]);
+      }
+    } catch (err) {
+      console.error('Exception in fetching recommended users:', err);
+      setUsers([]); // Set empty array instead of dummy data
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Swiper
-        cards={users}
-        renderCard={(user) => <UserCard user={user} />}
-        onSwiped={(cardIndex) => setCardIndex(cardIndex)}
-        onSwipedRight={(cardIndex) => handleSwipe('right', cardIndex)}
-        onSwipedLeft={(cardIndex) => handleSwipe('left', cardIndex)}
-        onSwipedAll={() => console.log('No more cards')}
-        cardIndex={0}
-        backgroundColor="transparent"
-        stackSize={3}
-        verticalSwipe={false}
-      />
+      {users.length > 0 ? (
+        <Swiper
+          cards={users}
+          renderCard={(user) => <UserCard user={user} />}
+          onSwiped={(cardIndex) => setCardIndex(cardIndex)}
+          onSwipedRight={(cardIndex) => handleSwipe('right', cardIndex)}
+          onSwipedLeft={(cardIndex) => handleSwipe('left', cardIndex)}
+          onSwipedAll={() => console.log('No more cards')}
+          cardIndex={0}
+          backgroundColor="transparent"
+          stackSize={3}
+          verticalSwipe={false}
+        />
+      ) : (
+        <Text style={styles.noUsersText}>No recommendations available</Text>
+      )}
     </View>
   );
 }
@@ -153,5 +253,11 @@ const styles = StyleSheet.create({
   animation: {
     width: '100%',
     height: '100%',
+  },
+  noUsersText: {
+    fontSize: 18,
+    textAlign: 'center',
+    color: '#666',
+    padding: 20,
   },
 });
