@@ -1,6 +1,7 @@
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import Swipe from '~/components/Swiping';
 import { ChatButton } from '~/components/ChatButton';
+import React, { Suspense } from 'react';
+const Swipe = React.lazy(() => import('~/components/Swiping'));
 
 export default function MatchingScreen() {
   return (
@@ -8,8 +9,9 @@ export default function MatchingScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Build Community Around</Text>
         <Text style={styles.sharedTitle}>Shared Interests</Text>
-
-        <Swipe />
+        <Suspense fallback={<Text style={{ padding: 20 }}>Loading match...</Text>}>
+          <Swipe />
+        </Suspense>
       </View>
     </SafeAreaView>
   );

@@ -1,16 +1,14 @@
 'use client';
 
 import { FlashList } from '@shopify/flash-list';
-import type React from 'react';
-import { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, Suspense } from 'react';
 import { SafeAreaView, StyleSheet, View, Alert, ActivityIndicator, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 1;
-import CommentsBottomSheet, {
-  type CommentsBottomSheetRef,
-  type PostComment,
-} from '~/components/CommentsBottomSheet';
+import type { CommentsBottomSheetRef, PostComment } from '~/components/CommentsBottomSheet';
+const CommentsBottomSheet = React.lazy(() => import('~/components/CommentsBottomSheet'));
+
 import PostCard from '~/components/PostCard';
 import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
@@ -20,7 +18,6 @@ import { getPostsByUserId } from '~/utils/data';
 import { formatPostsForUI, UIPost } from '~/utils/formatPosts';
 import { StatusBar } from 'expo-status-bar';
 import { useTabsReload } from '~/app/(tabs)/_layout';
-
 
 // Define feed item types
 type FeedItem = { id: string; type: 'header' } | UIPost;
@@ -164,12 +161,14 @@ const CurrentUser: React.FC = () => {
               ) : null
             }
           />
-          <CommentsBottomSheet
-            ref={commentsSheetRef}
-            comments={selectedComments}
-            commentsCount={selectedCommentsCount}
-            onAddComment={handleAddComment}
-          />
+          <Suspense fallback={<Text style={{ padding: 20 }}>Loading comments...</Text>}>
+            <CommentsBottomSheet
+              ref={commentsSheetRef}
+              comments={selectedComments}
+              commentsCount={selectedCommentsCount}
+              onAddComment={handleAddComment}
+            />
+          </Suspense>
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
