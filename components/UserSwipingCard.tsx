@@ -44,7 +44,11 @@ export default function UserSwipingCard({ user }: UserCardProps) {
   }) as { colors: [string, string, ...string[]]; locations: [number, number, ...number[]] };
   return (
     <View style={styles.container}>
-      <Image source={user.picture} resizeMode="cover" style={styles.image} />
+      <Image
+        source={typeof user.picture === 'string' ? { uri: user.picture } : user.picture}
+        resizeMode="cover"
+        style={styles.image}
+      />
       <View style={[styles.blurContainer, { width, height: height / 2 }]}>
         <MaskedView
           maskElement={
