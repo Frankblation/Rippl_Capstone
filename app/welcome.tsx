@@ -17,7 +17,7 @@ export default function WelcomeScreen() {
         <View className=" max-h-[30%] w-full items-center justify-center">
           <Image
             source={require('../assets/distorted-ripple.png')}
-            className="aspect-[.75] w-full" // adjust aspect ratio to match your image
+            className="aspect-[.75] w-full"
             resizeMode="contain"
           />
         </View>

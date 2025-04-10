@@ -1,9 +1,9 @@
 'use client';
 
 import { FlashList } from '@shopify/flash-list';
-import type React from 'react';
-import { useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, View, Alert } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { SafeAreaView, StyleSheet, View, Alert, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,33 +14,83 @@ import CommentsBottomSheet, {
 import PostCard from '~/components/PostCard';
 import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
-import { add } from 'date-fns';
-
-const INTERESTS = [
-  { id: '1', name: 'Photography' },
-  { id: '2', name: 'Travel' },
-  { id: '3', name: 'Cooking' },
-  { id: '4', name: 'Fitness' },
-  { id: '5', name: 'Reading' },
-  { id: '6', name: 'Music' },
-  { id: '7', name: 'Movies' },
-  { id: '8', name: 'Art' },
-  { id: '9', name: 'Technology' },
-  { id: '10', name: 'Sports' },
-  { id: '11', name: 'Fashion' },
-  { id: '12', name: 'Gaming' },
-];
+import { getUserById, getPostsByUserId, getUserInterests, getCommentsByPost } from '~/utils/data';
+import { formatPostForUI } from '~/utils/formatPosts';
+import type { UsersTable } from '~/utils/db';
 
 function Profile() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
   const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
   const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UsersTable | null>(null);
+  const [interests, setInterests] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [feed, setFeed] = useState<any[]>([]);
 
-  const handleOpenComments = (comments: PostComment[], count: number) => {
-    setSelectedComments(comments);
-    setSelectedCommentsCount(count);
-    commentsSheetRef.current?.open();
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        if (!id) return;
+
+        setLoading(true);
+
+        // Fetch user data
+        const userData = await getUserById(id);
+        if (!userData) {
+          Alert.alert('Error', 'User not found');
+          return;
+        }
+        setUser(userData);
+
+        // Fetch user interests
+        const userInterests = await getUserInterests(id);
+        const formattedInterests = userInterests.map((item) => ({
+          id: item.interests.id,
+          name: item.interests.name,
+        }));
+        setInterests(formattedInterests);
+
+        // Fetch user posts
+        const userPosts = await getPostsByUserId(id);
+        const formattedPosts = await Promise.all(userPosts.map((post) => formatPostForUI(post)));
+        setPosts(formattedPosts);
+
+        // Create feed with header and posts
+        setFeed([{ id: 'header', type: 'header' }, ...formattedPosts]);
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+        Alert.alert('Error', 'Failed to load profile data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [id]);
+
+  const handleOpenComments = async (postId: string) => {
+    try {
+      const commentsData = await getCommentsByPost(postId);
+      const formattedComments = commentsData.map((comment) => ({
+        id: comment.id,
+        username: comment.user?.name || 'Unknown User',
+        userAvatar: {
+          uri: comment.user?.image || 'https://randomuser.me/api/portraits/women/68.jpg',
+        },
+        text: comment.content,
+        timePosted: comment.sent_at,
+      }));
+
+      setSelectedComments(formattedComments);
+      setSelectedCommentsCount(formattedComments.length);
+      commentsSheetRef.current?.open();
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      Alert.alert('Error', 'Failed to load comments');
+    }
   };
 
   const handleAddComment = (text: string) => {
@@ -55,81 +105,45 @@ function Profile() {
     setSelectedCommentsCount((prev) => prev + 1);
   };
 
-  const sampleComments: PostComment[] = [
-    {
-      id: '1',
-      username: 'alex_dev',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/men/42.jpg' },
-      text: 'This is awesome!',
-      timePosted: '2h ago',
-    },
-    {
-      id: '2',
-      username: 'jane_smith',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/33.jpg' },
-      text: 'Love the colors in this photo!',
-      timePosted: '1h ago',
-    },
-  ];
-
-  const posts = [
-    {
-      id: '1',
-      interest: 'Books',
-      username: 'Julia Smith',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/44.jpg' },
-      timePosted: '5 hours ago',
-      title: 'My trip to the mountains',
-      postText: 'Just finished reading an amazing book! Highly recommend it.',
-      likesCount: 87,
-      commentsCount: 32,
-      type: 'post',
-    },
-    {
-      id: '2',
-      interest: 'Photography',
-      username: 'travel_enthusiast',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/68.jpg' },
-      timePosted: '1 day ago',
-      title: 'My trip to the mountains',
-      postText: 'Sunset views from my hotel balcony. No filter needed!',
-      postImage: { uri: 'https://picsum.photos/id/1016/1000/1000' },
-      likesCount: 342,
-      commentsCount: 56,
-      type: 'post',
-    },
-  ];
-
-  const feed = [{ id: 'header', type: 'header' }, ...posts];
-
   const renderItem = ({ item }: { item: any }) => {
     if (item.type === 'header') {
       return (
         <View style={styles.headerContainer}>
-          <UserProfileHeader
-            name="Jane Doe"
-            profileImage="https://randomuser.me/api/portraits/women/68.jpg"
-            postsCount={12}
-            friendsCount={34}
-          />
+          {user && (
+            <UserProfileHeader
+              name={user.name}
+              profileImage={user.image}
+              postsCount={posts.length}
+              friendsCount={0} // You would need to fetch this data
+            />
+          )}
 
           <View style={styles.interestsContainer}>
-            <InterestGrid interests={INTERESTS} />
+            <InterestGrid interests={interests} />
           </View>
         </View>
       );
-    } else if (item.type === 'post') {
+    } else if (item.type === 'post' || item.type === 'event') {
       return (
         <PostCard
           {...item}
+          userId={item.postUserId}
           onLikePress={() => console.log('Like pressed')}
-          onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
-          onCommentPress={() => handleOpenComments(sampleComments, item.commentsCount)}
+          onProfilePress={() => console.log('Profile pressed')}
+          onCommentPress={() => handleOpenComments(item.id)}
         />
       );
     }
     return null;
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -159,6 +173,11 @@ function Profile() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   listContent: {
     padding: 6,
   },
@@ -170,9 +189,9 @@ const styles = StyleSheet.create({
   },
   addUserButton: {
     position: 'absolute',
-    top: 10, // or use `insets.top + 10` if you want it under the status bar
+    top: 10,
     right: 16,
-    zIndex: 10, // ensure it's above everything
+    zIndex: 10,
   },
 });
 
