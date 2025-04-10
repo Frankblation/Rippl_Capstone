@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { FlashList } from '@shopify/flash-list';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, Suspense } from 'react';
 import {
   View,
   Text,
@@ -32,7 +32,9 @@ import { useTabsReload } from '~/app/(tabs)/_layout';
 import EventCard from '../../components/EventCard';
 import PostCard from '../../components/PostCard';
 import EventCarousel from '../../components/UpcomingEventsCarousel';
-import CommentsBottomSheet, { CommentsBottomSheetRef } from '../../components/CommentsBottomSheet';
+import { CommentsBottomSheetRef } from '../../components/CommentsBottomSheet';
+
+const CommentsBottomSheet = React.lazy(() => import('../../components/CommentsBottomSheet'));
 
 // Define FeedItem type for items that can be in the feed
 type FeedItem = UIPost | { type: 'carousel' };
@@ -192,12 +194,14 @@ const HomeScreen = () => {
               }
             />
           )}
-          <CommentsBottomSheet
-            ref={commentsSheetRef}
-            comments={selectedComments}
-            commentsCount={selectedCommentsCount}
-            onAddComment={handleAddComment}
-          />
+          <Suspense fallback={<Text>Loading comments...</Text>}>
+            <CommentsBottomSheet
+              ref={commentsSheetRef}
+              comments={selectedComments}
+              commentsCount={selectedCommentsCount}
+              onAddComment={handleAddComment}
+            />
+          </Suspense>
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>

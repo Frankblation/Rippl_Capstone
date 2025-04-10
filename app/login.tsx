@@ -13,7 +13,6 @@ import { useAuth } from '~/components/providers/AuthProvider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -32,12 +31,13 @@ export default function LoginScreen() {
 
     const { error } = await signInWithEmail();
 
+    const { notificationAsync, NotificationFeedbackType } = await import('expo-haptics');
+
     if (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await notificationAsync(NotificationFeedbackType.Error);
       Alert.alert('Error', error.message);
     } else {
-      // Will automatically redirect based on auth state in layout
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await notificationAsync(NotificationFeedbackType.Success);
       router.replace('/(tabs)/home');
     }
   };
