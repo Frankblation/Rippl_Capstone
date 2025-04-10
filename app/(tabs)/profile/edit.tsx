@@ -219,6 +219,7 @@ export default function EditProfileScreen() {
             <TextInput
               value={name}
               onChangeText={setName}
+              keyboardType="default"
               placeholder="Enter your name"
               className="rounded-lg border border-gray-300 p-3 text-base"
               returnKeyType="next"
@@ -233,6 +234,7 @@ export default function EditProfileScreen() {
               value={bio}
               onChangeText={setBio}
               placeholder="Tell us about yourself"
+              keyboardType="default"
               multiline
               numberOfLines={4}
               className="min-h-[100px] rounded-lg border border-gray-300 p-3 text-base"
