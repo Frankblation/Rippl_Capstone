@@ -29,6 +29,7 @@ export interface CommentsBottomSheetProps {
   comments: PostComment[];
   commentsCount: number;
   onAddComment: (text: string) => void;
+  currentUserAvatar?: any;
 }
 
 export interface CommentsBottomSheetRef {
@@ -37,7 +38,7 @@ export interface CommentsBottomSheetRef {
 }
 
 const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomSheetProps>(
-  ({ comments, onAddComment }, ref) => {
+  ({ comments, onAddComment, currentUserAvatar }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const inputRef = useRef<any>(null);
     const [newCommentText, setNewCommentText] = useState('');
@@ -144,10 +145,7 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
               borderTopColor: '#dbdbdb',
             },
           ]}>
-          <Image
-            source={{ uri: 'https://randomuser.me/api/portraits/women/68.jpg' }}
-            style={styles.commentInputAvatar}
-          />
+          <Image source={currentUserAvatar} style={styles.commentInputAvatar} />
           <View style={styles.inputWrapper}>
             <BottomSheetTextInput
               ref={inputRef}

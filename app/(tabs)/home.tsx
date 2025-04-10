@@ -200,6 +200,7 @@ const HomeScreen = () => {
               comments={selectedComments}
               commentsCount={selectedCommentsCount}
               onAddComment={handleAddComment}
+              currentUserAvatar={{ uri: user.image }}
             />
           </Suspense>
         </View>
