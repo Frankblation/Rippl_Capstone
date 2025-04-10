@@ -243,32 +243,92 @@ export const getAllPosts = async (): Promise<PostsTable[]> => {
 };
 
 /**
- * Fetches all posts created by a specific user
- * @param userId The ID of the user whose posts to fetch
- * @returns Promise with array of the user's posts
+ * Fetches posts by a specific interest with filtering options
+ * @param interestId The ID of the Interest whose posts to fetch
+ * @param options Optional filtering parameters
+ * @returns Promise with array of the posts with that interest
  */
-export const getPostsByUserId = async (userId: string): Promise<PostsTable[]> => {
-  const { data, error } = await supabase
+// In utils/data.ts
+
+export const getPostsByInterestId = async (
+  interestId: string,
+  options?: {
+    limit?: number;
+    maxAgeDays?: number;
+    random?: boolean;
+    page?: number;
+  }
+): Promise<PostsTable[]> => {
+  const page = options?.page || 1;
+  const limit = options?.limit || 10;
+  const offset = (page - 1) * limit;
+
+  let query = supabase
     .from('posts')
     .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false }); // Latest posts first
+    .eq('interest_id', interestId);
+
+  // Filter by age if specified
+  if (options?.maxAgeDays) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - options.maxAgeDays);
+    query = query.gte('created_at', cutoffDate.toISOString());
+  }
+
+  // Add ordering
+  query = query.order('created_at', { ascending: false });
+
+  // Apply pagination
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error } = await query;
 
   if (error) throw error;
+
+  // If random was requested, shuffle the results
+  if (options?.random && data && data.length > 0) {
+    // Fisher-Yates shuffle algorithm
+    for (let i = data.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [data[i], data[j]] = [data[j], data[i]];
+    }
+  }
+
   return data as PostsTable[];
 };
 
-/**
- * Fetches all posts by a specific Interest
- * @param interestId The ID of the Interest whose posts to fetch
- * @returns Promise with array of the posts with that interest
- */
-export const getPostsByInterestId = async (interestId: string): Promise<PostsTable[]> => {
-  const { data, error } = await supabase
+// Similarly, update getPostsByUserId
+export const getPostsByUserId = async (
+  userId: string,
+  options?: {
+    limit?: number;
+    maxAgeDays?: number;
+    page?: number;
+  }
+): Promise<PostsTable[]> => {
+  const page = options?.page || 1;
+  const limit = options?.limit || 10;
+  const offset = (page - 1) * limit;
+
+  let query = supabase
     .from('posts')
     .select('*')
-    .eq('interest_id', interestId)
-    .order('created_at', { ascending: false }); // Latest posts first
+    .eq('user_id', userId);
+
+  // Filter by age if specified
+  if (options?.maxAgeDays) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - options.maxAgeDays);
+    query = query.gte('created_at', cutoffDate.toISOString());
+  }
+
+  // Always order by recency
+  query = query.order('created_at', { ascending: false });
+
+  // Apply pagination
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data as PostsTable[];
@@ -1398,7 +1458,7 @@ export const getRecommendedUsers = async (userId: string) => {
         )
       `)
       .eq('user_id', userId);
-      
+
     if (recommendationsError) {
       console.error('Error fetching recommended users:', recommendationsError);
       return { data: null, error: recommendationsError };
@@ -1417,16 +1477,16 @@ export const getRecommendedUsers = async (userId: string) => {
             )
           `)
           .eq('user_id', item.recommended_user_id);
-          
+
         if (interestsError) {
           console.error(`Error fetching interests for user ${item.recommended_user_id}:`, interestsError);
         }
-        
+
         // Extract interest names from the response
-        const interests = interestsData 
+        const interests = interestsData
           ? interestsData.map(interest => interest.interests?.name).filter(Boolean)
           : [];
-        
+
         return {
           id: item.users.id,
           name: item.users.name,
@@ -1436,10 +1496,59 @@ export const getRecommendedUsers = async (userId: string) => {
         };
       })
     );
-    
+
     return { data: recommendedUsers, error: null };
   } catch (err) {
     console.error('Exception fetching recommended users:', err);
     return { data: null, error: err };
   }
 }
+
+
+// RECOMMENDER STUFF
+/**
+ * Fetches recommended posts for a specific user
+ * @param userId The ID of the user
+ * @param limit Optional limit on number of posts to return
+ * @returns Promise with array of recommended posts
+ */
+export const getRecommendedPostsForUser = async (
+  userId: string,
+  limit?: number
+): Promise<PostsTable[]> => {
+  try {
+    // First get the recommendation IDs
+    let query = supabase
+      .from('user_post_recommendations')
+      .select('recommended_post_id')
+      .eq('user_id', userId);
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data: recommendations, error: recError } = await query;
+
+    if (recError) throw recError;
+
+    // If no recommendations, return empty array
+    if (!recommendations || recommendations.length === 0) {
+      return [];
+    }
+
+    // Get the actual post data for all recommendations
+    const recommendedPostIds = recommendations.map(rec => rec.recommended_post_id);
+
+    const { data: posts, error: postsError } = await supabase
+      .from('posts')
+      .select('*')
+      .in('id', recommendedPostIds);
+
+    if (postsError) throw postsError;
+
+    return posts as PostsTable[];
+  } catch (error) {
+    console.error('Error fetching recommended posts:', error);
+    return [];
+  }
+};

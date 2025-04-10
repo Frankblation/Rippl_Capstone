@@ -26,7 +26,7 @@ import {
 
 // Import the formatter
 import { formatPostsForUI, UIPost, PostComment } from '~/utils/formatPosts';
-
+import { getRecommendedPostsForUser } from '~/utils/data';
 import { PostsTable } from '~/utils/db';
 import { useTabsReload } from '~/app/(tabs)/_layout';
 import EventCard from '../../components/EventCard';
@@ -47,66 +47,124 @@ const HomeScreen = () => {
   const [feed, setFeed] = useState<FeedItem[]>([{ type: 'carousel' }]);
   const [loading, setLoading] = useState(true);
   const { reloadFlag } = useTabsReload();
-
+  const [page, setPage] = useState(1);
+  const [hasMoreContent, setHasMoreContent] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
 
   // Use our custom hook to get full user data
   const { user, getInterestIds, getFriendIds } = useUser(authUser?.id || null);
 
-  // Fetch feed data when user data is available
   useEffect(() => {
-    // Skip if we're still loading user data or no user ID
-    if (user.isLoading || !user.id) return;
+    // Fetch the feed when user logs in or reloadFlag updates
+    fetchFeedData();
+  }, [reloadFlag, user, user.id, user.isLoading])
 
-    const fetchFeedData = async () => {
-      try {
+  // Fetch feed data when user data is available
+  const fetchFeedData = async (loadMore = false) => {
+    try {
+      if (!loadMore) {
         setLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
 
-        // Initialize posts array
-        let supabasePosts: PostsTable[] = [];
+      if( !user.id ) return;
+      
+      const currentPage = loadMore ? page + 1 : 1;
+      const POSTS_PER_INTEREST = 3; // Posts per interest per page
+      const MAX_AGE_DAYS = 30; // Only show posts from the last 30 days
+      const RECOMMENDATIONS_PER_PAGE = 5; // Number of recommendations to show per page
 
-        // 1. Get posts for user's interests
-        const interestIds = getInterestIds();
+      // Initialize posts array
+      let supabasePosts: PostsTable[] = [];
 
-        if (interestIds.length > 0) {
-          for (const interestId of interestIds) {
-            const posts = await getPostsByInterestId(interestId);
-            supabasePosts = [...supabasePosts, ...posts];
-          }
+      // 1. Get recommended posts for the user (if not loading more)
+      const recommendedPosts = await getRecommendedPostsForUser(
+        user.id,
+        RECOMMENDATIONS_PER_PAGE
+      );
+      console.log(recommendedPosts)
+      supabasePosts = [...supabasePosts, ...recommendedPosts];
+
+      // 2. Get posts for user's interests with age filtering and randomization
+      const interestIds = getInterestIds();
+      if (interestIds.length > 0) {
+        for (const interestId of interestIds) {
+          const posts = await getPostsByInterestId(interestId, {
+            maxAgeDays: MAX_AGE_DAYS,
+            random: true,
+            limit: POSTS_PER_INTEREST,
+            page: currentPage
+          });
+          supabasePosts = [...supabasePosts, ...posts];
         }
+      }
 
-        // 2. Get posts from friends
-        const friendIds = getFriendIds('accepted');
-
-        if (friendIds.length > 0) {
-          for (const friendId of friendIds) {
-            const posts = await getPostsByUserId(friendId);
-            supabasePosts = [...supabasePosts, ...posts];
-          }
+      // 3. Get posts from friends with age filtering
+      const friendIds = getFriendIds('accepted');
+      if (friendIds.length > 0) {
+        for (const friendId of friendIds) {
+          const posts = await getPostsByUserId(friendId, {
+            maxAgeDays: MAX_AGE_DAYS,
+            limit: 2, // Limit to 2 posts per friend
+            page: currentPage
+          });
+          supabasePosts = [...supabasePosts, ...posts];
         }
+      }
 
-        // 3. Remove duplicate posts
-        const uniquePosts = Array.from(
-          new Map(supabasePosts.map((post) => [post.id, post])).values()
-        );
+      // 4. Remove duplicate posts
+      const uniquePosts = Array.from(
+        new Map(supabasePosts.map((post) => [post.id, post])).values()
+      );
+      // 5. Shuffle the posts to make the feed more random and less grouped
+      const shuffledPosts = [...uniquePosts].sort(() => Math.random() - 0.5);
 
-        // 4. Format posts for UI
-        if (uniquePosts.length > 0) {
-          const formattedPosts = await formatPostsForUI(uniquePosts);
-          setFeed([{ type: 'carousel' }, ...formattedPosts]);
+      // 6. Handle pagination and format posts
+      if (shuffledPosts.length > 0) {
+        // Format posts for UI
+        const formattedPosts = await formatPostsForUI(shuffledPosts);
+
+        if (loadMore) {
+          // Append to existing feed for pagination
+          setFeed(prevFeed => {
+            // Filter out duplicates from new posts
+            const existingIds = new Set(prevFeed
+              .filter(item => 'id' in item)
+              .map(item => (item as UIPost).id));
+
+            const newPosts = formattedPosts.filter(post => !existingIds.has(post.id));
+
+            if (newPosts.length === 0) {
+              setHasMoreContent(false);
+            }
+
+            return [...prevFeed, ...newPosts];
+          });
+
+          setPage(currentPage);
         } else {
+          // First page load - include carousel at the top
+          setFeed([{ type: 'carousel' }, ...formattedPosts]);
+          setPage(1);
+          setHasMoreContent(true);
+        }
+      } else {
+        if (!loadMore) {
+          // No posts to show on first load
           setFeed([{ type: 'carousel' }]);
         }
-      } catch (error) {
-        console.error('Error fetching feed data:', error);
-      } finally {
-        setLoading(false);
+        setHasMoreContent(false);
       }
-    };
-
-    fetchFeedData();
-  }, [user.id, user.interests, user.isLoading, reloadFlag]);
+    } catch (error) {
+      console.error('Error fetching feed data:', error);
+    } finally {
+      setLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
 
   const handleOpenComments = (post: UIPost) => {
     // Use the comments from the formatted post
@@ -173,19 +231,37 @@ const HomeScreen = () => {
               contentContainerStyle={{ paddingBottom: 16 + insets.bottom }}
               refreshing={loading}
               onRefresh={() => {
-                if (user) {
-                  setLoading(true);
-                  // This will trigger the useEffect again
-                  setFeed([{ type: 'carousel' }]);
+                if (user?.id) {
+                  // Reset and fetch fresh data
+                  setPage(1);
+                  setHasMoreContent(true);
+                  fetchFeedData(false);
                 }
               }}
+              onEndReached={() => {
+                // Load more when reaching the end
+                if (hasMoreContent && !isLoadingMore && !loading) {
+                  fetchFeedData(true);
+                }
+              }}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={
+                isLoadingMore ? (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color="#00AF9F" />
+                    <Text style={styles.loadingMoreText}>Loading more posts...</Text>
+                  </View>
+                ) : null
+              }
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No posts to show</Text>
-                  <Text style={styles.emptySubtext}>
-                    Follow interests or connect with friends to see posts
-                  </Text>
-                </View>
+                !loading ? (
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No posts to show</Text>
+                    <Text style={styles.emptySubtext}>
+                      Follow interests or connect with friends to see posts
+                    </Text>
+                  </View>
+                ) : null
               }
               ListHeaderComponent={
                 <View style={styles.carouselHeaderContainer}>
@@ -218,6 +294,16 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
+  },
+    loadingMoreContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
   },
   emptyContainer: {
     padding: 20,
