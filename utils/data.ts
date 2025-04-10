@@ -1442,6 +1442,68 @@ export const deleteImage = async (imageUrl: string, bucket: string, folder?: str
   }
 };
 
+// ML CRUD
+export const getRecommendedUsers = async (userId: string) => {
+  try {
+    // First get the recommended users with their basic info
+    const { data: recommendationsData, error: recommendationsError } = await supabase
+      .from('user_user_recommendations')
+      .select(`
+        recommended_user_id,
+        users:recommended_user_id(
+          id,
+          name,
+          description,
+          image
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (recommendationsError) {
+      console.error('Error fetching recommended users:', recommendationsError);
+      return { data: null, error: recommendationsError };
+    }
+
+    // For each recommended user, fetch their interests
+    const recommendedUsers = await Promise.all(
+      recommendationsData.map(async (item) => {
+        // Get interests for this user
+        const { data: interestsData, error: interestsError } = await supabase
+          .from('user_interests')
+          .select(`
+            interests(
+              id,
+              name
+            )
+          `)
+          .eq('user_id', item.recommended_user_id);
+
+        if (interestsError) {
+          console.error(`Error fetching interests for user ${item.recommended_user_id}:`, interestsError);
+        }
+
+        // Extract interest names from the response
+        const interests = interestsData
+          ? interestsData.map(interest => interest.interests?.name).filter(Boolean)
+          : [];
+
+        return {
+          id: item.users.id,
+          name: item.users.name,
+          bio: item.users.description === "NULL" ? "" : item.users.description || "",
+          picture: item.users.image,
+          interests: interests,
+        };
+      })
+    );
+
+    return { data: recommendedUsers, error: null };
+  } catch (err) {
+    console.error('Exception fetching recommended users:', err);
+    return { data: null, error: err };
+  }
+}
+
 
 // RECOMMENDER STUFF
 /**
