@@ -1070,7 +1070,6 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
         swipe_yes: isLiked
       });
       
-    // Log additional information about the response
     console.log('Supabase response status:', status);
     console.log('Supabase response data:', data);
     console.log('Supabase response error:', error);
@@ -1082,38 +1081,52 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
     
     // If this was a "like" swipe, check for a match
     if (isLiked) {
-      const matchResult = await matchExists(userId, swipedUserId);
+      // Check if the other user has swiped right on this user
+      const { data: matchData, error: matchError } = await supabase
+        .from('user_swiped_yes')
+        .select('*')
+        .eq('user_id', swipedUserId)
+        .eq('swiped_user_id', userId)
+        .eq('swipe_yes', true)
+        .maybeSingle();
+        
+      if (matchError) {
+        console.error('Error checking for match:', matchError);
+        return { success: false, error: matchError, isMatch: false };
+      }
       
-      // If we found a match, create a match record in the database
-      if (matchResult.success && matchResult.isMatch) {
+      // If a match is found, create a record in user_matches
+      if (matchData) {
+        console.log('Match found! Creating match record...');
+        
         try {
-          // Create a match record using your existing function
+          // Create a match record
           const newMatch = await createUserMatch({
             user_id: userId,
             matched_user_id: swipedUserId
           });
           
-          console.log('Created new match record:', newMatch);
+          console.log('Successfully created match record:', newMatch);
           
-          // Return the match result with the new match data
-          return {
-            ...matchResult,
-            matchData: newMatch
+          return { 
+            success: true, 
+            isMatch: true, 
+            matchData: newMatch 
           };
-        } catch (matchError) {
-          console.error('Error creating match record:', matchError);
-          // Still return isMatch true even if we failed to create the record
-          // This will ensure the animation still shows
-          return matchResult;
+        } catch (createError) {
+          console.error('Error creating match record:', createError);
+          // Still return isMatch true so the animation shows
+          return { success: true, isMatch: true, error: createError };
         }
       }
       
-      return matchResult;
+      console.log('User swiped right, but no match yet');
+      return { success: true, isMatch: false, data };
     }
     
     return { success: true, data, isMatch: false };
   } catch (err) {
-    console.error('Exception saving swipe with full details:', err);
+    console.error('Exception in saveSwipe:', err);
     return { success: false, error: err, isMatch: false };
   }
 }
@@ -1547,7 +1560,20 @@ type RecommendedUser = {
 
 export const getRecommendedUsers = async (userId: string) => {
   try {
-    // First get the recommended users with their basic info
+    // First, fetch all users this user has already swiped on
+    const { data: swipedData, error: swipedError } = await supabase
+      .from('user_swiped_yes')
+      .select('swiped_user_id')
+      .eq('user_id', userId);
+
+    if (swipedError) {
+      console.error('Error fetching swiped users:', swipedError);
+      return { data: null, error: swipedError };
+    }
+
+    const swipedUserIds = swipedData?.map(entry => entry.swiped_user_id) || [];
+
+    // Get the recommended users with their basic info, excluding already swiped ones
     const { data: recommendationsData, error: recommendationsError } = await supabase
       .from('user_user_recommendations')
       .select(`
@@ -1559,17 +1585,16 @@ export const getRecommendedUsers = async (userId: string) => {
           image
         )
       `)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .not('recommended_user_id', 'in', `(${swipedUserIds.join(',')})`);
 
     if (recommendationsError) {
       console.error('Error fetching recommended users:', recommendationsError);
       return { data: null, error: recommendationsError };
     }
-    
-    // For each recommended user, fetch their interests
+
     const recommendedUsers = await Promise.all(
       recommendationsData.map(async (item) => {
-        // Get interests for this user
         const { data: interestsData, error: interestsError } = await supabase
           .from('user_interests')
           .select(`
@@ -1584,7 +1609,6 @@ export const getRecommendedUsers = async (userId: string) => {
           console.error(`Error fetching interests for user ${item.recommended_user_id}:`, interestsError);
         }
 
-        // Extract interest names from the response
         const interests = interestsData
           ? interestsData.map(interest => interest.interests?.name).filter(Boolean)
           : [];
@@ -1604,7 +1628,8 @@ export const getRecommendedUsers = async (userId: string) => {
     console.error('Exception fetching recommended users:', err);
     return { data: null, error: err };
   }
-}
+};
+
 
 // RECOMMENDER STUFF
 /**
