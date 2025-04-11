@@ -1088,6 +1088,7 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
         .eq('user_id', swipedUserId)
         .eq('swiped_user_id', userId)
         .eq('swipe_yes', true)
+        .gt('swiped_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .maybeSingle();
         
       if (matchError) {
