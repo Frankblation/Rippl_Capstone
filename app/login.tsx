@@ -13,11 +13,13 @@ import { useAuth } from '~/components/providers/AuthProvider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { Feather } from '@expo/vector-icons';
+import ForgotPasswordModal from '~/components/ForgotPasswordModal';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { email, setEmail, password, setPassword, authLoading, signInWithEmail } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotPasswordModalVisible, setForgotPasswordModalVisible] = useState(false);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -109,7 +111,18 @@ export default function LoginScreen() {
             <Text className="font-medium text-[#00AF9F]">Create an account</Text>
           </TouchableOpacity>
         </View>
+        <View className="mt-2 flex-row justify-center">
+          <Text className="text-gray-600">Forgot password? </Text>
+          <TouchableOpacity onPress={() => setForgotPasswordModalVisible(true)}>
+            <Text className="font-medium text-[#00AF9F]">Reset password</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <ForgotPasswordModal
+        visible={forgotPasswordModalVisible}
+        onClose={() => setForgotPasswordModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
