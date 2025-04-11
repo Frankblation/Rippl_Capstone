@@ -743,7 +743,7 @@ const AddPostForm = () => {
                   <DateTimePicker
                     value={selectedStartTime || new Date()}
                     mode="time"
-                    display="inline"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={(event, selectedTime) => {
                       setShowStartTimePicker(Platform.OS === 'ios');
                       if (selectedTime) {
@@ -774,7 +774,7 @@ const AddPostForm = () => {
                       <DateTimePicker
                         value={selectedEndTime || selectedStartTime || new Date()}
                         mode="time"
-                        display="inline"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                         onChange={(event, selectedTime) => {
                           setShowEndTimePicker(Platform.OS === 'ios');
                           if (selectedTime) {
