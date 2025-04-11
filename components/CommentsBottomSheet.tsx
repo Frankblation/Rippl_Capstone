@@ -25,6 +25,8 @@ import {
   Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from './providers/AuthProvider';
+import { useUser } from '~/hooks/useUser';
 
 export interface PostComment {
   id: string;
@@ -53,7 +55,11 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
     const snapPoints = useMemo(() => ['75%'], []);
     const insets = useSafeAreaInsets();
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    // Get authenticated user ID from auth hook
+    const { user: authUser } = useAuth();
 
+    // Use our custom hook to get full user data
+    const { user } = useUser(authUser?.id || null);
     useEffect(() => {
       const keyboardWillShowListener = Keyboard.addListener(
         Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -153,12 +159,12 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
               borderTopColor: '#dbdbdb',
             },
           ]}>
-          <Pressable>
-            <Image
-              source={{ uri: 'https://randomuser.me/api/portraits/women/68.jpg' }}
-              style={styles.commentInputAvatar}
-            />
-          </Pressable>
+
+          <Image
+            source={{ uri: user.image }}
+            style={styles.commentInputAvatar}
+          />
+
           <View style={styles.inputWrapper}>
             <BottomSheetTextInput
               ref={inputRef}

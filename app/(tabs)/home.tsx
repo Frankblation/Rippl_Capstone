@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
+import { supabase } from '~/utils/supabase';
 // DB stuff
 import {
   getUserById,
@@ -23,6 +24,7 @@ import {
   getPostsByInterestId,
   getInterestById,
   getRecommendedPostsForUser,
+  createComment,
 } from '~/utils/data';
 // Import the formatter
 import { formatPostsForUI, UIPost, PostComment } from '~/utils/formatPosts';
@@ -49,16 +51,48 @@ const HomeScreen = () => {
   const [page, setPage] = useState(1);
   const [hasMoreContent, setHasMoreContent] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string>('');
+  // Add state for liked posts - still needed for initial load state
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
 
   // Use our custom hook to get full user data
   const { user, getInterestIds, getFriendIds } = useUser(authUser?.id || null);
 
+  // Load liked posts when user data is available
+  useEffect(() => {
+    const loadLikedPosts = async () => {
+      if (!user?.id) return;
+
+      try {
+        // Get all posts that the user has liked from user_post_engagement
+        const { data, error } = await supabase
+          .from('user_post_engagement')
+          .select('post_id')
+          .eq('user_id', user.id)
+          .eq('has_liked', true);
+
+        if (error) throw error;
+
+        // Create a Set of post IDs that the user has liked
+        const likedPostIds = new Set(data.map(item => item.post_id));
+        setLikedPosts(likedPostIds);
+        console.log(`Loaded ${likedPostIds.size} liked posts`);
+      } catch (error) {
+        console.error('Error loading liked posts:', error);
+      }
+    };
+
+    if (user?.id) {
+      loadLikedPosts();
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     // Fetch the feed when user logs in or reloadFlag updates
     fetchFeedData();
-  }, [reloadFlag, user, user.id, user.isLoading]);
+  }, [reloadFlag, user?.id]);
 
   // Fetch feed data when user data is available
   const fetchFeedData = async (loadMore = false) => {
@@ -69,7 +103,7 @@ const HomeScreen = () => {
         setIsLoadingMore(true);
       }
 
-      if (!user.id) return;
+      if (!user?.id) return;
 
       const currentPage = loadMore ? page + 1 : 1;
       const POSTS_PER_INTEREST = 3; // Posts per interest per page
@@ -81,6 +115,7 @@ const HomeScreen = () => {
 
       // 1. Get recommended posts for the user (if not loading more)
       const recommendedPosts = await getRecommendedPostsForUser(user.id, RECOMMENDATIONS_PER_PAGE);
+      console.log('Recommended post in home feed:')
       console.log(recommendedPosts);
       supabasePosts = [...supabasePosts, ...recommendedPosts];
 
@@ -115,6 +150,7 @@ const HomeScreen = () => {
       const uniquePosts = Array.from(
         new Map(supabasePosts.map((post) => [post.id, post])).values()
       );
+
       // 5. Shuffle the posts to make the feed more random and less grouped
       const shuffledPosts = [...uniquePosts].sort(() => Math.random() - 0.5);
 
@@ -122,6 +158,12 @@ const HomeScreen = () => {
       if (shuffledPosts.length > 0) {
         // Format posts for UI
         const formattedPosts = await formatPostsForUI(shuffledPosts);
+
+        // Enhance posts with like status
+        const enhancedPosts = formattedPosts.map(post => ({
+          ...post,
+          isLiked: likedPosts.has(post.id)
+        }));
 
         if (loadMore) {
           // Append to existing feed for pagination
@@ -131,7 +173,7 @@ const HomeScreen = () => {
               prevFeed.filter((item) => 'id' in item).map((item) => (item as UIPost).id)
             );
 
-            const newPosts = formattedPosts.filter((post) => !existingIds.has(post.id));
+            const newPosts = enhancedPosts.filter((post) => !existingIds.has(post.id));
 
             if (newPosts.length === 0) {
               setHasMoreContent(false);
@@ -143,7 +185,7 @@ const HomeScreen = () => {
           setPage(currentPage);
         } else {
           // First page load - include carousel at the top
-          setFeed([{ type: 'carousel' }, ...formattedPosts]);
+          setFeed([{ type: 'carousel' }, ...enhancedPosts]);
           setPage(1);
           setHasMoreContent(true);
         }
@@ -162,25 +204,74 @@ const HomeScreen = () => {
     }
   };
 
+  // Handle updates to liked posts from child components
+  const handleLikeStatusChange = (postId: string, isLiked: boolean) => {
+    // Update our tracking of liked posts for consistency across renders
+    setLikedPosts(prev => {
+      const newSet = new Set(prev);
+      if (isLiked) {
+        newSet.add(postId);
+      } else {
+        newSet.delete(postId);
+      }
+      return newSet;
+    });
+  };
+
   const handleOpenComments = (post: UIPost) => {
-    // Use the comments from the formatted post
     setSelectedComments(post.comments || []);
     setSelectedCommentsCount(post.commentsCount);
+    setSelectedPostId(post.id); // Save the post ID
     commentsSheetRef.current?.open();
   };
 
-  const handleAddComment = (text: string) => {
+  const handleAddComment = async (text: string) => {
+    if (!text.trim() || !selectedPostId) return;
+
     const newComment: PostComment = {
-      id: Date.now().toString(),
+      id: `tempId-${Date.now().toString()}`,
       username: user?.name || 'current_user',
       userAvatar: { uri: user?.image || 'https://randomuser.me/api/portraits/women/68.jpg' },
       text,
       timePosted: 'Just now',
     };
+
+    // Update UI immediately for better user experience
     setSelectedComments((prev) => [...prev, newComment]);
     setSelectedCommentsCount((prev) => prev + 1);
 
-    // Add logic to save the comment to database
+    try {
+      // Use await to properly catch errors
+      await createComment({
+        post_id: selectedPostId,
+        user_id: user?.id || '',
+        content: text,
+      });
+
+      // Also update the comment count in the feed
+      setFeed(prev =>
+        prev.map(item => {
+          if ('id' in item && item.id === selectedPostId) {
+            return {
+              ...item,
+              commentsCount: (item.commentsCount || 0) + 1
+            };
+          }
+          return item;
+        })
+      );
+
+      console.log('Comment added successfully');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+
+      // Optionally remove the optimistically added comment if the server request failed
+      setSelectedComments((prev) => prev.filter(c => c.id !== newComment.id));
+      setSelectedCommentsCount((prev) => prev - 1);
+
+      // Show an error message to the user
+      Alert.alert('Error', 'Failed to add comment. Please try again.');
+    }
   };
 
   const renderItem = ({ item }: { item: FeedItem }) => {
@@ -188,8 +279,10 @@ const HomeScreen = () => {
       return (
         <PostCard
           {...item}
-          userId={item.postUserId}
-          onLikePress={() => console.log('Like pressed')}
+          userId={user?.id || ''}
+          postUserId={item.postUserId}
+          isLiked={likedPosts.has(item.id)}
+          onLikeStatusChange={handleLikeStatusChange}
           onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
           onCommentPress={() => handleOpenComments(item)}
         />
@@ -198,7 +291,8 @@ const HomeScreen = () => {
       return (
         <EventCard
           {...item}
-          onLikePress={() => console.log('Like pressed')}
+          isLiked={likedPosts.has(item.id)}
+          onLikeStatusChange={handleLikeStatusChange}
           onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
           onCommentPress={() => handleOpenComments(item)}
         />
