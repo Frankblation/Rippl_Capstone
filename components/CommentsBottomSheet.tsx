@@ -14,7 +14,16 @@ import React, {
   useEffect,
   useImperativeHandle,
 } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Keyboard, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Keyboard,
+  Platform,
+  Pressable,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from './providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
@@ -150,10 +159,12 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
               borderTopColor: '#dbdbdb',
             },
           ]}>
+
           <Image
             source={{ uri: user.image }}
             style={styles.commentInputAvatar}
           />
+
           <View style={styles.inputWrapper}>
             <BottomSheetTextInput
               ref={inputRef}

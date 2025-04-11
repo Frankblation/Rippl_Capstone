@@ -5,7 +5,7 @@ import {
   Text,
   Image,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Platform,
   type ImageSourcePropType,
   Dimensions,
@@ -124,19 +124,21 @@ const PostCard: React.FC<PostCardProps> = ({
   };
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
+    <Pressable onPress={onPress}>
       <View style={styles.card}>
         {/* HEADER WITH INTEREST, PROFILE PIC AND USERNAME */}
         <View style={styles.cardHeader}>
-          <TouchableOpacity
+
+          <Pressable
             onPress={() => router.push(`/(tabs)/profile/${postUserId}`)}
+
             style={styles.userInfo}>
             <Image source={userAvatar} style={styles.avatar} />
             <View>
               <Text style={styles.interest}>{interest}</Text>
               <Text style={styles.username}>{username}</Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* IMAGE */}
@@ -149,14 +151,17 @@ const PostCard: React.FC<PostCardProps> = ({
         {/* NUM OF LIKES AND COMMENTS */}
         <View style={styles.engagementStats}>
           <Text style={styles.numLikesText}>{likesCount} likes</Text>
-          <Text style={styles.numCommentsText}>{commentsCount} comments</Text>
+          <Pressable onPress={handleCommentPress}>
+            <Text style={styles.numCommentsText}>{commentsCount} comments</Text>
+          </Pressable>
         </View>
         {/* LIKE AND COMMENT */}
         <View style={styles.heartCommentTimeContainer}>
           <View style={styles.divider} />
           <View style={styles.footerRow}>
             <View style={styles.containerHeartComment}>
-              <TouchableOpacity
+
+              <Pressable
                 style={styles.actionIcon}
                 onPress={handleLikePress}
                 disabled={isUpdating}
@@ -169,23 +174,23 @@ const PostCard: React.FC<PostCardProps> = ({
                   style={{ width: 70, height: 70 }}
                   progress={isLiked ? undefined : 0}
                 />
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity style={styles.actionButton} onPress={handleCommentPress}>
+              <Pressable style={styles.actionButton} onPress={handleCommentPress}>
                 <Ionicons
                   name="chatbubble-outline"
                   size={22}
                   color="#262626"
                   style={styles.actionIcon}
                 />
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <Text style={styles.timePosted}>{timePosted}</Text>
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 

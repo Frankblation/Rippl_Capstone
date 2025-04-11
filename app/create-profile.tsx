@@ -138,7 +138,6 @@ export default function CustomizeProfileScreen() {
                   placeholder="Your name"
                   style={{ textAlignVertical: 'center', minHeight: 50 }}
                   returnKeyType="next"
-                  blurOnSubmit={false}
                   onSubmitEditing={() => bioInputRef.current?.focus()}
                 />
               </View>
