@@ -1560,7 +1560,20 @@ type RecommendedUser = {
 
 export const getRecommendedUsers = async (userId: string) => {
   try {
-    // First get the recommended users with their basic info
+    // First, fetch all users this user has already swiped on
+    const { data: swipedData, error: swipedError } = await supabase
+      .from('user_swiped_yes')
+      .select('swiped_user_id')
+      .eq('user_id', userId);
+
+    if (swipedError) {
+      console.error('Error fetching swiped users:', swipedError);
+      return { data: null, error: swipedError };
+    }
+
+    const swipedUserIds = swipedData?.map(entry => entry.swiped_user_id) || [];
+
+    // Get the recommended users with their basic info, excluding already swiped ones
     const { data: recommendationsData, error: recommendationsError } = await supabase
       .from('user_user_recommendations')
       .select(`
@@ -1572,17 +1585,16 @@ export const getRecommendedUsers = async (userId: string) => {
           image
         )
       `)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .not('recommended_user_id', 'in', `(${swipedUserIds.join(',')})`);
 
     if (recommendationsError) {
       console.error('Error fetching recommended users:', recommendationsError);
       return { data: null, error: recommendationsError };
     }
-    
-    // For each recommended user, fetch their interests
+
     const recommendedUsers = await Promise.all(
       recommendationsData.map(async (item) => {
-        // Get interests for this user
         const { data: interestsData, error: interestsError } = await supabase
           .from('user_interests')
           .select(`
@@ -1597,7 +1609,6 @@ export const getRecommendedUsers = async (userId: string) => {
           console.error(`Error fetching interests for user ${item.recommended_user_id}:`, interestsError);
         }
 
-        // Extract interest names from the response
         const interests = interestsData
           ? interestsData.map(interest => interest.interests?.name).filter(Boolean)
           : [];
@@ -1617,7 +1628,8 @@ export const getRecommendedUsers = async (userId: string) => {
     console.error('Exception fetching recommended users:', err);
     return { data: null, error: err };
   }
-}
+};
+
 
 // RECOMMENDER STUFF
 /**
