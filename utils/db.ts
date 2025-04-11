@@ -136,6 +136,13 @@ export interface UserInterestsTable {
     interest_id: string;
 }
 
+// User Swipe Yes Data Type
+export interface UserSwipedYesTable {
+  user_id: string;
+  swiped_user_id: string;
+  swiped_yes: boolean;
+}
+
 // User Matches Data Type
 export interface UserMatchesTable {
     user_id: string;

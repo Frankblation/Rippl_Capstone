@@ -16,7 +16,8 @@ type User = {
   name: string;
   interests: string[];
   bio?: string;
-  picture?: string;
+  picture?: any; // Can be URL string or require() result
+  id?: string;
 };
 
 type MatchScreenProps = {
@@ -26,19 +27,41 @@ type MatchScreenProps = {
   onStartChat: () => void;
 };
 
-const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps) => {
+const DEFAULT_USER_IMAGE = require('../assets/user.jpg');
+const DEFAULT_MATCHED_USER_IMAGE = require('../assets/user2.jpg');
+
+const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchScreenProps) => {
+  // Find shared interests between users
   const sharedInterests = matchedUser.interests
-    .filter((interest) => currentUser.interests.includes(interest))
+    .filter((interest) => 
+      currentUser.interests && currentUser.interests.includes(interest)
+    )
     .slice(0, 3);
 
+  // If no shared interests, show some of the matched user's interests
   const interestsToShow =
-    sharedInterests.length > 0 ? sharedInterests : matchedUser.interests.slice(0, 3);
+    sharedInterests.length > 0 
+      ? sharedInterests 
+      : (matchedUser.interests || []).slice(0, 3);
+
+  // Determine which images to use
+  const currentUserImage = currentUser.picture || DEFAULT_USER_IMAGE;
+  const matchedUserImage = matchedUser.picture || DEFAULT_MATCHED_USER_IMAGE;
+
+  // Determine if images are static (require) or remote URLs
+  const isCurrentUserImageUrl = typeof currentUserImage === 'string';
+  const isMatchedUserImageUrl = typeof matchedUserImage === 'string';
 
   return (
     <ImageBackground
       source={require('../assets/background.jpg')}
       style={styles.backgroundImage}
       resizeMode="cover">
+      {/* Close button */}
+      <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+        <Feather name="x" size={24} color="white" />
+      </TouchableOpacity>
+      
       <Text style={styles.title}>You're Making Waves!</Text>
 
       <View style={styles.container}>
@@ -48,7 +71,9 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
               <View style={styles.bottomContent}>
                 <View style={styles.interestsContainer}>
                   <Text style={styles.interestsTitle}>
-                    You and {matchedUser.name} are both interested in
+                    {sharedInterests.length > 0 
+                      ? `You and ${matchedUser.name} are both interested in`
+                      : `${matchedUser.name} is interested in`}
                   </Text>
 
                   <View style={styles.interestTags}>
@@ -64,10 +89,9 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
                 <View style={styles.buttonContent}>
                   <Text style={styles.chatButtonText}>Jump In</Text>
                   <Ionicons
-                    style={styles.chatButtonText}
                     name="chatbubbles-outline"
                     size={24}
-                    color="black"
+                    color="white"
                   />
                 </View>
               </TouchableOpacity>
@@ -79,7 +103,9 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
               <View style={styles.bottomContent}>
                 <View style={styles.interestsContainer}>
                   <Text style={styles.interestsTitle}>
-                    You and {matchedUser.name} both enjoy these activities
+                    {sharedInterests.length > 0 
+                      ? `You and ${matchedUser.name} both enjoy these activities`
+                      : `${matchedUser.name} enjoys these activities`}
                   </Text>
 
                   <View style={styles.interestTags}>
@@ -95,10 +121,9 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
                 <View style={styles.buttonContent}>
                   <Text style={styles.chatButtonText}>Jump In</Text>
                   <Ionicons
-                    style={styles.chatButtonText}
                     name="chatbubbles-outline"
                     size={24}
-                    color="black"
+                    color="white"
                   />
                 </View>
               </TouchableOpacity>
@@ -109,18 +134,34 @@ const MatchScreen = ({ matchedUser, currentUser, onStartChat }: MatchScreenProps
         <View style={styles.profileContainer}>
           <View style={styles.profileImagesContainer}>
             <View style={styles.profileImageLeft}>
-              <Image
-                source={require('../assets/user.jpg')}
-                style={styles.profileImage}
-                borderRadius={100}
-              />
+              {isCurrentUserImageUrl ? (
+                <Image
+                  source={{ uri: currentUserImage }}
+                  style={styles.profileImage}
+                  borderRadius={100}
+                />
+              ) : (
+                <Image
+                  source={currentUserImage}
+                  style={styles.profileImage}
+                  borderRadius={100}
+                />
+              )}
             </View>
             <View style={styles.profileImageRight}>
-              <Image
-                source={require('../assets/user2.jpg')}
-                style={styles.profileImage}
-                borderRadius={100}
-              />
+              {isMatchedUserImageUrl ? (
+                <Image
+                  source={{ uri: matchedUserImage }}
+                  style={styles.profileImage}
+                  borderRadius={100}
+                />
+              ) : (
+                <Image
+                  source={matchedUserImage}
+                  style={styles.profileImage}
+                  borderRadius={100}
+                />
+              )}
             </View>
           </View>
         </View>
@@ -135,7 +176,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 100,
+    padding: 20,
     justifyContent: 'center',
     width: '100%',
   },
@@ -145,6 +186,12 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
     padding: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 32,
@@ -201,7 +248,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 1,
+    zIndex: 2,
   },
   profileImagesContainer: {
     position: 'relative',
@@ -221,6 +268,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 6,
     elevation: 10,
+    overflow: 'hidden',
+    borderRadius: 100,
   },
   profileImageRight: {
     position: 'absolute',
@@ -235,10 +284,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 6,
     elevation: 10,
+    overflow: 'hidden',
+    borderRadius: 100,
   },
   profileImage: {
-    width: 200,
-    height: 200,
+    width: 80,
+    height: 80,
   },
   buttonContent: {
     flexDirection: 'row',

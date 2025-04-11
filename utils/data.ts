@@ -11,6 +11,7 @@ import { InterestsTable } from './db';
 import { InterestCategoriesTable } from './db';
 import { UserInterestsTable } from './db';
 import { FriendshipsTable } from './db';
+import { UserSwipedYesTable } from './db';
 import { UserMatchesTable } from './db';
 import { PostInterestsTable } from './db';
 import { AttendeesTable } from './db';
@@ -1042,6 +1043,56 @@ export const deleteFriendship = async (
   return friendship;
 };
 
+/* ------ SWIPE YES CRUD ------ */
+
+type SwipeResult = {
+  success: boolean;
+  isMatch: boolean;
+  data?: any;
+  error?: any;
+  matchData?: any;
+};
+
+export async function saveSwipe(userId: string, swipedUserId: string, isLiked: boolean): Promise<SwipeResult> {
+  try {
+    console.log('Attempting to save swipe with data:', {
+      user_id: userId,
+      swiped_user_id: swipedUserId,
+      swipe_yes: isLiked  // Using the correct column name
+    });
+    
+    // Insert the swipe record
+    const { data, error, status } = await supabase
+      .from('user_swiped_yes')
+      .insert({
+        user_id: userId,
+        swiped_user_id: swipedUserId,
+        swipe_yes: isLiked  // Using the correct column name
+      });
+      
+    // Log additional information about the response
+    console.log('Supabase response status:', status);
+    console.log('Supabase response data:', data);
+    console.log('Supabase response error:', error);
+    
+    if (error) {
+      console.error('Error saving swipe:', error);
+      return { success: false, error, isMatch: false };
+    }
+    
+    // If this was a "like" swipe, check for a match
+    if (isLiked) {
+      return await matchExists(userId, swipedUserId);
+    }
+    
+    return { success: true, data, isMatch: false };
+  } catch (err) {
+    console.error('Exception saving swipe with full details:', err);
+    return { success: false, error: err, isMatch: false };
+  }
+}
+
+
 /* ------ USER MATCHES CRUD ------ */
 
 // CREATE
@@ -1097,24 +1148,38 @@ export const getUserMatches = async (
  * @param userId2 The ID of the second user
  * @returns Promise with a boolean indicating if the match exists
  */
-export const matchExists = async (userId1: string, userId2: string): Promise<boolean> => {
-  // Ensure user_id < matched_user_id to match the stored order
-  let userId = userId1;
-  let matchedUserId = userId2;
+export const matchExists = async (userId1: string, userId2: string): Promise<SwipeResult> => {
+  try {
+    // Ensure user_id < matched_user_id to match the stored order
+    let userId = userId1;
+    let matchedUserId = userId2;
 
-  if (userId > matchedUserId) {
-    [userId, matchedUserId] = [matchedUserId, userId];
+    if (userId > matchedUserId) {
+      [userId, matchedUserId] = [matchedUserId, userId];
+    }
+
+    const { data, error } = await supabase
+      .from('user_matches')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('matched_user_id', matchedUserId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking if match exists:', error);
+      return { success: false, isMatch: false, error };
+    }
+    
+    // Return a properly formatted SwipeResult
+    return { 
+      success: true, 
+      isMatch: data !== null,
+      matchData: data
+    };
+  } catch (err) {
+    console.error('Exception checking if match exists:', err);
+    return { success: false, isMatch: false, error: err };
   }
-
-  const { data, error } = await supabase
-    .from('user_matches')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('matched_user_id', matchedUserId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data !== null;
 };
 
 // DELETE
