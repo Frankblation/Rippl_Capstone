@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Vibration, ActivityIndicator } from 'react-nati
 import UserCard from './UserSwipingCard';
 import { useAnimation } from '~/components/AnimationContext';
 import LottieView from 'lottie-react-native';
+import { AntDesign } from '@expo/vector-icons';
 
 import { getRecommendedUsers, getUserInterests, getUserById, saveSwipe } from '~/utils/data';
 
@@ -224,6 +225,19 @@ export default function Swipe() {
     }
   };
 
+  // Render swipe indicators
+  const renderOverlayLabel = (label: string) => {
+    return (
+      <View style={styles.overlayLabelContainer}>
+        {label === 'LEFT' ? (
+          <AntDesign name="close" size={80} color="#F39237" style={styles.overlayIcon} />
+        ) : (
+          <AntDesign name="check" size={80} color="#00AF9F" style={styles.overlayIcon} />
+        )}
+      </View>
+    );
+  };
+
   if (!auth.user) {
     return (
       <View style={styles.container}>
@@ -235,7 +249,7 @@ export default function Swipe() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#00AF9F" />
       </View>
     );
   }
@@ -254,6 +268,20 @@ export default function Swipe() {
           backgroundColor="transparent"
           stackSize={3}
           verticalSwipe={false}
+          overlayLabels={{
+            left: {
+              element: renderOverlayLabel('LEFT'),
+              style: {
+                wrapper: styles.overlayWrapper,
+              },
+            },
+            right: {
+              element: renderOverlayLabel('RIGHT'),
+              style: {
+                wrapper: styles.overlayWrapper,
+              },
+            },
+          }}
         />
       ) : (
         <Text style={styles.noUsersText}>No recommendations available</Text>
@@ -283,5 +311,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#666',
     padding: 20,
+  },
+  overlayLabelContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlayIcon: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  overlayWrapper: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'absolute',
+    bottom: -80,
+    zIndex: 2,
+    opacity: 0.8,
   },
 });
