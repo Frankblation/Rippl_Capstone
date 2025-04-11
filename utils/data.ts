@@ -1070,7 +1070,6 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
         swipe_yes: isLiked
       });
       
-    // Log additional information about the response
     console.log('Supabase response status:', status);
     console.log('Supabase response data:', data);
     console.log('Supabase response error:', error);
@@ -1082,38 +1081,52 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
     
     // If this was a "like" swipe, check for a match
     if (isLiked) {
-      const matchResult = await matchExists(userId, swipedUserId);
+      // Check if the other user has swiped right on this user
+      const { data: matchData, error: matchError } = await supabase
+        .from('user_swiped_yes')
+        .select('*')
+        .eq('user_id', swipedUserId)
+        .eq('swiped_user_id', userId)
+        .eq('swipe_yes', true)
+        .maybeSingle();
+        
+      if (matchError) {
+        console.error('Error checking for match:', matchError);
+        return { success: false, error: matchError, isMatch: false };
+      }
       
-      // If we found a match, create a match record in the database
-      if (matchResult.success && matchResult.isMatch) {
+      // If a match is found, create a record in user_matches
+      if (matchData) {
+        console.log('Match found! Creating match record...');
+        
         try {
-          // Create a match record using your existing function
+          // Create a match record
           const newMatch = await createUserMatch({
             user_id: userId,
             matched_user_id: swipedUserId
           });
           
-          console.log('Created new match record:', newMatch);
+          console.log('Successfully created match record:', newMatch);
           
-          // Return the match result with the new match data
-          return {
-            ...matchResult,
-            matchData: newMatch
+          return { 
+            success: true, 
+            isMatch: true, 
+            matchData: newMatch 
           };
-        } catch (matchError) {
-          console.error('Error creating match record:', matchError);
-          // Still return isMatch true even if we failed to create the record
-          // This will ensure the animation still shows
-          return matchResult;
+        } catch (createError) {
+          console.error('Error creating match record:', createError);
+          // Still return isMatch true so the animation shows
+          return { success: true, isMatch: true, error: createError };
         }
       }
       
-      return matchResult;
+      console.log('User swiped right, but no match yet');
+      return { success: true, isMatch: false, data };
     }
     
     return { success: true, data, isMatch: false };
   } catch (err) {
-    console.error('Exception saving swipe with full details:', err);
+    console.error('Exception in saveSwipe:', err);
     return { success: false, error: err, isMatch: false };
   }
 }
