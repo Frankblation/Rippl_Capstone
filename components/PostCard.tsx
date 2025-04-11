@@ -9,63 +9,67 @@ import {
   Platform,
   type ImageSourcePropType,
   Dimensions,
+  Alert,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import { likePost, unlikePost } from '~/utils/data';
+import { useAuth } from '~/components/providers/AuthProvider';
 
 interface PostCardProps {
+  id: string; // Post ID
   interest: string;
   username: string;
   userAvatar: ImageSourcePropType;
   timePosted: string;
   userId: string;
+  postUserId: string; // The user ID of the post creator
   title?: string;
   postText?: string;
   postImage?: ImageSourcePropType;
   likesCount: number;
+  isLiked: boolean;
   commentsCount: number;
   onPress?: () => void;
-  onLikePress?: () => void;
   onCommentPress?: () => void;
   onProfilePress?: () => void;
+  onLikeStatusChange?: (postId: string, isLiked: boolean) => void; // Callback to notify parent of like status changes
 }
 
 const PostCard: React.FC<PostCardProps> = ({
+  id,
   interest,
   username,
   userAvatar,
   timePosted,
   postText,
   userId,
+  postUserId,
   title,
   postImage,
   onPress,
   likesCount: initialLikesCount,
+  isLiked: initialIsLiked,
   commentsCount,
-  onLikePress,
   onCommentPress,
   onProfilePress,
+  onLikeStatusChange,
 }) => {
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(initialIsLiked);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
+  const [isUpdating, setIsUpdating] = useState(false);
   const animationRef = useRef<LottieView>(null);
   const router = useRouter();
-  /**
-   * Data needed:
-   * user (user_id, name, image, interest)
-   * post (created_at, title, description, image)
-   */
-  const handleLikePress = () => {
-    setIsLiked(!isLiked);
-    setLikesCount(!isLiked ? likesCount + 1 : likesCount - 1);
-    if (onLikePress) onLikePress();
-  };
+  const { user } = useAuth();
 
-  const handleCommentPress = () => {
-    if (onCommentPress) onCommentPress();
-  };
+  // Update the local state if the prop changes (e.g., when switching between feeds)
+  useEffect(() => {
+    setIsLiked(initialIsLiked);
+    setLikesCount(initialLikesCount);
+  }, [initialIsLiked, initialLikesCount]);
 
+  // Handle animation when like status changes
   useEffect(() => {
     if (isLiked) {
       animationRef.current?.play();
@@ -74,13 +78,58 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   }, [isLiked]);
 
+  const handleLikePress = async () => {
+    if (!user?.id) {
+      Alert.alert('Sign in required', 'Please sign in to like posts');
+      return;
+    }
+
+    if (isUpdating) return; // Prevent multiple rapid clicks
+    setIsUpdating(true);
+
+    // Optimistically update UI
+    const newIsLiked = !isLiked;
+    const newLikesCount = newIsLiked ? likesCount + 1 : Math.max(0, likesCount - 1);
+
+    setIsLiked(newIsLiked);
+    setLikesCount(newLikesCount);
+
+    try {
+      // Make API call
+      if (newIsLiked) {
+        await likePost(user.id, id);
+      } else {
+        await unlikePost(user.id, id);
+      }
+
+      // Notify parent component if needed
+      if (onLikeStatusChange) {
+        onLikeStatusChange(id, newIsLiked);
+      }
+    } catch (error) {
+      console.error('Error handling like:', error);
+
+      // Revert UI if there was an error
+      setIsLiked(!newIsLiked);
+      setLikesCount(newIsLiked ? likesCount : likesCount + 1);
+
+      Alert.alert('Error', 'Failed to update like status. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCommentPress = () => {
+    if (onCommentPress) onCommentPress();
+  };
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
       <View style={styles.card}>
         {/* HEADER WITH INTEREST, PROFILE PIC AND USERNAME */}
         <View style={styles.cardHeader}>
           <TouchableOpacity
-            onPress={() => router.push(`/(tabs)/profile/${userId}`)}
+            onPress={() => router.push(`/(tabs)/profile/${postUserId}`)}
             style={styles.userInfo}>
             <Image source={userAvatar} style={styles.avatar} />
             <View>
@@ -107,13 +156,18 @@ const PostCard: React.FC<PostCardProps> = ({
           <View style={styles.divider} />
           <View style={styles.footerRow}>
             <View style={styles.containerHeartComment}>
-              <TouchableOpacity style={styles.actionIcon} onPress={handleLikePress}>
+              <TouchableOpacity
+                style={styles.actionIcon}
+                onPress={handleLikePress}
+                disabled={isUpdating}
+              >
                 <LottieView
                   ref={animationRef}
                   source={require('../assets/animations/heart.json')}
                   loop={false}
-                  autoPlay={false}
+                  autoPlay={isLiked}
                   style={{ width: 70, height: 70 }}
+                  progress={isLiked ? undefined : 0}
                 />
               </TouchableOpacity>
 
@@ -135,6 +189,7 @@ const PostCard: React.FC<PostCardProps> = ({
   );
 };
 
+// Existing styles remain unchanged
 const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
@@ -166,7 +221,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-
   avatar: {
     width: 40,
     height: 40,
@@ -187,7 +241,6 @@ const styles = StyleSheet.create({
     height: width,
     marginBottom: 12,
   },
-
   postTitle: {
     fontSize: 15,
     fontWeight: 'bold',
@@ -195,7 +248,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 16,
   },
-
   postText: {
     fontSize: 14,
     color: '#262626',
@@ -209,7 +261,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 16,
   },
-
   numLikesText: {
     fontSize: 14,
     marginRight: 16,
@@ -235,7 +286,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-
   containerHeartComment: {
     flexDirection: 'row',
   },
@@ -251,7 +301,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#262626',
   },
-
   containerTimePosted: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

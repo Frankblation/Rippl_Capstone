@@ -1314,28 +1314,88 @@ export const deleteAttendee = async (
 
 //CREATE
 /**
- * Creates a new comment
+ * Creates a new comment and tracks user engagement
  * @param comment The comment data to create
  * @returns Promise with the created comment
  */
 export const createComment = async (
   comment: Omit<CommentsTable, 'id' | 'likes' | 'replies' | 'sent_at'>
 ): Promise<CommentsTable> => {
-  const id = crypto.randomUUID();
-  const newComment: CommentsTable = {
-    id,
-    post_id: comment.post_id,
-    user_id: comment.user_id,
-    content: comment.content,
-    likes: 0,
-    replies: 0,
-    sent_at: new Date().toISOString(),
-  };
+  try {
+    const newComment = {
+      post_id: comment.post_id,
+      user_id: comment.user_id,
+      content: comment.content,
+      likes: 0,
+      replies: 0,
+      sent_at: new Date().toISOString(),
+    };
 
-  const { error } = await supabase.from('comments').insert(newComment);
-  if (error) throw error;
+    // First, create the comment
+    const { data, error } = await supabase
+      .from('comments')
+      .insert(newComment)
+      .select()
+      .single();
 
-  return newComment;
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error('Failed to create comment - no data returned');
+    }
+
+    // Next, update the user_post_engagement table
+    const { data: existingEngagement, error: getEngagementError } = await supabase
+      .from('user_post_engagement')
+      .select('*')
+      .eq('user_id', comment.user_id)
+      .eq('post_id', comment.post_id)
+      .single();
+
+    if (getEngagementError && getEngagementError.code !== 'PGRST116') {
+      console.error('Error checking existing engagement:', getEngagementError);
+    }
+
+    if (existingEngagement) {
+      // Update existing engagement record
+      await supabase
+        .from('user_post_engagement')
+        .update({
+          comment_count: existingEngagement.comment_count + 1
+        })
+        .eq('id', existingEngagement.id);
+    } else {
+      // Create new engagement record
+      await supabase
+        .from('user_post_engagement')
+        .insert([
+          {
+            user_id: comment.user_id,
+            post_id: comment.post_id,
+            has_liked: false,
+            has_reposted: false,
+            comment_count: 1
+          }
+        ]);
+    }
+
+    // Update the post popularity (if you have this table)
+    try {
+      await supabase
+        .from('post_popularity')
+        .update({ comments: supabase.rpc('increment', { row_id: comment.post_id }) })
+        .eq('post_id', comment.post_id);
+    } catch (popError) {
+      console.error('Error updating post popularity:', popError);
+      // Non-critical error, don't throw
+    }
+
+    // Return the properly typed object with all fields
+    return data as CommentsTable;
+  } catch (error) {
+    console.error('Error creating comment:', error);
+    throw error;
+  }
 };
 
 // READ
@@ -1550,5 +1610,158 @@ export const getRecommendedPostsForUser = async (
   } catch (error) {
     console.error('Error fetching recommended posts:', error);
     return [];
+  }
+};
+
+// HANDLE LIKE / LIKES
+/**
+ * Likes a post and updates user engagement
+ * @param userId The ID of the user liking the post
+ * @param postId The ID of the post being liked
+ * @returns Promise indicating if the operation was successful
+ */
+export const likePost = async (userId: string, postId: string): Promise<boolean> => {
+  try {
+    // Check if the user already has engagement with this post
+    const { data: existingEngagement, error: getEngagementError } = await supabase
+      .from('user_post_engagement')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('post_id', postId)
+      .single();
+
+    if (getEngagementError && getEngagementError.code !== 'PGRST116') {
+      console.error('Error checking existing engagement:', getEngagementError);
+      throw getEngagementError;
+    }
+
+    if (existingEngagement) {
+      // If already liked, do nothing (or could toggle if you want)
+      if (existingEngagement.has_liked) {
+        return true;
+      }
+
+      // Update the existing record
+      const { error } = await supabase
+        .from('user_post_engagement')
+        .update({ has_liked: true })
+        .eq('id', existingEngagement.id);
+
+      if (error) throw error;
+    } else {
+      // Create a new engagement record
+      const { error } = await supabase
+        .from('user_post_engagement')
+        .insert([
+          {
+            user_id: userId,
+            post_id: postId,
+            has_liked: true,
+            has_reposted: false,
+            comment_count: 0
+          }
+        ]);
+
+      if (error) throw error;
+    }
+
+    // Update post popularity (if available)
+    try {
+      await supabase
+        .from('post_popularity')
+        .update({ likes: supabase.rpc('increment', { row_id: postId }) })
+        .eq('post_id', postId);
+    } catch (popError) {
+      console.error('Error updating post popularity:', popError);
+      // Non-critical error, don't throw
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error liking post:', error);
+    return false;
+  }
+};
+
+/**
+ * Unlikes a post and updates user engagement
+ * @param userId The ID of the user unliking the post
+ * @param postId The ID of the post being unliked
+ * @returns Promise indicating if the operation was successful
+ */
+export const unlikePost = async (userId: string, postId: string): Promise<boolean> => {
+  try {
+    // Find the existing engagement
+    const { data: existingEngagement, error: getEngagementError } = await supabase
+      .from('user_post_engagement')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('post_id', postId)
+      .single();
+
+    if (getEngagementError) {
+      if (getEngagementError.code === 'PGRST116') {
+        // No engagement record exists, so post wasn't liked anyway
+        return true;
+      }
+      throw getEngagementError;
+    }
+
+    // If not liked, do nothing
+    if (!existingEngagement.has_liked) {
+      return true;
+    }
+
+    // Update the engagement record
+    const { error } = await supabase
+      .from('user_post_engagement')
+      .update({ has_liked: false })
+      .eq('id', existingEngagement.id);
+
+    if (error) throw error;
+
+    // Update post popularity (if available)
+    try {
+      await supabase
+        .from('post_popularity')
+        .update({ likes: supabase.rpc('decrement', { row_id: postId }) })
+        .eq('post_id', postId);
+    } catch (popError) {
+      console.error('Error updating post popularity:', popError);
+      // Non-critical error, don't throw
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error unliking post:', error);
+    return false;
+  }
+};
+
+/**
+ * Checks if a user has liked a post
+ * @param userId The ID of the user
+ * @param postId The ID of the post
+ * @returns Promise with boolean indicating if post is liked
+ */
+export const checkIfPostLiked = async (userId: string, postId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('user_post_engagement')
+      .select('has_liked')
+      .eq('user_id', userId)
+      .eq('post_id', postId)
+      .single();
+
+    if (error) {
+      // If no record exists, the post is not liked
+      if (error.code === 'PGRST116') return false;
+      throw error;
+    }
+
+    return data?.has_liked || false;
+  } catch (error) {
+    console.error('Error checking if post is liked:', error);
+    return false;
   }
 };
