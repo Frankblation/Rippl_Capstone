@@ -132,6 +132,8 @@ export default function CustomizeProfileScreen() {
                 <TextInput
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
                   value={name}
+                  keyboardType="default"
+                  autoCapitalize="words"
                   onChangeText={setName}
                   placeholder="Your name"
                   style={{ textAlignVertical: 'center', minHeight: 50 }}
