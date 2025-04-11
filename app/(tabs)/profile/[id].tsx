@@ -3,9 +3,9 @@
 import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, View, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Alert, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CommentsBottomSheet, {
   type CommentsBottomSheetRef,

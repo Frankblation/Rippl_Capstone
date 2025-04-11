@@ -11,12 +11,6 @@ import { easeGradient } from 'react-native-easing-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, {
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
 
 type UserCardProps = {
   user: {
@@ -30,8 +24,6 @@ type UserCardProps = {
 const { width } = Dimensions.get('window');
 
 export default function UserSwipingCard({ user }: UserCardProps) {
-  const initialLocations: [number, number] = [0, 1]; // Ensure it's a tuple
-  const initialColors: [string, string] = ['#000000', '#FFFFFF']; // Ensure it's a tuple
   const { width, height } = useWindowDimensions();
 
   // LINEAR GRADIENT
@@ -92,7 +84,8 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     overflow: 'hidden',
     position: 'relative',
-    bottom: 50,
+    alignSelf: 'center',
+    marginTop: 0,
   },
   image: {
     width: '100%',

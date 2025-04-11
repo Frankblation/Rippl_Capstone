@@ -1,7 +1,9 @@
 'use client';
 import React, { Suspense } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 const MatchedScreen = React.lazy(() => import('~/components/MatchedScreen'));
 
 type User = {
