@@ -1058,7 +1058,7 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
     console.log('Attempting to save swipe with data:', {
       user_id: userId,
       swiped_user_id: swipedUserId,
-      swipe_yes: isLiked  // Using the correct column name
+      swipe_yes: isLiked
     });
     
     // Insert the swipe record
@@ -1067,7 +1067,7 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
       .insert({
         user_id: userId,
         swiped_user_id: swipedUserId,
-        swipe_yes: isLiked  // Using the correct column name
+        swipe_yes: isLiked
       });
       
     // Log additional information about the response
@@ -1082,7 +1082,33 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
     
     // If this was a "like" swipe, check for a match
     if (isLiked) {
-      return await matchExists(userId, swipedUserId);
+      const matchResult = await matchExists(userId, swipedUserId);
+      
+      // If we found a match, create a match record in the database
+      if (matchResult.success && matchResult.isMatch) {
+        try {
+          // Create a match record using your existing function
+          const newMatch = await createUserMatch({
+            user_id: userId,
+            matched_user_id: swipedUserId
+          });
+          
+          console.log('Created new match record:', newMatch);
+          
+          // Return the match result with the new match data
+          return {
+            ...matchResult,
+            matchData: newMatch
+          };
+        } catch (matchError) {
+          console.error('Error creating match record:', matchError);
+          // Still return isMatch true even if we failed to create the record
+          // This will ensure the animation still shows
+          return matchResult;
+        }
+      }
+      
+      return matchResult;
     }
     
     return { success: true, data, isMatch: false };
