@@ -1442,7 +1442,18 @@ export const deleteImage = async (imageUrl: string, bucket: string, folder?: str
   }
 };
 
+type RecommendedUser = {
+  recommended_user_id: string;
+  users: {
+    id: string;
+    name: string;
+    description: string | null;
+    image: string | null;
+  };
+};
+
 // ML CRUD
+
 export const getRecommendedUsers = async (userId: string) => {
   try {
     // First get the recommended users with their basic info
@@ -1463,7 +1474,7 @@ export const getRecommendedUsers = async (userId: string) => {
       console.error('Error fetching recommended users:', recommendationsError);
       return { data: null, error: recommendationsError };
     }
-
+    
     // For each recommended user, fetch their interests
     const recommendedUsers = await Promise.all(
       recommendationsData.map(async (item) => {
@@ -1503,7 +1514,6 @@ export const getRecommendedUsers = async (userId: string) => {
     return { data: null, error: err };
   }
 }
-
 
 // RECOMMENDER STUFF
 /**
