@@ -5,7 +5,7 @@ import {
   Text,
   Image,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Platform,
   type ImageSourcePropType,
   Dimensions,
@@ -75,11 +75,11 @@ const PostCard: React.FC<PostCardProps> = ({
   }, [isLiked]);
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
+    <Pressable onPress={onPress}>
       <View style={styles.card}>
         {/* HEADER WITH INTEREST, PROFILE PIC AND USERNAME */}
         <View style={styles.cardHeader}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => router.push(`/(tabs)/profile/${userId}`)}
             style={styles.userInfo}>
             <Image source={userAvatar} style={styles.avatar} />
@@ -87,7 +87,7 @@ const PostCard: React.FC<PostCardProps> = ({
               <Text style={styles.interest}>{interest}</Text>
               <Text style={styles.username}>{username}</Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* IMAGE */}
@@ -100,14 +100,16 @@ const PostCard: React.FC<PostCardProps> = ({
         {/* NUM OF LIKES AND COMMENTS */}
         <View style={styles.engagementStats}>
           <Text style={styles.numLikesText}>{likesCount} likes</Text>
-          <Text style={styles.numCommentsText}>{commentsCount} comments</Text>
+          <Pressable onPress={handleCommentPress}>
+            <Text style={styles.numCommentsText}>{commentsCount} comments</Text>
+          </Pressable>
         </View>
         {/* LIKE AND COMMENT */}
         <View style={styles.heartCommentTimeContainer}>
           <View style={styles.divider} />
           <View style={styles.footerRow}>
             <View style={styles.containerHeartComment}>
-              <TouchableOpacity style={styles.actionIcon} onPress={handleLikePress}>
+              <Pressable style={styles.actionIcon} onPress={handleLikePress}>
                 <LottieView
                   ref={animationRef}
                   source={require('../assets/animations/heart.json')}
@@ -115,23 +117,23 @@ const PostCard: React.FC<PostCardProps> = ({
                   autoPlay={false}
                   style={{ width: 70, height: 70 }}
                 />
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity style={styles.actionButton} onPress={handleCommentPress}>
+              <Pressable style={styles.actionButton} onPress={handleCommentPress}>
                 <Ionicons
                   name="chatbubble-outline"
                   size={22}
                   color="#262626"
                   style={styles.actionIcon}
                 />
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <Text style={styles.timePosted}>{timePosted}</Text>
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 

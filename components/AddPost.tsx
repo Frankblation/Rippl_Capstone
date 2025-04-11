@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useTabsReload } from '~/app/(tabs)/_layout';
 import { format, type ISOStringFormat } from 'date-fns';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -20,7 +20,7 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Image,
   Platform,
@@ -105,7 +105,7 @@ const AccordionSection = ({
 
   return (
     <View style={styles.accordionSection}>
-      <TouchableOpacity style={styles.accordionHeader} onPress={onToggle} activeOpacity={0.7}>
+      <Pressable style={styles.accordionHeader} onPress={onToggle}>
         <View style={styles.accordionTitleContainer}>
           {icon && (
             <Ionicons
@@ -121,7 +121,7 @@ const AccordionSection = ({
         <Animated.View style={iconStyle}>
           <Ionicons name="chevron-down" size={18} color="#F39237" />
         </Animated.View>
-      </TouchableOpacity>
+      </Pressable>
 
       <Animated.View style={contentStyle}>
         <View style={styles.accordionContent}>{children}</View>
@@ -140,6 +140,7 @@ const AddPostForm = () => {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { triggerReload } = useTabsReload();
+  const descriptionRef = useRef<TextInput>(null);
 
   // State for user interests from database
   const [interests, setInterests] = useState<{ id: string; name: string }[]>([]);
@@ -446,6 +447,33 @@ const AddPostForm = () => {
   // Determine if image is required based on post type
   const isImageRequired = postType === PostType.EVENT;
 
+  // Check if form is valid for submission
+  const isFormValid = () => {
+    // Basic validation - must have type, title, description, and interest
+    if (
+      !postType ||
+      !title ||
+      title.length < 1 ||
+      !description ||
+      description.length < 1 ||
+      !selectedInterestGroup
+    ) {
+      return false;
+    }
+
+    // Additional validation for events
+    if (postType === PostType.EVENT) {
+      if (!location) return false;
+      if (!selectedStartDate) return false;
+      if (dateType === 'range' && !selectedEndDate) return false;
+      if (!selectedStartTime) return false;
+      if (timeType === 'range' && !selectedEndTime) return false;
+      if (isImageRequired && !imageUri) return false;
+    }
+
+    return true;
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -463,7 +491,7 @@ const AddPostForm = () => {
             isOpen={openSections.type}
             onToggle={() => toggleSection('type')}>
             <View style={styles.radioGroup}>
-              <TouchableOpacity
+              <Pressable
                 style={[
                   styles.radioButton,
                   postType === PostType.NOTE && styles.radioButtonSelected,
@@ -479,9 +507,9 @@ const AddPostForm = () => {
                   ]}>
                   Post
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
+              <Pressable
                 style={[
                   styles.radioButton,
                   postType === PostType.EVENT && styles.radioButtonSelected,
@@ -497,7 +525,7 @@ const AddPostForm = () => {
                   ]}>
                   Event
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </AccordionSection>
 
@@ -512,16 +540,23 @@ const AddPostForm = () => {
               <Text style={styles.label}>Title</Text>
               <Controller
                 control={control}
-                rules={{ required: 'Title is required' }}
+                rules={{
+                  required: 'Title is required',
+                  minLength: { value: 1, message: 'Title must be at least 1 character' },
+                }}
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    style={styles.input}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
                     value={value}
+                    keyboardType="default"
+                    autoCapitalize="words"
+                    autoFocus={true}
+                    style={styles.input}
+                    onChangeText={onChange}
+                    returnKeyType="next"
+                    onBlur={onBlur}
                     placeholder="Enter a title"
-                    autoCapitalize="sentences"
                     autoCorrect
+                    onSubmitEditing={() => descriptionRef.current?.focus()}
                   />
                 )}
                 name="title"
@@ -533,18 +568,22 @@ const AddPostForm = () => {
               <Text style={styles.label}>Description</Text>
               <Controller
                 control={control}
-                rules={{ required: 'Description is required' }}
+                rules={{
+                  required: 'Description is required',
+                  minLength: { value: 1, message: 'Description must be at least 1 character' },
+                }}
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
                     style={[styles.input, styles.textArea]}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
+                    ref={descriptionRef}
                     placeholder="Write your content here..."
                     multiline
-                    numberOfLines={4}
                     autoCapitalize="sentences"
                     autoCorrect
+                    maxLength={255}
                   />
                 )}
                 name="description"
@@ -604,7 +643,7 @@ const AddPostForm = () => {
                 </View>
 
                 {/* START DATE PICKER */}
-                <TouchableOpacity
+                <Pressable
                   style={styles.datePickerButton}
                   onPress={() => setShowStartDatePicker(true)}>
                   <Text style={styles.datePickerButtonText}>
@@ -614,12 +653,12 @@ const AddPostForm = () => {
                         ? 'Select a date'
                         : 'Select start date'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
                 {showStartDatePicker && (
                   <DateTimePicker
                     value={selectedStartDate || new Date()}
                     mode="date"
-                    display="default"
+                    display="inline"
                     onChange={(event, selectedDate) => {
                       setShowStartDatePicker(Platform.OS === 'ios');
                       if (selectedDate) {
@@ -636,7 +675,7 @@ const AddPostForm = () => {
                 {/* END DATE PICKER (ONLY SHOWN FOR RANGE) */}
                 {dateType === 'range' && (
                   <>
-                    <TouchableOpacity
+                    <Pressable
                       style={[styles.datePickerButton, { marginTop: 8 }]}
                       onPress={() => setShowEndDatePicker(true)}>
                       <Text style={styles.datePickerButtonText}>
@@ -644,12 +683,12 @@ const AddPostForm = () => {
                           ? format(selectedEndDate, 'MMMM d, yyyy')
                           : 'Select end date'}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                     {showEndDatePicker && (
                       <DateTimePicker
                         value={selectedEndDate || selectedStartDate || new Date()}
                         mode="date"
-                        display="default"
+                        display="inline"
                         minimumDate={selectedStartDate}
                         onChange={(event, selectedDate) => {
                           setShowEndDatePicker(Platform.OS === 'ios');
@@ -689,7 +728,7 @@ const AddPostForm = () => {
                 </View>
 
                 {/* START TIME PICKER */}
-                <TouchableOpacity
+                <Pressable
                   style={styles.datePickerButton}
                   onPress={() => setShowStartTimePicker(true)}>
                   <Text style={styles.datePickerButtonText}>
@@ -699,12 +738,12 @@ const AddPostForm = () => {
                         ? 'Select a time'
                         : 'Select start time'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
                 {showStartTimePicker && (
                   <DateTimePicker
                     value={selectedStartTime || new Date()}
                     mode="time"
-                    display="default"
+                    display="inline"
                     onChange={(event, selectedTime) => {
                       setShowStartTimePicker(Platform.OS === 'ios');
                       if (selectedTime) {
@@ -724,18 +763,18 @@ const AddPostForm = () => {
                 {/* END TIME PICKER (ONLY SHOWN FOR RANGE) */}
                 {timeType === 'range' && (
                   <>
-                    <TouchableOpacity
+                    <Pressable
                       style={[styles.datePickerButton, { marginTop: 8 }]}
                       onPress={() => setShowEndTimePicker(true)}>
                       <Text style={styles.datePickerButtonText}>
                         {selectedEndTime ? format(selectedEndTime, 'h:mm a') : 'Select end time'}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                     {showEndTimePicker && (
                       <DateTimePicker
                         value={selectedEndTime || selectedStartTime || new Date()}
                         mode="time"
-                        display="default"
+                        display="inline"
                         onChange={(event, selectedTime) => {
                           setShowEndTimePicker(Platform.OS === 'ios');
                           if (selectedTime) {
@@ -769,7 +808,7 @@ const AddPostForm = () => {
             ) : interests.length > 0 ? (
               <View style={styles.interestContainer}>
                 {interests.map((interest) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={interest.id}
                     style={[
                       styles.interestToggle,
@@ -785,7 +824,7 @@ const AddPostForm = () => {
                       ]}>
                       {interest.name}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             ) : (
@@ -836,7 +875,7 @@ const AddPostForm = () => {
 
           {/* FORM ACTIONS */}
           <View style={styles.formActions}>
-            <TouchableOpacity
+            <Pressable
               style={styles.cancelButton}
               onPress={() => {
                 reset();
@@ -855,12 +894,12 @@ const AddPostForm = () => {
                 });
               }}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              style={styles.submitButton}
+            <Pressable
+              style={[styles.submitButton, !isFormValid() && styles.submitButtonDisabled]}
               onPress={handleSubmit(onSubmit)}
-              disabled={isSubmitting}>
+              disabled={isSubmitting || !isFormValid()}>
               {isSubmitting ? (
                 <ActivityIndicator color="white" size="small" />
               ) : (
@@ -872,7 +911,7 @@ const AddPostForm = () => {
                     : 'Create'}
                 </Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
         {/* Add some bottom padding to ensure the submit button is visible */}
@@ -1092,6 +1131,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#cccccc',
+    opacity: 0.7,
   },
   submitButton: {
     backgroundColor: '#00AF9F',
