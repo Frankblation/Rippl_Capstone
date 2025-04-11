@@ -14,7 +14,16 @@ import React, {
   useEffect,
   useImperativeHandle,
 } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Keyboard, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Keyboard,
+  Platform,
+  Pressable,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface PostComment {
@@ -144,10 +153,12 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
               borderTopColor: '#dbdbdb',
             },
           ]}>
-          <Image
-            source={{ uri: 'https://randomuser.me/api/portraits/women/68.jpg' }}
-            style={styles.commentInputAvatar}
-          />
+          <Pressable>
+            <Image
+              source={{ uri: 'https://randomuser.me/api/portraits/women/68.jpg' }}
+              style={styles.commentInputAvatar}
+            />
+          </Pressable>
           <View style={styles.inputWrapper}>
             <BottomSheetTextInput
               ref={inputRef}
