@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import Swiper from 'react-native-deck-swiper';
 import { View, Text, StyleSheet, Vibration, ActivityIndicator } from 'react-native';
@@ -5,16 +6,18 @@ import UserCard from './UserSwipingCard';
 import { useAnimation } from '~/components/AnimationContext';
 import LottieView from 'lottie-react-native';
 
-import { getRecommendedUsers } from '~/utils/data';
-import { getUserInterests } from '~/utils/data';
+import { getRecommendedUsers, getUserInterests, getUserById } from '~/utils/data';
 
 import { useRouter } from 'expo-router';
+
+import { useAuth } from './providers/AuthProvider';
 
 type User = {
   name: string;
   bio: string;
   picture: any; // Changed to any to support require() for local images
   interests: string[];
+  id?: string; // Adding optional id field for database users
 };
 
 const dummyUsers: User[] = [
@@ -24,68 +27,34 @@ const dummyUsers: User[] = [
     picture: require('../assets/user2.jpg'), // Local image path
     interests: ['Photography', 'Urban Exploration', 'Cycling', 'Jazz Music', 'Coffee Brewing'],
   },
-  {
-    name: 'Jamie Smith',
-    bio: 'Avid hiker and nature photographer documenting wilderness trails.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Hiking', 'Photography', 'Bird Watching', 'Camping', 'Botany'],
-  },
-  {
-    name: 'Taylor Rodriguez',
-    bio: 'Passionate home chef specializing in international cuisines and baking.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Cooking', 'Baking', 'Farmers Markets', 'Food Blogging', 'Wine Tasting'],
-  },
-  {
-    name: 'Morgan Chen',
-    bio: 'Book lover and writer working on a collection of short stories.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Reading', 'Creative Writing', 'Poetry', 'Book Clubs', 'Library Visits'],
-  },
-  {
-    name: 'Jordan Williams',
-    bio: 'Dedicated musician playing guitar in a local indie rock band.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Guitar', 'Songwriting', 'Concert-going', 'Record Collecting', 'Music Production'],
-  },
-  {
-    name: 'Casey Parker',
-    bio: 'Yoga instructor and meditation practitioner focused on mindfulness.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Yoga', 'Meditation', 'Hiking', 'Vegetarian Cooking', 'Journaling'],
-  },
-  {
-    name: 'Riley Thompson',
-    bio: 'Crafting enthusiast specializing in handmade jewelry and accessories.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Jewelry Making', 'Crafting', 'Art Markets', 'Upcycling', 'Design'],
-  },
-  {
-    name: 'Avery Martinez',
-    bio: 'Rock climbing coach who spends weekends exploring new climbing routes.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Rock Climbing', 'Bouldering', 'Outdoor Adventure', 'Fitness', 'Travel'],
-  },
+  // ... other dummy users
 ];
 
-const currentAuthUser = {
-  id: '123f2785-cbed-4e04-863a-fa0f0e376d53',
-  name: 'Test User',
-  interests: ['Reading', 'Gardening', 'Knitting', 'Photography', 'Hiking'],
-};
-
 export default function Swipe() {
+  // Use the auth context properly
+  const auth = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [cardIndex, setCardIndex] = useState(0);
+  const router = useRouter();
+  const { showAnimationOverlay, hideAnimationOverlay } = useAnimation();
 
   // Fetch recommended users when component mounts
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
-        // First get recommended users
-        const { data, error } = await getRecommendedUsers(currentAuthUser.id);
+        
+        // Ensure user is authenticated
+        if (!auth.user || !auth.user.id) {
+          console.error('No authenticated user found');
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+        
+        // Get recommended users - this already includes interests from your getRecommendedUsers function
+        const { data, error } = await getRecommendedUsers(auth.user.id);
         
         if (error) {
           console.error('Error fetching recommended users:', error);
@@ -98,33 +67,14 @@ export default function Swipe() {
           return;
         }
         
-        // Then get interests for each user and merge the data
-        const usersWithInterests = await Promise.all(
-          data.map(async (user) => {
-            try {
-              const interestsData = await getUserInterests(user.id);
-              
-              // Extract just the interest names from the interests data
-              const interestNames = interestsData.map(item => 
-                item.interests?.name || ''
-              ).filter(name => name !== '');
-              
-              // Return user with interests added
-              return {
-                ...user,
-                interests: interestNames
-              };
-            } catch (err) {
-              console.error(`Error fetching interests for user ${user.id}:`, err);
-              return {
-                ...user,
-                interests: []
-              };
-            }
-          })
-        );
+        // Make sure all users have an interests array, even if empty
+        const validatedUsers = data.map(user => ({
+          ...user,
+          interests: Array.isArray(user.interests) ? user.interests : []
+        }));
         
-        setUsers(usersWithInterests);
+        console.log('Recommended users with interests:', validatedUsers);
+        setUsers(validatedUsers);
       } catch (err) {
         console.error('Exception loading data:', err);
         setUsers([]);
@@ -133,79 +83,182 @@ export default function Swipe() {
       }
     }
     
-    loadData();
-  }, []);
-
-  const router = useRouter();
-
-  const { showAnimationOverlay, hideAnimationOverlay } = useAnimation();
+    // Only load data if we have an authenticated user
+    if (auth.user) {
+      loadData();
+    }
+  }, [auth.user]); // Dependencies include auth.user to re-fetch when user changes
 
   // Handle swipe gesture
-  const handleSwipe = (direction: string, cardIndex: number) => {
+  const handleSwipe = async (direction: string, cardIndex: number) => {
     if (direction === 'right') {
       const matched = users[cardIndex];
       Vibration.vibrate([0, 100, 0, 300, 0, 400]);
 
-      const AnimationOverlay = () => {
-        const animationRef = useRef<LottieView>(null);
-
-        useEffect(() => {
-          fetch;
-          if (animationRef.current) {
-            animationRef.current.play();
-          }
-        }, []);
-
-        return (
-          <View style={[StyleSheet.absoluteFillObject, styles.animationContainer]}>
-            <LottieView
-              ref={animationRef}
-              source={require('../assets/animations/Splash Transition.json')}
-              style={styles.animation}
-              autoPlay
-              loop={false}
-              speed={0.3}
-              onAnimationFinish={() => {
-                hideAnimationOverlay();
-                router.push({
-                  pathname: '/(tabs)/matched-users',
-                  params: {
-                    matchedUser: JSON.stringify(matched),
-                    currentUser: JSON.stringify(currentAuthUser),
-                  },
-                });
-              }}
-            />
-          </View>
-        );
+      // Before navigation, ensure the matched user has defined interests
+      const matchedUserWithValidInterests = {
+        ...matched,
+        interests: Array.isArray(matched.interests) ? matched.interests : []
       };
+      
+      try {
+        // Get current user's complete profile data and interests
+        let currentUserData: User | null = null;
+        
+        if (auth.user && auth.user.id) {
+          // Get full user profile data
+          const userProfile = await getUserById(auth.user.id);
+          
+          // Fetch the current user's interests
+          const authUserInterests = await getUserInterests(auth.user.id);
+          
+          // Extract interest names from the response
+          const currentUserInterests = authUserInterests
+            .map(item => item.interests?.name)
+            .filter(Boolean) as string[];
+          
+          console.log('Current user interests fetched:', currentUserInterests);
+          console.log('Current user profile fetched:', userProfile);
+          
+          // Create complete user data object
+          if (userProfile) {
+            currentUserData = {
+              id: userProfile.id,
+              name: userProfile.name || '',
+              bio: userProfile.description || '',
+              picture: userProfile.image || null,
+              interests: currentUserInterests
+            };
+          }
+        }
+        
+        // Log the user data being passed to the match screen
+        console.log('Swiped right on user:', matchedUserWithValidInterests);
+        console.log('Current user data for match screen:', currentUserData);
 
-      showAnimationOverlay(<AnimationOverlay />);
-    }
-  };
+        const AnimationOverlay = () => {
+          const animationRef = useRef<LottieView>(null);
 
-  // Get the recommended user data
-  const fetchRecommendedUsers = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await getRecommendedUsers(currentAuthUser.id);
+          useEffect(() => {
+            if (animationRef.current) {
+              animationRef.current.play();
+            }
+          }, []);
 
-      if (error) {
-        console.error('Error fetching recommended users:', error);
-        setUsers([]);
-      } else if (data && data.length > 0) {
-        setUsers(data);
-      } else {
-        // No recommendations, set empty array
-        setUsers([]);
+          return (
+            <View style={[StyleSheet.absoluteFillObject, styles.animationContainer]}>
+              <LottieView
+                ref={animationRef}
+                source={require('../assets/animations/Splash Transition.json')}
+                style={styles.animation}
+                autoPlay
+                loop={false}
+                speed={0.3}
+                onAnimationFinish={() => {
+                  hideAnimationOverlay();
+                  
+                  // Create a simple object with just the properties needed for the match screen
+                  const matchUserData: User = {
+                    id: matchedUserWithValidInterests.id,
+                    name: matchedUserWithValidInterests.name,
+                    bio: matchedUserWithValidInterests.bio || '',
+                    picture: matchedUserWithValidInterests.picture,
+                    interests: matchedUserWithValidInterests.interests || []
+                  };
+                  
+                  // If we couldn't get the current user data, create a minimal version
+                  if (!currentUserData && auth.user) {
+                    currentUserData = {
+                      id: auth.user.id,
+                      name: 'You',
+                      bio: '',
+                      picture: null,
+                      interests: []
+                    };
+                  }
+                  
+                  router.push({
+                    pathname: '/(tabs)/matched-users',
+                    params: {
+                      matchedUser: JSON.stringify(matchUserData),
+                      currentUser: JSON.stringify(currentUserData),
+                    },
+                  });
+                }}
+              />
+            </View>
+          );
+        };
+
+        showAnimationOverlay(<AnimationOverlay />);
+      } catch (err) {
+        console.error('Error preparing match data:', err);
+        
+        // Even if there's an error, show the animation and navigate with basic data
+        const AnimationOverlay = () => {
+          const animationRef = useRef<LottieView>(null);
+
+          useEffect(() => {
+            if (animationRef.current) {
+              animationRef.current.play();
+            }
+          }, []);
+
+          return (
+            <View style={[StyleSheet.absoluteFillObject, styles.animationContainer]}>
+              <LottieView
+                ref={animationRef}
+                source={require('../assets/animations/Splash Transition.json')}
+                style={styles.animation}
+                autoPlay
+                loop={false}
+                speed={0.3}
+                onAnimationFinish={() => {
+                  hideAnimationOverlay();
+                  
+                  const fallbackMatchedUser: User = {
+                    id: matched.id,
+                    name: matched.name,
+                    bio: '',
+                    picture: null,
+                    interests: []
+                  };
+                  
+                  const fallbackCurrentUser: User = {
+                    id: auth.user?.id || '',
+                    name: 'You',
+                    bio: '',
+                    picture: null,
+                    interests: []
+                  };
+                  
+                  router.push({
+                    pathname: '/(tabs)/matched-users',
+                    params: {
+                      matchedUser: JSON.stringify(fallbackMatchedUser),
+                      currentUser: JSON.stringify(fallbackCurrentUser),
+                    },
+                  });
+                }}
+              />
+            </View>
+          );
+        };
+
+        showAnimationOverlay(<AnimationOverlay />);
       }
-    } catch (err) {
-      console.error('Exception in fetching recommended users:', err);
-      setUsers([]); // Set empty array instead of dummy data
-    } finally {
-      setLoading(false);
     }
   };
+
+  // Removed duplicate fetchRecommendedUsers function as it's now handled in the useEffect
+
+  if (!auth.user) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.noUsersText}>Please sign in to see recommendations</Text>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
