@@ -346,9 +346,8 @@ const EventCard: React.FC<EventCardProps> = ({
                 onPress={toggleGoing}>
                 <AntDesign name="check" size={20} color={isGoing ? '#fff' : '#00AF9F'} />
               </TouchableOpacity>
-              {/*
+
               <Text style={{ marginTop: 4, fontSize: 12, color: '#00AF9F' }}>Going</Text>
-                */}
             </View>
 
             {/* INTERESTED */}
@@ -363,9 +362,8 @@ const EventCard: React.FC<EventCardProps> = ({
                 onPress={toggleinterested}>
                 <AntDesign name="staro" size={20} color={isinterested ? '#fff' : '#F39237'} />
               </TouchableOpacity>
-              {/*
-              <Text style={{ marginTop: 4, fontSize: 12, color: '#F39237' }}>Interested</Text> 
-              */}
+
+              <Text style={{ marginTop: 4, fontSize: 12, color: '#F39237' }}>Interested</Text>
             </View>
           </View>
 
