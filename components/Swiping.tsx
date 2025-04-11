@@ -17,21 +17,10 @@ type User = {
   bio: string;
   picture: any; // Changed to any to support require() for local images
   interests: string[];
-  id?: string; // Adding optional id field for database users
+  id?: string;
 };
 
-const dummyUsers: User[] = [
-  {
-    name: 'Alex Johnson',
-    bio: 'Photography enthusiast capturing urban landscapes and street art.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Photography', 'Urban Exploration', 'Cycling', 'Jazz Music', 'Coffee Brewing'],
-  },
-  // ... other dummy users
-];
-
 export default function Swipe() {
-  // Use the auth context properly
   const auth = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +42,7 @@ export default function Swipe() {
           return;
         }
         
-        // Get recommended users - this already includes interests from your getRecommendedUsers function
+        // Get recommended users
         const { data, error } = await getRecommendedUsers(auth.user.id);
         
         if (error) {
