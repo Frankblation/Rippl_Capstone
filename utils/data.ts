@@ -1055,12 +1055,6 @@ type SwipeResult = {
 
 export async function saveSwipe(userId: string, swipedUserId: string, isLiked: boolean): Promise<SwipeResult> {
   try {
-    console.log('Attempting to save swipe with data:', {
-      user_id: userId,
-      swiped_user_id: swipedUserId,
-      swipe_yes: isLiked
-    });
-    
     // Insert the swipe record
     const { data, error, status } = await supabase
       .from('user_swiped_yes')
