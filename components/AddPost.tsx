@@ -6,8 +6,9 @@ import { format, type ISOStringFormat } from 'date-fns';
 import { useEffect, useState, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { Calendar, CalendarList, Agenda } from 'react-native-calendars';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -134,13 +135,14 @@ const AddPostForm = () => {
   const [postType, setPostType] = useState<PostType | null>(null);
   const [dateType, setDateType] = useState<DateTimeType>('single');
   const [timeType, setTimeType] = useState<DateTimeType>('single');
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [isStartTimePickerVisible, setStartTimePickerVisible] = useState(false);
+  const [isEndTimePickerVisible, setEndTimePickerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { triggerReload } = useTabsReload();
   const descriptionRef = useRef<TextInput>(null);
+
+  // Calendar marked dates state
+  const [markedDates, setMarkedDates] = useState<any>({});
 
   // State for user interests from database
   const [interests, setInterests] = useState<{ id: string; name: string }[]>([]);
@@ -235,6 +237,52 @@ const AddPostForm = () => {
   const selectedEndTime = watch('endTime');
   const selectedInterestGroup = watch('interestGroup');
   const imageUri = watch('image');
+
+  // Update marked dates when start or end date changes
+  useEffect(() => {
+    const newMarkedDates: any = {};
+
+    if (selectedStartDate) {
+      const startDateStr = selectedStartDate.toISOString().split('T')[0];
+
+      if (dateType === 'single') {
+        newMarkedDates[startDateStr] = { selected: true, selectedColor: '#00AF9F' };
+      } else if (dateType === 'range') {
+        newMarkedDates[startDateStr] = {
+          selected: true,
+          startingDay: true,
+          color: '#00AF9F',
+        };
+
+        if (selectedEndDate) {
+          const endDateStr = selectedEndDate.toISOString().split('T')[0];
+          newMarkedDates[endDateStr] = {
+            selected: true,
+            endingDay: true,
+            color: '#00AF9F',
+          };
+
+          // Fill in dates between start and end
+          const start = new Date(selectedStartDate);
+          const end = new Date(selectedEndDate);
+
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+
+            if (dateStr !== startDateStr && dateStr !== endDateStr) {
+              newMarkedDates[dateStr] = {
+                selected: true,
+                color: '#00AF9F',
+                textColor: 'white',
+              };
+            }
+          }
+        }
+      }
+    }
+
+    setMarkedDates(newMarkedDates);
+  }, [selectedStartDate, selectedEndDate, dateType]);
 
   // Auto-progress through sections when fields are filled
   useEffect(() => {
@@ -340,7 +388,66 @@ const AddPostForm = () => {
     }
   };
 
-  // FORM SUBMISSION - FIXED JSON FORMAT ISSUES
+  // Calendar date selection handler
+  const handleDateSelect = (day: any) => {
+    const selectedDate = new Date(day.dateString);
+
+    if (dateType === 'single') {
+      setValue('startDate', selectedDate);
+      setValue('endDate', selectedDate); // For single date, end date is same as start date
+    } else {
+      // Range selection logic
+      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+        // If no dates selected or both dates already selected, set as new start date
+        setValue('startDate', selectedDate);
+        setValue('endDate', undefined);
+      } else if (selectedStartDate && !selectedEndDate) {
+        // If only start date is selected
+        if (selectedDate < selectedStartDate) {
+          // If selected date is before start date, swap them
+          setValue('endDate', selectedStartDate);
+          setValue('startDate', selectedDate);
+        } else {
+          // Normal case: set end date
+          setValue('endDate', selectedDate);
+        }
+      }
+    }
+  };
+
+  // Time picker handlers
+  const showStartTimePicker = () => {
+    setStartTimePickerVisible(true);
+  };
+
+  const hideStartTimePicker = () => {
+    setStartTimePickerVisible(false);
+  };
+
+  const handleStartTimeConfirm = (time: Date) => {
+    setValue('startTime', time);
+    hideStartTimePicker();
+
+    // If end time is before start time, update end time
+    if (selectedEndTime && time.getHours() > selectedEndTime.getHours()) {
+      setValue('endTime', time);
+    }
+  };
+
+  const showEndTimePicker = () => {
+    setEndTimePickerVisible(true);
+  };
+
+  const hideEndTimePicker = () => {
+    setEndTimePickerVisible(false);
+  };
+
+  const handleEndTimeConfirm = (time: Date) => {
+    setValue('endTime', time);
+    hideEndTimePicker();
+  };
+
+  // FORM SUBMISSION
   const onSubmit = async (data: FormData) => {
     // Validate that a post type is selected
     if (!data.type) {
@@ -636,70 +743,48 @@ const AddPostForm = () => {
                       const newDateType = value ? 'range' : 'single';
                       setDateType(newDateType);
                       setValue('dateType', newDateType);
+
+                      if (!value && selectedEndDate) {
+                        setValue('endDate', selectedStartDate);
+                      }
                     }}
                     trackColor={{ false: '#ddd', true: '#14b8a6' }}
                     thumbColor={'white'}
                   />
                 </View>
 
-                {/* START DATE PICKER */}
-                <Pressable
-                  style={styles.datePickerButton}
-                  onPress={() => setShowStartDatePicker(true)}>
-                  <Text style={styles.datePickerButtonText}>
-                    {selectedStartDate
-                      ? format(selectedStartDate, 'MMMM d, yyyy')
-                      : dateType === 'single'
-                        ? 'Select a date'
-                        : 'Select start date'}
-                  </Text>
-                </Pressable>
-                {showStartDatePicker && (
-                  <DateTimePicker
-                    value={selectedStartDate || new Date()}
-                    mode="date"
-                    display="inline"
-                    onChange={(event, selectedDate) => {
-                      setShowStartDatePicker(Platform.OS === 'ios');
-                      if (selectedDate) {
-                        setValue('startDate', selectedDate);
-                        // If end date is before start date, update end date
-                        if (selectedEndDate && selectedDate > selectedEndDate) {
-                          setValue('endDate', selectedDate);
-                        }
-                      }
+                {/* Calendar */}
+                <View style={styles.calendarContainer}>
+                  <Calendar
+                    onDayPress={handleDateSelect}
+                    markedDates={markedDates}
+                    minDate={new Date().toISOString().split('T')[0]}
+                    markingType={dateType === 'range' ? 'period' : 'custom'}
+                    theme={{
+                      todayTextColor: '#00AF9F',
+                      selectedDayBackgroundColor: '#00AF9F',
+                      selectedDayTextColor: '#ffffff',
+                      arrowColor: '#00AF9F',
                     }}
                   />
-                )}
+                </View>
 
-                {/* END DATE PICKER (ONLY SHOWN FOR RANGE) */}
-                {dateType === 'range' && (
-                  <>
-                    <Pressable
-                      style={[styles.datePickerButton, { marginTop: 8 }]}
-                      onPress={() => setShowEndDatePicker(true)}>
-                      <Text style={styles.datePickerButtonText}>
-                        {selectedEndDate
-                          ? format(selectedEndDate, 'MMMM d, yyyy')
-                          : 'Select end date'}
-                      </Text>
-                    </Pressable>
-                    {showEndDatePicker && (
-                      <DateTimePicker
-                        value={selectedEndDate || selectedStartDate || new Date()}
-                        mode="date"
-                        display="inline"
-                        minimumDate={selectedStartDate}
-                        onChange={(event, selectedDate) => {
-                          setShowEndDatePicker(Platform.OS === 'ios');
-                          if (selectedDate) {
-                            setValue('endDate', selectedDate);
-                          }
-                        }}
-                      />
-                    )}
-                  </>
-                )}
+                {/* Display selected dates */}
+                <View style={styles.selectedDatesContainer}>
+                  {selectedStartDate && (
+                    <Text style={styles.selectedDateText}>
+                      {dateType === 'single'
+                        ? `Selected date: ${format(selectedStartDate, 'MMMM d, yyyy')}`
+                        : `Start date: ${format(selectedStartDate, 'MMMM d, yyyy')}`}
+                    </Text>
+                  )}
+                  {dateType === 'range' && selectedEndDate && (
+                    <Text style={styles.selectedDateText}>
+                      End date: {format(selectedEndDate, 'MMMM d, yyyy')}
+                    </Text>
+                  )}
+                </View>
+
                 {errors.startDate && (
                   <Text style={styles.errorText}>{errors.startDate.message}</Text>
                 )}
@@ -728,9 +813,7 @@ const AddPostForm = () => {
                 </View>
 
                 {/* START TIME PICKER */}
-                <Pressable
-                  style={styles.datePickerButton}
-                  onPress={() => setShowStartTimePicker(true)}>
+                <Pressable style={styles.datePickerButton} onPress={showStartTimePicker}>
                   <Text style={styles.datePickerButtonText}>
                     {selectedStartTime
                       ? format(selectedStartTime, 'h:mm a')
@@ -739,52 +822,36 @@ const AddPostForm = () => {
                         : 'Select start time'}
                   </Text>
                 </Pressable>
-                {showStartTimePicker && (
-                  <DateTimePicker
-                    value={selectedStartTime || new Date()}
-                    mode="time"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, selectedTime) => {
-                      setShowStartTimePicker(Platform.OS === 'ios');
-                      if (selectedTime) {
-                        setValue('startTime', selectedTime);
-                        // If end time is before start time, update end time
-                        if (
-                          selectedEndTime &&
-                          selectedTime.getHours() > selectedEndTime.getHours()
-                        ) {
-                          setValue('endTime', selectedTime);
-                        }
-                      }
-                    }}
-                  />
-                )}
+
+                <DateTimePickerModal
+                  isVisible={isStartTimePickerVisible}
+                  mode="time"
+                  onConfirm={handleStartTimeConfirm}
+                  onCancel={hideStartTimePicker}
+                  date={selectedStartTime || new Date()}
+                />
 
                 {/* END TIME PICKER (ONLY SHOWN FOR RANGE) */}
                 {timeType === 'range' && (
                   <>
                     <Pressable
                       style={[styles.datePickerButton, { marginTop: 8 }]}
-                      onPress={() => setShowEndTimePicker(true)}>
+                      onPress={showEndTimePicker}>
                       <Text style={styles.datePickerButtonText}>
                         {selectedEndTime ? format(selectedEndTime, 'h:mm a') : 'Select end time'}
                       </Text>
                     </Pressable>
-                    {showEndTimePicker && (
-                      <DateTimePicker
-                        value={selectedEndTime || selectedStartTime || new Date()}
-                        mode="time"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(event, selectedTime) => {
-                          setShowEndTimePicker(Platform.OS === 'ios');
-                          if (selectedTime) {
-                            setValue('endTime', selectedTime);
-                          }
-                        }}
-                      />
-                    )}
+
+                    <DateTimePickerModal
+                      isVisible={isEndTimePickerVisible}
+                      mode="time"
+                      onConfirm={handleEndTimeConfirm}
+                      onCancel={hideEndTimePicker}
+                      date={selectedEndTime || selectedStartTime || new Date()}
+                    />
                   </>
                 )}
+
                 {errors.startTime && (
                   <Text style={styles.errorText}>{errors.startTime.message}</Text>
                 )}
@@ -793,7 +860,7 @@ const AddPostForm = () => {
             </>
           )}
 
-          {/* INTEREST SECTION - UPDATED TO USE DATABASE INTERESTS */}
+          {/* INTEREST SECTION */}
           <AccordionSection
             title="Interest Group"
             icon="people-outline"
@@ -856,7 +923,7 @@ const AddPostForm = () => {
                 userId={authUser.id}
                 onUploadComplete={(imageUrl) => {
                   setValue('image', imageUrl);
-                  trigger('image'); // Trigger validation after setting the image
+                  trigger('image');
                 }}
                 existingImageUrl={imageUri}
                 placeholderLabel="Choose an image"
@@ -882,7 +949,6 @@ const AddPostForm = () => {
                 setPostType(null);
                 setDateType('single');
                 setTimeType('single');
-                // Reset open sections to initial state
                 setOpenSections({
                   type: true,
                   basicInfo: false,
@@ -914,7 +980,6 @@ const AddPostForm = () => {
             </Pressable>
           </View>
         </View>
-        {/* Add some bottom padding to ensure the submit button is visible */}
         <View style={{ height: 50 }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -928,11 +993,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Platform.OS === 'ios' ? 10 : 8,
   },
   contentContainer: {
-    paddingBottom: Platform.OS === 'ios' ? 80 : 100, // More padding for Android
+    paddingBottom: Platform.OS === 'ios' ? 80 : 100,
   },
   card: {
     width: '100%',
-    borderRadius: Platform.OS === 'ios' ? 50 : 25, // Less extreme radius for Android
+    borderRadius: Platform.OS === 'ios' ? 50 : 25,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -940,9 +1005,25 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  calendarContainer: {
+    marginVertical: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  selectedDatesContainer: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  selectedDateText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 4,
+  },
   // Rest of your styles...
-
-  // New styles
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -961,14 +1042,12 @@ const styles = StyleSheet.create({
     padding: 10,
   },
 
-  // Keep all your existing styles
   cardTitle: {
     fontSize: 22,
     fontFamily: 'SFProDisplayBold',
     marginBottom: 20,
     color: '#333',
   },
-  // Accordion styles
   accordionSection: {
     marginBottom: 12,
     borderWidth: 1,
@@ -1026,7 +1105,7 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
-    paddingTop: Platform.OS === 'android' ? 10 : 12, // Fix Android text alignment
+    paddingTop: Platform.OS === 'android' ? 10 : 12,
   },
   radioGroup: {
     flexDirection: 'row',
