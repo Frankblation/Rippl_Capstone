@@ -5,87 +5,43 @@ import UserCard from './UserSwipingCard';
 import { useAnimation } from '~/components/AnimationContext';
 import LottieView from 'lottie-react-native';
 
-import { getRecommendedUsers } from '~/utils/data';
-import { getUserInterests } from '~/utils/data';
+import { getRecommendedUsers, getUserInterests, getUserById, saveSwipe } from '~/utils/data';
 
 import { useRouter } from 'expo-router';
+import { useAuth } from './providers/AuthProvider';
 
 type User = {
   name: string;
   bio: string;
-  picture: any; // Changed to any to support require() for local images
+  picture: any; 
   interests: string[];
-};
-
-const dummyUsers: User[] = [
-  {
-    name: 'Alex Johnson',
-    bio: 'Photography enthusiast capturing urban landscapes and street art.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Photography', 'Urban Exploration', 'Cycling', 'Jazz Music', 'Coffee Brewing'],
-  },
-  {
-    name: 'Jamie Smith',
-    bio: 'Avid hiker and nature photographer documenting wilderness trails.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Hiking', 'Photography', 'Bird Watching', 'Camping', 'Botany'],
-  },
-  {
-    name: 'Taylor Rodriguez',
-    bio: 'Passionate home chef specializing in international cuisines and baking.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Cooking', 'Baking', 'Farmers Markets', 'Food Blogging', 'Wine Tasting'],
-  },
-  {
-    name: 'Morgan Chen',
-    bio: 'Book lover and writer working on a collection of short stories.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Reading', 'Creative Writing', 'Poetry', 'Book Clubs', 'Library Visits'],
-  },
-  {
-    name: 'Jordan Williams',
-    bio: 'Dedicated musician playing guitar in a local indie rock band.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Guitar', 'Songwriting', 'Concert-going', 'Record Collecting', 'Music Production'],
-  },
-  {
-    name: 'Casey Parker',
-    bio: 'Yoga instructor and meditation practitioner focused on mindfulness.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Yoga', 'Meditation', 'Hiking', 'Vegetarian Cooking', 'Journaling'],
-  },
-  {
-    name: 'Riley Thompson',
-    bio: 'Crafting enthusiast specializing in handmade jewelry and accessories.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Jewelry Making', 'Crafting', 'Art Markets', 'Upcycling', 'Design'],
-  },
-  {
-    name: 'Avery Martinez',
-    bio: 'Rock climbing coach who spends weekends exploring new climbing routes.',
-    picture: require('../assets/user2.jpg'), // Local image path
-    interests: ['Rock Climbing', 'Bouldering', 'Outdoor Adventure', 'Fitness', 'Travel'],
-  },
-];
-
-const currentAuthUser = {
-  id: '123f2785-cbed-4e04-863a-fa0f0e376d53',
-  name: 'Test User',
-  interests: ['Reading', 'Gardening', 'Knitting', 'Photography', 'Hiking'],
+  id?: string;
 };
 
 export default function Swipe() {
+  const auth = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [cardIndex, setCardIndex] = useState(0);
+  const router = useRouter();
+  const { showAnimationOverlay, hideAnimationOverlay } = useAnimation();
 
   // Fetch recommended users when component mounts
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
-        // First get recommended users
-        const { data, error } = await getRecommendedUsers(currentAuthUser.id);
+        
+        // Ensure user is authenticated
+        if (!auth.user || !auth.user.id) {
+          console.error('No authenticated user found');
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+        
+        // Get recommended users
+        const { data, error } = await getRecommendedUsers(auth.user.id);
         
         if (error) {
           console.error('Error fetching recommended users:', error);
@@ -98,33 +54,14 @@ export default function Swipe() {
           return;
         }
         
-        // Then get interests for each user and merge the data
-        const usersWithInterests = await Promise.all(
-          data.map(async (user) => {
-            try {
-              const interestsData = await getUserInterests(user.id);
-              
-              // Extract just the interest names from the interests data
-              const interestNames = interestsData.map(item => 
-                item.interests?.name || ''
-              ).filter(name => name !== '');
-              
-              // Return user with interests added
-              return {
-                ...user,
-                interests: interestNames
-              };
-            } catch (err) {
-              console.error(`Error fetching interests for user ${user.id}:`, err);
-              return {
-                ...user,
-                interests: []
-              };
-            }
-          })
-        );
+        // Make sure all users have an interests array, even if empty
+        const validatedUsers = data.map(user => ({
+          ...user,
+          interests: Array.isArray(user.interests) ? user.interests : []
+        }));
         
-        setUsers(usersWithInterests);
+        console.log('Recommended users with interests:', validatedUsers);
+        setUsers(validatedUsers);
       } catch (err) {
         console.error('Exception loading data:', err);
         setUsers([]);
@@ -133,79 +70,164 @@ export default function Swipe() {
       }
     }
     
-    loadData();
-  }, []);
+    // Only load data if we have an authenticated user
+    if (auth.user) {
+      loadData();
+    }
+  }, [auth.user]);
 
-  const router = useRouter();
+  // Create animation overlay component
+  const createAnimationOverlay = (matchedUser: User, currentUser: User) => {
+    return () => {
+      const animationRef = useRef<LottieView>(null);
 
-  const { showAnimationOverlay, hideAnimationOverlay } = useAnimation();
+      useEffect(() => {
+        if (animationRef.current) {
+          animationRef.current.play();
+        }
+      }, []);
+
+      return (
+        <View style={[StyleSheet.absoluteFillObject, styles.animationContainer]}>
+          <LottieView
+            ref={animationRef}
+            source={require('../assets/animations/Splash Transition.json')}
+            style={styles.animation}
+            autoPlay
+            loop={false}
+            speed={0.3}
+            onAnimationFinish={() => {
+              hideAnimationOverlay();
+              
+              router.push({
+                pathname: '/(tabs)/matched-users',
+                params: {
+                  matchedUser: JSON.stringify(matchedUser),
+                  currentUser: JSON.stringify(currentUser),
+                },
+              });
+            }}
+          />
+        </View>
+      );
+    };
+  };
 
   // Handle swipe gesture
-  const handleSwipe = (direction: string, cardIndex: number) => {
-    if (direction === 'right') {
-      const matched = users[cardIndex];
-      Vibration.vibrate([0, 100, 0, 300, 0, 400]);
-
-      const AnimationOverlay = () => {
-        const animationRef = useRef<LottieView>(null);
-
-        useEffect(() => {
-          fetch;
-          if (animationRef.current) {
-            animationRef.current.play();
-          }
-        }, []);
-
-        return (
-          <View style={[StyleSheet.absoluteFillObject, styles.animationContainer]}>
-            <LottieView
-              ref={animationRef}
-              source={require('../assets/animations/Splash Transition.json')}
-              style={styles.animation}
-              autoPlay
-              loop={false}
-              speed={0.3}
-              onAnimationFinish={() => {
-                hideAnimationOverlay();
-                router.push({
-                  pathname: '/(tabs)/matched-users',
-                  params: {
-                    matchedUser: JSON.stringify(matched),
-                    currentUser: JSON.stringify(currentAuthUser),
-                  },
-                });
-              }}
-            />
-          </View>
-        );
-      };
-
-      showAnimationOverlay(<AnimationOverlay />);
+  const handleSwipe = async (direction: string, cardIndex: number) => {
+    const swipedUser = users[cardIndex];
+    
+    if (!auth.user?.id || !swipedUser.id) {
+      console.error('Missing user IDs for swipe action');
+      return;
     }
-  };
-
-  // Get the recommended user data
-  const fetchRecommendedUsers = async () => {
+    
+    // For both right and left swipes, we'll save the action to the database
+    // true for right swipe (like), false for left swipe (pass)
+    const isLiked = direction === 'right';
+    
     try {
-      setLoading(true);
-      const { data, error } = await getRecommendedUsers(currentAuthUser.id);
+      // Save the swipe action to database
+      const swipeResult = await saveSwipe(auth.user.id, swipedUser.id, isLiked);
+      console.log('Swipe saved:', swipeResult);
+      
+      // Only proceed with the match flow for right swipes that result in a match
+      if (isLiked) {
+        // Trigger vibration for right swipe
+        Vibration.vibrate([0, 100, 0, 300, 0, 400]);
 
-      if (error) {
-        console.error('Error fetching recommended users:', error);
-        setUsers([]);
-      } else if (data && data.length > 0) {
-        setUsers(data);
-      } else {
-        // No recommendations, set empty array
-        setUsers([]);
+        // Determine if there was a match
+        const isMatch = swipeResult.isMatch;
+        
+        // Even if it's not a match now, it could be in the future when the other user swipes
+        // So we'll just log that info for now
+        if (!isMatch) {
+          console.log('User swiped right, but no match yet');
+          return;
+        }
+        
+        // If there's a match, proceed with showing the match screen
+        console.log('Match found! Preparing match screen...');
+        
+        // Ensure the matched user has defined interests
+        const matchedUserWithValidInterests = {
+          ...swipedUser,
+          interests: Array.isArray(swipedUser.interests) ? swipedUser.interests : []
+        };
+        
+        // Initialize with basic data in case fetching fails
+        let currentUserData: User = {
+          id: auth.user.id,
+          name: 'You',
+          bio: '',
+          picture: null,
+          interests: []
+        };
+        
+        try {
+          // Get full user profile data
+          const userProfile = await getUserById(auth.user.id);
+          
+          // Fetch the current user's interests
+          const authUserInterests = await getUserInterests(auth.user.id);
+          
+          // Extract interest names from the response
+          const currentUserInterests = authUserInterests
+            .map(item => item.interests?.name)
+            .filter(Boolean) as string[];
+          
+          // Update user data if profile was fetched successfully
+          if (userProfile) {
+            currentUserData = {
+              id: userProfile.id,
+              name: userProfile.name || 'You',
+              bio: userProfile.description || '',
+              picture: userProfile.image || null,
+              interests: currentUserInterests
+            };
+          }
+          
+          // Prepare final matched user data
+          const matchUserData: User = {
+            id: matchedUserWithValidInterests.id,
+            name: matchedUserWithValidInterests.name,
+            bio: matchedUserWithValidInterests.bio || '',
+            picture: matchedUserWithValidInterests.picture,
+            interests: matchedUserWithValidInterests.interests || []
+          };
+          
+          // Show animation and navigate
+          const AnimationOverlay = createAnimationOverlay(matchUserData, currentUserData);
+          showAnimationOverlay(<AnimationOverlay />);
+        } catch (err) {
+          console.error('Error preparing match data:', err);
+          
+          // Create fallback data
+          const fallbackMatchedUser: User = {
+            id: swipedUser.id,
+            name: swipedUser.name,
+            bio: swipedUser.bio || '',
+            picture: swipedUser.picture || null,
+            interests: Array.isArray(swipedUser.interests) ? swipedUser.interests : []
+          };
+          
+          // Show animation and navigate with fallback data
+          const FallbackAnimationOverlay = createAnimationOverlay(fallbackMatchedUser, currentUserData);
+          showAnimationOverlay(<FallbackAnimationOverlay />);
+        }
       }
     } catch (err) {
-      console.error('Exception in fetching recommended users:', err);
-      setUsers([]); // Set empty array instead of dummy data
-    } finally {
-      setLoading(false);
+      console.error('Error processing swipe action:', err);
     }
   };
+
+  if (!auth.user) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.noUsersText}>Please sign in to see recommendations</Text>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
