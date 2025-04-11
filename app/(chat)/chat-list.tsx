@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  FlatList,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import {
   ChannelList,
   useChatContext,
