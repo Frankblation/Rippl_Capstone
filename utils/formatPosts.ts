@@ -75,9 +75,9 @@ export function getTimeAgo(date: Date): string {
   const now = new Date();
 
   const diffMs = now.getTime() - date.getTime();
-  
+
   if (diffMs < 0 || isNaN(diffMs)) {
-    return '< 1 day ago';
+    return 'less than an hour ago';
   }
 
   const diffSecs = Math.round(diffMs / 1000);

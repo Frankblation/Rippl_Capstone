@@ -16,8 +16,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import * as Calendar from 'expo-calendar';
 import { parse, format, parseISO } from 'date-fns';
+import { likePost, unlikePost } from '~/utils/data';
+import { useAuth } from '~/components/providers/AuthProvider';
+import { useUser } from '~/hooks/useUser';
 
 interface EventCardProps {
+  id: string; // Add this to match PostCard
   title: string;
   date: string;
   time: string;
@@ -27,16 +31,18 @@ interface EventCardProps {
   attendeeAvatars?: ImageSourcePropType[];
   status?: 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
   likesCount: number;
+  isLiked: boolean;
   commentsCount: number;
   timePosted: string;
   onPress?: () => void;
   onRegisterPress?: () => void;
-  onLikePress?: () => void;
   onProfilePress?: () => void;
   onCommentPress?: () => void;
+  onLikeStatusChange?: (postId: string, isLiked: boolean) => void;
 }
 
 const EventCard: React.FC<EventCardProps> = ({
+  id,
   title,
   date,
   time,
@@ -49,17 +55,37 @@ const EventCard: React.FC<EventCardProps> = ({
   onRegisterPress,
   onCommentPress,
   likesCount: initialLikesCount,
+  isLiked: initialIsLiked,
   commentsCount,
-  onLikePress,
   onProfilePress,
   timePosted,
+  onLikeStatusChange,
 }) => {
   const [isGoing, setIsGoing] = useState(false);
   const [isinterested, setIsinterested] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(initialIsLiked);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [hasCalendarPermission, setHasCalendarPermission] = useState(false);
   const animationRef = useRef<LottieView>(null);
+  const { user : authUser } = useAuth();
+  // Use our custom hook to get full user data
+  const { user } = useUser(authUser?.id || null);
+
+  // Update the local state if the prop changes
+  useEffect(() => {
+    setIsLiked(initialIsLiked);
+    setLikesCount(initialLikesCount);
+  }, [initialIsLiked, initialLikesCount]);
+
+  // Handle animation when like status changes
+  useEffect(() => {
+    if (isLiked) {
+      animationRef.current?.play();
+    } else {
+      animationRef.current?.reset();
+    }
+  }, [isLiked]);
 
   useEffect(() => {
     (async () => {
@@ -116,7 +142,7 @@ const EventCard: React.FC<EventCardProps> = ({
         alarms: [{ relativeOffset: -60 }],
       });
 
-      Alert.alert('Added to Calendar', 'You’ll get a reminder before it starts.', [
+      Alert.alert('Added to Calendar', 'Youll get a reminder before it starts.', [
         { text: 'Great' },
       ]);
 
@@ -184,10 +210,45 @@ const EventCard: React.FC<EventCardProps> = ({
     if (!isinterested) setIsGoing(false);
   };
 
-  const handleLikePress = () => {
-    setIsLiked(!isLiked);
-    setLikesCount(!isLiked ? likesCount + 1 : likesCount - 1);
-    if (onLikePress) onLikePress();
+  const handleLikePress = async () => {
+    if (!user?.id) {
+      Alert.alert('Sign in required', 'Please sign in to like events');
+      return;
+    }
+
+    if (isUpdating) return; // Prevent multiple rapid clicks
+    setIsUpdating(true);
+
+    // Optimistically update UI
+    const newIsLiked = !isLiked;
+    const newLikesCount = newIsLiked ? likesCount + 1 : Math.max(0, likesCount - 1);
+
+    setIsLiked(newIsLiked);
+    setLikesCount(newLikesCount);
+
+    try {
+      // Make API call
+      if (newIsLiked) {
+        await likePost(user.id, id);
+      } else {
+        await unlikePost(user.id, id);
+      }
+
+      // Notify parent component if needed
+      if (onLikeStatusChange) {
+        onLikeStatusChange(id, newIsLiked);
+      }
+    } catch (error) {
+      console.error('Error handling like:', error);
+
+      // Revert UI if there was an error
+      setIsLiked(!newIsLiked);
+      setLikesCount(newIsLiked ? likesCount : likesCount + 1);
+
+      Alert.alert('Error', 'Failed to update like status. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleCommentPress = () => {
@@ -307,13 +368,18 @@ const EventCard: React.FC<EventCardProps> = ({
             <View style={styles.divider} />
             <View style={styles.footerRow}>
               <View style={styles.containerHeartComment}>
-                <TouchableOpacity style={styles.actionIcon} onPress={handleLikePress}>
+                <TouchableOpacity
+                  style={styles.actionIcon}
+                  onPress={handleLikePress}
+                  disabled={isUpdating}
+                >
                   <LottieView
                     ref={animationRef}
                     source={require('../assets/animations/heart.json')}
                     loop={false}
-                    autoPlay={false}
+                    autoPlay={isLiked}
                     style={{ width: 70, height: 70 }}
+                    progress={isLiked ? undefined : 0}
                   />
                 </TouchableOpacity>
 
@@ -336,6 +402,7 @@ const EventCard: React.FC<EventCardProps> = ({
   );
 };
 
+// Existing styles remain unchanged
 const styles = StyleSheet.create({
   card: {
     backgroundColor: 'white',
