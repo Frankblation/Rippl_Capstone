@@ -87,6 +87,13 @@ const CACHE: FeedCache = {
   profile: new Map()
 };
 
+const feedSubscribers = new Set<() => void>();
+
+// Function to notify subscribers of cache changes
+function notifyFeedSubscribers() {
+  feedSubscribers.forEach(callback => callback());
+}
+
 // Shared liked posts cache across components
 const LIKED_POSTS = new Set<string>();
 
@@ -390,6 +397,28 @@ export function useFeed(
     }
   }, [user, getInterestIds, feedType, cacheKey, fetchFeedData]);
 
+  useEffect(() => {
+  // Create a random ID for this component instance
+  const componentId = Math.random().toString(36).substring(2, 15);
+
+  // Subscribe to feed updates
+  const subscribeToFeedUpdates = () => {
+    // Look up fresh state from the cache
+    const cachedState = CACHE[feedType].get(cacheKey);
+    if (cachedState) {
+      setState(cachedState);
+    }
+  };
+
+  // Add our subscriber
+  feedSubscribers.add(subscribeToFeedUpdates);
+
+  // Cleanup when unmounting
+  return () => {
+    feedSubscribers.delete(subscribeToFeedUpdates);
+  };
+}, [feedType, cacheKey]);
+
 // LIKE FUNCTIONALITY
 // Handle like status changes - updates all feeds with the post
 const handleLikePost = useCallback(async (postId: string) => {
@@ -556,11 +585,11 @@ const handleLikePost = useCallback(async (postId: string) => {
 
     // Helper to update comment count across all feeds
     const updateCommentCountInFeeds = useCallback((postId: string, increment: number) => {
-    // Use our helper function to update all feeds
-    updatePostAcrossFeeds(postId, (post) => ({
+      // Use our helper function to update all feeds
+      updatePostAcrossFeeds(postId, (post) => ({
         ...post,
         commentsCount: Math.max(0, (post.commentsCount || 0) + increment)
-    }));
+      }));
     }, []);
 
   // Load more posts for pagination
@@ -634,6 +663,8 @@ const handleLikePost = useCallback(async (postId: string) => {
 // Helper functions
 // Helper to update a post in all feed caches
 export function updatePostAcrossFeeds(postId: string, updater: (post: UIPost) => UIPost) {
+  let cacheUpdated = false;
+
   // Update the post in all feed caches
   Object.keys(CACHE).forEach(type => {
     CACHE[type as FeedType].forEach((feedState, key) => {
@@ -644,7 +675,7 @@ export function updatePostAcrossFeeds(postId: string, updater: (post: UIPost) =>
         return item;
       });
 
-      // Only update if a post was actually modified
+      // Check if a post was actually modified
       const postWasUpdated = updatedItems.some((item, index) => {
         const originalItem = feedState.items[index];
         return 'id' in item && 'id' in originalItem &&
@@ -655,11 +686,18 @@ export function updatePostAcrossFeeds(postId: string, updater: (post: UIPost) =>
       if (postWasUpdated) {
         CACHE[type as FeedType].set(key, {
           ...feedState,
-          items: updatedItems
+          items: updatedItems,
+          timestamp: Date.now() // Update timestamp to indicate change
         });
+        cacheUpdated = true;
       }
     });
   });
+
+  // Notify subscribers if cache was updated
+  if (cacheUpdated) {
+    notifyFeedSubscribers();
+  }
 }
 
 // Helper to replace a post in all feed caches
@@ -678,6 +716,9 @@ export function invalidateAllFeedCaches() {
   Object.keys(CACHE).forEach(type => {
     CACHE[type as FeedType].clear();
   });
+
+  // Always notify subscribers when clearing all caches
+  notifyFeedSubscribers();
 }
 
 /**
@@ -686,6 +727,8 @@ export function invalidateAllFeedCaches() {
  * @param feedTypes Array of feed types to add the post to (defaults to all feeds)
  */
 export function addPostToFeeds(post: UIPost, feedTypes: FeedType[] = ['home', 'profile']) {
+  let cacheUpdated = false;
+
   // For each specified feed type
   feedTypes.forEach(feedType => {
     // For each cache entry of this feed type
@@ -728,7 +771,38 @@ export function addPostToFeeds(post: UIPost, feedTypes: FeedType[] = ['home', 'p
           items: newItems,
           timestamp: Date.now()
         });
+        cacheUpdated = true;
       }
     });
   });
+
+  // Notify subscribers if cache was updated
+  if (cacheUpdated) {
+    notifyFeedSubscribers();
+  }
+}
+
+// Add this function for debugging
+export function debugFeedCache() {
+  console.log('===== FEED CACHE DEBUG =====');
+  console.log(`Subscribers: ${feedSubscribers.size}`);
+
+  Object.keys(CACHE).forEach(type => {
+    console.log(`FEED TYPE: ${type}`);
+    CACHE[type as FeedType].forEach((state, key) => {
+      console.log(`  Key: ${key}`);
+      console.log(`  Items: ${state.items.length}`);
+      console.log(`  Updated: ${new Date(state.timestamp).toLocaleTimeString()}`);
+
+      // Log the first few items
+      state.items.slice(0, 2).forEach((item, idx) => {
+        if ('id' in item) {
+          console.log(`    ${idx}: Post ${item.id.substring(0, 5)}... | Liked: ${item.isLiked} | Comments: ${item.commentsCount || 0}`);
+        } else {
+          console.log(`    ${idx}: ${item.type}`);
+        }
+      });
+    });
+  });
+  console.log('===========================');
 }
