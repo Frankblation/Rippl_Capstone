@@ -134,10 +134,8 @@ const EventCard: React.FC<EventCardProps> = ({
           const userAttendance = attendees.find(a => a.user_id === user.id);
 
           if (userAttendance) {
-            console.log(`User ${user.id} attendance status:`, userAttendance.status);
             setAttendeeStatus(userAttendance.status as Status);
           } else {
-            console.log(`User ${user.id} has no attendance record`);
             setAttendeeStatus(null);
           }
         }
@@ -153,8 +151,6 @@ const EventCard: React.FC<EventCardProps> = ({
 
   // Debug logging
   useEffect(() => {
-    console.log(`Event ${id} - User attendance status:`, attendeeStatus);
-    console.log(`Event ${id} - Attendance counts:`, attendeeCount);
   }, [attendeeStatus, attendeeCount, id]);
 
   const handleAttendeeStatusChange = async (newStatus: Status | null) => {
@@ -164,12 +160,10 @@ const EventCard: React.FC<EventCardProps> = ({
     }
 
     setIsUpdating(true);
-    console.log(`Changing attendance from ${attendeeStatus} to ${newStatus}`);
 
     try {
       // CASE 1: User wants to remove attendance (toggle off current status)
       if (newStatus === null && attendeeStatus !== null) {
-        console.log(`Removing user ${user.id} from event ${id}`);
         await deleteAttendee(id, user.id);
 
         // Update counts based on previous status
@@ -184,7 +178,6 @@ const EventCard: React.FC<EventCardProps> = ({
       }
       // CASE 2: User changing from one status to another
       else if (newStatus !== null && attendeeStatus !== null) {
-        console.log(`Updating user ${user.id} status from ${attendeeStatus} to ${newStatus}`);
         await updateAttendeeStatus(id, user.id, newStatus);
 
         // Update counts based on status change
@@ -205,7 +198,6 @@ const EventCard: React.FC<EventCardProps> = ({
       }
       // CASE 3: User setting status for the first time
       else if (newStatus !== null && attendeeStatus === null) {
-        console.log(`Adding user ${user.id} to event ${id} with status ${newStatus}`);
         await createAttendee({
           user_id: user.id,
           post_id: id,
