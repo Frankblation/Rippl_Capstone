@@ -66,18 +66,36 @@ export type UIPost = NotePost | EventPost;
  */
 export function getTimeAgo(date: Date): string {
   const now = new Date();
-
   const diffMs = now.getTime() - date.getTime();
 
   if (diffMs < 0 || isNaN(diffMs)) {
-    return 'less than an hour ago';
+    return 'just now';
   }
 
   const diffSecs = Math.round(diffMs / 1000);
 
+  // Less than a minute
+  if (diffSecs < 60) {
+    return 'just now';
+  }
+
   const diffMins = Math.floor(diffSecs / 60);
 
-  // Rest of function remains the same
+  // Less than an hour - show in minutes
+  if (diffMins < 60) {
+    if (diffMins < 5) {
+      return 'just now';
+    } else if (diffMins <= 10) {
+      return '5 minutes ago';
+    } else if (diffMins <= 20) {
+      return '10 minutes ago';
+    } else if (diffMins <= 40) {
+      return '30 minutes ago';
+    } else {
+      return '45 minutes ago';
+    }
+  }
+
   const diffHours = Math.floor(diffMins / 60);
 
   // Less than a day - show in hours

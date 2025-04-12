@@ -25,8 +25,6 @@ type ProfileFeedItem = HeaderItem | FeedItem;
 
 const CurrentUser: React.FC = () => {
   const insets = useSafeAreaInsets();
-  // Remove the reloadFlag
-  // const { reloadFlag } = useTabsReload();
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();

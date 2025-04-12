@@ -10,13 +10,12 @@ import {
   Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useTabsReload } from '~/app/(tabs)/_layout';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
 import { InterestsTable } from '~/utils/db';
 import { useRouter } from 'expo-router';
 
-import { createUserInterest, updateUser, getAllInterests } from '~/utils/data';
+import { createUserInterest, updateUser, getAllInterests, deleteUserInterest } from '~/utils/data';
 const SupabaseImageUploader = React.lazy(() => import('~/components/SupabaseImageUploader'));
 
 interface Interest {
@@ -37,7 +36,6 @@ export default function EditProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [imageUpdated, setImageUpdated] = useState(false); // Track if image was updated
 
-  const { triggerReload } = useTabsReload();
   const bioInputRef = useRef<TextInput>(null);
 
   // Get authenticated user ID from auth hook
@@ -136,10 +134,22 @@ export default function EditProfileScreen() {
     Keyboard.dismiss();
   };
 
-  const removeInterest = (id: string) => {
-    // In a real implementation, you would also remove from the database
-    // For now, just removing from local state
-    setUserInterests(userInterests.filter((interest) => interest.id !== id));
+  const removeInterest = async (id: string) => {
+    if (!user.id) {
+      Alert.alert('Error', 'User not found');
+      return;
+    }
+
+    try {
+      // First remove from database
+      await deleteUserInterest(user.id, id);
+
+      // Then update local state if removal was successful
+      setUserInterests(userInterests.filter((interest) => interest.id !== id));
+    } catch (error) {
+      console.error('Error removing interest:', error);
+      Alert.alert('Error', 'Failed to remove interest');
+    }
   };
 
   const selectSuggestion = (interest: InterestsTable) => {
@@ -168,7 +178,7 @@ export default function EditProfileScreen() {
       }
 
       // Trigger reload for other tabs
-      triggerReload();
+
 
       Alert.alert('Success', 'Profile updated successfully!', [
         { text: 'OK', onPress: () => router.back() },
