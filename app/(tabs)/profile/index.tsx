@@ -1,12 +1,12 @@
 'use client';
 
 import { FlashList } from '@shopify/flash-list';
-import React, { useRef, useState, useEffect, Suspense } from 'react';
-import { StyleSheet, View, Alert, ActivityIndicator, Text, SafeAreaView } from 'react-native';
+import React, { Suspense } from 'react';
+import { StyleSheet, View, ActivityIndicator, Text, SafeAreaView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { CommentsBottomSheetRef, PostComment } from '~/components/CommentsBottomSheet';
+import type { CommentsBottomSheetRef } from '~/components/CommentsBottomSheet';
 const CommentsBottomSheet = React.lazy(() => import('~/components/CommentsBottomSheet'));
 
 import PostCard from '~/components/PostCard';
@@ -14,22 +14,19 @@ import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
 import { useUser } from '~/hooks/useUser';
 import { useAuth } from '~/components/providers/AuthProvider';
-import { getPostsByUserId } from '~/utils/data';
-import { formatPostsForUI, UIPost } from '~/utils/formatPosts';
 import { StatusBar } from 'expo-status-bar';
-import { useTabsReload } from '~/app/(tabs)/_layout';
 
-// Define feed item types
-type FeedItem = { id: string; type: 'header' } | UIPost;
+// Import our feed hook
+import { useFeed, FeedItem } from '~/hooks/useFeed';
+
+// Define a header item type to combine with our feed
+type HeaderItem = { id: string; type: 'header' };
+type ProfileFeedItem = HeaderItem | FeedItem;
 
 const CurrentUser: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
-  const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
-  const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
-  const [feed, setFeed] = useState<FeedItem[]>([{ id: 'header', type: 'header' }]);
-  const [loading, setLoading] = useState(true);
-  const { reloadFlag } = useTabsReload();
+  // Remove the reloadFlag
+  // const { reloadFlag } = useTabsReload();
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
@@ -37,54 +34,26 @@ const CurrentUser: React.FC = () => {
   // Use our custom hook to get full user data
   const { user } = useUser(authUser?.id || null);
 
-  // Fetch user posts for profile
-  useEffect(() => {
-    if (user.isLoading || !user.id) return;
+  // Use the feed hook for profile posts
+  const {
+    feed: rawFeed,
+    loading,
+    refresh,
+    handleLikePost,
+    commentsSheetRef,
+    selectedComments,
+    selectedCommentsCount,
+    openComments,
+    addComment,
+    // Keeping invalidateCache for manual refreshes, but we don't need it for auto-refresh
+    invalidateCache
+  } = useFeed('profile', authUser?.id || null);
 
-    const fetchUserPosts = async () => {
-      try {
-        setLoading(true);
-
-        // Get posts created by the user
-        const userPosts = await getPostsByUserId(user.id);
-
-        // Format posts for UI display
-        if (userPosts.length > 0) {
-          const formattedPosts = await formatPostsForUI(userPosts);
-
-          // Set the feed with header at the top followed by posts
-          setFeed([{ id: 'header', type: 'header' }, ...formattedPosts]);
-        } else {
-          setFeed([{ id: 'header', type: 'header' }]);
-        }
-      } catch (error) {
-        console.error('Error fetching user posts:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserPosts();
-  }, [user.id, user.isLoading, reloadFlag]);
-
-  // Handle comments
-  const handleOpenComments = (post: UIPost) => {
-    setSelectedComments(post.comments || []);
-    setSelectedCommentsCount(post.commentsCount);
-    commentsSheetRef.current?.open();
-  };
-
-  const handleAddComment = (text: string) => {
-    const newComment: PostComment = {
-      id: Date.now().toString(),
-      username: user.name || 'current_user',
-      userAvatar: { uri: user.image || 'https://randomuser.me/api/portraits/women/68.jpg' },
-      text,
-      timePosted: 'Just now',
-    };
-    setSelectedComments((prev) => [...prev, newComment]);
-    setSelectedCommentsCount((prev) => prev + 1);
-  };
+  // Combine header with feed items
+  const feed: ProfileFeedItem[] = [
+    { id: 'header', type: 'header' },
+    ...rawFeed
+  ];
 
   // Format user interests for the interest grid
   const userInterests = user.interests.map((interest) => ({
@@ -92,7 +61,7 @@ const CurrentUser: React.FC = () => {
     name: interest.interests?.name || 'Interest',
   }));
 
-  const renderItem = ({ item }: { item: FeedItem }) => {
+  const renderItem = ({ item }: { item: ProfileFeedItem }) => {
     if (item.type === 'header') {
       return (
         <View style={styles.headerContainer}>
@@ -107,14 +76,15 @@ const CurrentUser: React.FC = () => {
           </View>
         </View>
       );
-    } else if (item.type === 'post' || item.type === 'event') {
+    } else if ('id' in item) { // Check if it's a post/event (both have IDs)
       return (
         <PostCard
           {...item}
-          userId={item.postUserId}
-          onLikePress={() => console.log('Like pressed')}
-          onProfilePress={() => console.log('Profile pressed')}
-          onCommentPress={() => handleOpenComments(item)}
+          userId={authUser?.id || ''}
+          postUserId={item.postUserId}
+          isLiked={item.isLiked || false}
+          onLikePress={() => handleLikePost(item.id)}
+          onCommentPress={() => openComments(item.id)}
         />
       );
     }
@@ -138,20 +108,14 @@ const CurrentUser: React.FC = () => {
           <FlashList
             data={feed}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => ('id' in item ? item.id : 'header')}
             estimatedItemSize={300}
             contentContainerStyle={{
               ...styles.listContent,
               paddingBottom: insets.bottom + 16,
             }}
             refreshing={loading}
-            onRefresh={() => {
-              if (user.id) {
-                setLoading(true);
-                // This will trigger the useEffect again
-                setFeed([{ id: 'header', type: 'header' }]);
-              }
-            }}
+            onRefresh={refresh}
             ListEmptyComponent={
               !loading && feed.length <= 1 ? (
                 <View style={styles.emptyContainer}>
@@ -166,7 +130,7 @@ const CurrentUser: React.FC = () => {
               ref={commentsSheetRef}
               comments={selectedComments}
               commentsCount={selectedCommentsCount}
-              onAddComment={handleAddComment}
+              onAddComment={addComment}
             />
           </Suspense>
         </View>
@@ -176,6 +140,7 @@ const CurrentUser: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  // Styles remain unchanged
   listContent: {
     padding: 6,
   },
@@ -201,7 +166,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: 'geistBold',
     marginBottom: 8,
   },
   emptySubtext: {
