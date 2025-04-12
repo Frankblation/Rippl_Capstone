@@ -124,7 +124,7 @@ export function useFeed(
 ) {
   const {
     includeCarousel = feedType === 'home',
-    postsPerPage = feedType === 'home' ? 15 : 20,
+    postsPerPage = 5,
     maxAgeDays = 30,
     profileUserId
   } = options;
