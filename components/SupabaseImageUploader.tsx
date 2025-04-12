@@ -13,6 +13,7 @@ interface SupabaseImageUploaderProps {
   imageSize?: number;
   aspectRatio?: [number, number];
   folder?: string;
+  updateUserProfile?: boolean; // Add new prop to control user profile updates
 }
 
 export default function SupabaseImageUploader({
@@ -24,6 +25,7 @@ export default function SupabaseImageUploader({
   imageSize = 100,
   aspectRatio = [1, 1],
   folder = '',
+  updateUserProfile = false, // Default to false to prevent unintended profile updates
 }: SupabaseImageUploaderProps) {
   const [image, setImage] = useState<string | null>(existingImageUrl);
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -69,10 +71,12 @@ export default function SupabaseImageUploader({
         await deleteImage(existingImageUrl, bucketName, folder);
       }
 
-      // Update the user profile in the database with the new image URL
-      await updateUser(userId, {
-        image: imageUrl,
-      });
+      // Only update the user profile if explicitly requested
+      if (updateUserProfile) {
+        await updateUser(userId, {
+          image: imageUrl,
+        });
+      }
 
       // Call the callback to update the UI
       onUploadComplete(imageUrl);
