@@ -88,12 +88,8 @@ export function useUser(userId: string | null) {
       };
       // Log specific details
       console.log(`User Profile - ${updatedUserData.name || 'Unnamed User'}`);
-      console.log(`ID: ${updatedUserData.id}`);
       console.log(`Email: ${updatedUserData.email || 'No email'}`);
-      console.log(`Has profile image: ${updatedUserData.image ? 'Yes' : 'No'}`);
-      console.log(`Has description: ${updatedUserData.description ? 'Yes' : 'No'}`);
-      console.log(`Friends: ${updatedUserData.friendships.filter(f => f.status === 'accepted').length}`);
-      console.log(`Interests: ${updatedUserData.interests.length}`);
+      console.log(`ID: ${updatedUserData.id}`);
 
       setUserData(updatedUserData);
 

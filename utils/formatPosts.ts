@@ -26,6 +26,7 @@ export interface NotePost {
   likesCount: number;
   commentsCount: number;
   comments: PostComment[];
+  isLiked?: boolean;
   type: 'post';
 }
 
@@ -45,6 +46,7 @@ export interface EventPost {
   time: string;
   location: string;
   likesCount: number;
+  isLiked?: boolean;
   commentsCount: number;
   comments: PostComment[];
   attendeeAvatars: { uri: string }[];
