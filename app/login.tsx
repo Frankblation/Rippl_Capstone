@@ -39,6 +39,8 @@ export default function LoginScreen() {
       await notificationAsync(NotificationFeedbackType.Error);
       Alert.alert('Error', error.message);
     } else {
+      setEmail('');
+      setPassword('');
       await notificationAsync(NotificationFeedbackType.Success);
       router.replace('/(tabs)/home');
     }
