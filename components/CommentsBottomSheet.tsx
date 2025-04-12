@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   Image,
   Keyboard,
+  Pressable,
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -166,7 +167,9 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
               ) : (
                 comments.map((comment) => (
                   <View key={comment.id} style={styles.commentContainer}>
-                    <Image source={comment.userAvatar} style={styles.commentAvatar} />
+                    <Pressable>
+                      <Image source={comment.userAvatar} style={styles.commentAvatar} />
+                    </Pressable>
                     <View style={styles.commentContent}>
                       <Text style={styles.commentUsername}>{comment.username}</Text>
                       <Text style={styles.commentText}>{comment.text}</Text>
