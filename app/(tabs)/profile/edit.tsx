@@ -21,6 +21,7 @@ import { LogOutButton } from '~/components/profile/LogOutButton';
 
 import { createUserInterest, updateUser, getAllInterests, deleteUserInterest } from '~/utils/data';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 const SupabaseImageUploader = React.lazy(() => import('~/components/SupabaseImageUploader'));
 
 interface Interest {
@@ -195,6 +196,7 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
+      <StatusBar style="auto" />
       <View style={styles.buttonContainer}>
         <LogOutButton />
       </View>
