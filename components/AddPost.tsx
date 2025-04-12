@@ -812,9 +812,18 @@ const AddPostForm = () => {
                   />
                 </View>
 
-                {/* START TIME PICKER */}
-                <Pressable style={styles.datePickerButton} onPress={showStartTimePicker}>
-                  <Text style={styles.datePickerButtonText}>
+                {/* START TIME PICKER - Improved styling */}
+                <Pressable
+                  style={[
+                    styles.datePickerButton,
+                    selectedStartTime && styles.datePickerButton,
+                  ]}
+                  onPress={showStartTimePicker}>
+                  <Text
+                    style={[
+                      styles.datePickerButtonText,
+                      selectedStartTime && styles.datePickerButtonText,
+                    ]}>
                     {selectedStartTime
                       ? format(selectedStartTime, 'h:mm a')
                       : timeType === 'single'
@@ -829,15 +838,26 @@ const AddPostForm = () => {
                   onConfirm={handleStartTimeConfirm}
                   onCancel={hideStartTimePicker}
                   date={selectedStartTime || new Date()}
+                  // Add theme properties for better visibility
+                  themeVariant="light"
+                  isDarkModeEnabled={false}
                 />
 
-                {/* END TIME PICKER (ONLY SHOWN FOR RANGE) */}
+                {/* END TIME PICKER (ONLY SHOWN FOR RANGE) - Improved styling */}
                 {timeType === 'range' && (
                   <>
                     <Pressable
-                      style={[styles.datePickerButton, { marginTop: 8 }]}
+                      style={[
+                        styles.datePickerButton,
+                        { marginTop: 8 },
+                        selectedEndTime && styles.datePickerButton,
+                      ]}
                       onPress={showEndTimePicker}>
-                      <Text style={styles.datePickerButtonText}>
+                      <Text
+                        style={[
+                          styles.datePickerButtonText,
+                          selectedEndTime && styles.datePickerButtonText,
+                        ]}>
                         {selectedEndTime ? format(selectedEndTime, 'h:mm a') : 'Select end time'}
                       </Text>
                     </Pressable>
@@ -848,6 +868,9 @@ const AddPostForm = () => {
                       onConfirm={handleEndTimeConfirm}
                       onCancel={hideEndTimePicker}
                       date={selectedEndTime || selectedStartTime || new Date()}
+                      // Add theme properties for better visibility
+                      themeVariant="light"
+                      isDarkModeEnabled={false}
                     />
                   </>
                 )}
@@ -930,6 +953,7 @@ const AddPostForm = () => {
                 imageSize={200}
                 aspectRatio={[4, 3]}
                 folder={'posts'}
+                updateUserProfile={false} // Add this property to explicitly prevent user profile updates
               />
             ) : (
               <Text style={styles.errorText}>You must be logged in to upload images</Text>
