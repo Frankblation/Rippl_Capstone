@@ -8,6 +8,7 @@ import {
   Platform,
   ImageSourcePropType,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import AvatarGroup from './AvatarGroup';
@@ -16,12 +17,23 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import * as Calendar from 'expo-calendar';
 import { parse, format, parseISO } from 'date-fns';
-import { likePost, unlikePost } from '~/utils/data';
+import {
+  // Remove likePost and unlikePost imports
+  createAttendee,
+  updateAttendeeStatus,
+  deleteAttendee,
+  getAttendeesByPost,
+  getAttendeeCount
+} from '~/utils/data';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
+import { AttendeesTable } from '~/utils/db';
+
+// Import attendee status type from db.ts
+import { Status } from '~/utils/db';
 
 interface EventCardProps {
-  id: string; // Add this to match PostCard
+  id: string;
   title: string;
   date: string;
   time: string;
@@ -38,7 +50,9 @@ interface EventCardProps {
   onRegisterPress?: () => void;
   onProfilePress?: () => void;
   onCommentPress?: () => void;
-  onLikeStatusChange?: (postId: string, isLiked: boolean) => void;
+  // Update the prop name to be consistent with PostCard and HomeScreen
+  onLikePress?: () => void;
+  onAttendeeStatusChange?: (postId: string, status: Status | null) => void;
 }
 
 const EventCard: React.FC<EventCardProps> = ({
@@ -59,17 +73,22 @@ const EventCard: React.FC<EventCardProps> = ({
   commentsCount,
   onProfilePress,
   timePosted,
-  onLikeStatusChange,
+  onLikePress, // New prop name
+  onAttendeeStatusChange,
 }) => {
-  const [isGoing, setIsGoing] = useState(false);
-  const [isinterested, setIsinterested] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
   const [isLiked, setIsLiked] = useState(initialIsLiked);
   const [isUpdating, setIsUpdating] = useState(false);
   const [hasCalendarPermission, setHasCalendarPermission] = useState(false);
+  const [attendeeStatus, setAttendeeStatus] = useState<Status | null>(null);
+  const [attendeeCount, setAttendeeCount] = useState({
+    going: 0,
+    interested: 0
+  });
+  const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
   const animationRef = useRef<LottieView>(null);
+
   const { user: authUser } = useAuth();
-  // Use our custom hook to get full user data
   const { user } = useUser(authUser?.id || null);
 
   // Update the local state if the prop changes
@@ -87,6 +106,7 @@ const EventCard: React.FC<EventCardProps> = ({
     }
   }, [isLiked]);
 
+  // Request calendar permission
   useEffect(() => {
     (async () => {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
@@ -94,21 +114,126 @@ const EventCard: React.FC<EventCardProps> = ({
     })();
   }, []);
 
-  const toggleGoing = async () => {
-    const newGoingState = !isGoing;
-    setIsGoing(newGoingState);
+  // Load user's attendance status and counts
+  useEffect(() => {
+    const loadAttendance = async () => {
+      if (!id || !user?.id) return;
 
-    if (newGoingState) {
-      setIsinterested(false);
-      if (hasCalendarPermission) {
-        await addEventToCalendar();
-      } else {
-        Alert.alert(
-          'Calendar Permission Required',
-          'To add this event to your calendar, please grant calendar access in your device settings.'
-        );
+      setIsLoadingAttendees(true);
+      try {
+        // Get current user's attendance status
+        const attendees = await getAttendeesByPost(id);
+        const userAttendance = attendees.find(a => a.user_id === user.id);
+
+        if (userAttendance) {
+          setAttendeeStatus(userAttendance.status as Status);
+        } else {
+          setAttendeeStatus(null);
+        }
+
+        // Get attendance counts
+        const goingCount = await getAttendeeCount(id, Status.GOING);
+        const interestedCount = await getAttendeeCount(id, Status.INTERESTED);
+
+        setAttendeeCount({
+          going: goingCount,
+          interested: interestedCount
+        });
+      } catch (error) {
+        console.error('Error loading attendance data:', error);
+      } finally {
+        setIsLoadingAttendees(false);
       }
+    };
+
+    loadAttendance();
+  }, [id, user?.id]);
+
+  const handleAttendeeStatusChange = async (newStatus: Status | null) => {
+    if (!user?.id) {
+      Alert.alert('Sign in required', 'Please sign in to update your attendance');
+      return;
     }
+
+    setIsUpdating(true);
+
+    try {
+      // If user is removing their current status
+      if (attendeeStatus === newStatus) {
+        // Delete the attendance record
+        await deleteAttendee(id, user.id);
+        setAttendeeStatus(null);
+
+        // Update counts
+        if (attendeeStatus === 'going') {
+          setAttendeeCount(prev => ({ ...prev, going: Math.max(0, prev.going - 1) }));
+        } else if (attendeeStatus === 'interested') {
+          setAttendeeCount(prev => ({ ...prev, interested: Math.max(0, prev.interested - 1) }));
+        }
+      }
+      // If user is changing their status
+      else if (attendeeStatus) {
+        // Update existing attendance
+        await updateAttendeeStatus(id, user.id, newStatus!);
+        setAttendeeStatus(newStatus);
+
+        // Update counts
+        if (attendeeStatus === 'going' && newStatus === 'interested') {
+          setAttendeeCount(prev => ({
+            going: Math.max(0, prev.going - 1),
+            interested: prev.interested + 1
+          }));
+        } else if (attendeeStatus === 'interested' && newStatus === 'going') {
+          setAttendeeCount(prev => ({
+            going: prev.going + 1,
+            interested: Math.max(0, prev.interested - 1)
+          }));
+        }
+      }
+      // If user is setting a status for the first time
+      else if (newStatus) {
+        // Create new attendance record
+        await createAttendee({
+          user_id: user.id,
+          post_id: id,
+          status: newStatus as Status
+        });
+        setAttendeeStatus(newStatus);
+
+        // Update counts
+        if (newStatus === 'going') {
+          setAttendeeCount(prev => ({ ...prev, going: prev.going + 1 }));
+        } else if (newStatus === 'interested') {
+          setAttendeeCount(prev => ({ ...prev, interested: prev.interested + 1 }));
+        }
+      }
+
+      // Add to calendar if going
+      if (newStatus === 'going' && hasCalendarPermission) {
+        await addEventToCalendar();
+      }
+
+      // Notify parent component
+      if (onAttendeeStatusChange) {
+        onAttendeeStatusChange(id, newStatus);
+      }
+
+    } catch (error) {
+      console.error('Error updating attendance status:', error);
+      Alert.alert('Error', 'Failed to update your attendance status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const toggleGoing = async () => {
+    const newStatus = attendeeStatus === 'going' ? null : Status.GOING;
+    await handleAttendeeStatusChange(newStatus);
+  };
+
+  const toggleInterested = async () => {
+    const newStatus = attendeeStatus === 'interested' ? null : Status.INTERESTED;
+    await handleAttendeeStatusChange(newStatus);
   };
 
   const addEventToCalendar = async () => {
@@ -139,17 +264,12 @@ const EventCard: React.FC<EventCardProps> = ({
         endDate,
         notes: description || '',
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        alarms: [
-          { relativeOffset: -1440 }, // One day before (24 hours × 60 minutes)
-          { relativeOffset: -60 }, // Day of the event (1 hour before)
-        ],
+        alarms: [{ relativeOffset: -60 }],
       });
 
-      Alert.alert(
-        'Added Event to Calendar',
-        'Youll get a reminders one day before and an hour before it starts',
-        [{ text: 'Great!' }]
-      );
+      Alert.alert('Added to Calendar', "You'll get a reminder before it starts.", [
+        { text: 'Great' },
+      ]);
 
       return eventId;
     } catch (error) {
@@ -210,49 +330,20 @@ const EventCard: React.FC<EventCardProps> = ({
     }
   };
 
-  const toggleinterested = () => {
-    setIsinterested(!isinterested);
-    if (!isinterested) setIsGoing(false);
-  };
-
-  const handleLikePress = async () => {
+  // UPDATED: simplified handleLikePress to use hook's handler
+  const handleLikePress = () => {
     if (!user?.id) {
       Alert.alert('Sign in required', 'Please sign in to like events');
       return;
     }
 
-    if (isUpdating) return; // Prevent multiple rapid clicks
-    setIsUpdating(true);
+    // Update local state for animation
+    setIsLiked(!isLiked);
+    setLikesCount(isLiked ? Math.max(0, likesCount - 1) : likesCount + 1);
 
-    // Optimistically update UI
-    const newIsLiked = !isLiked;
-    const newLikesCount = newIsLiked ? likesCount + 1 : Math.max(0, likesCount - 1);
-
-    setIsLiked(newIsLiked);
-    setLikesCount(newLikesCount);
-
-    try {
-      // Make API call
-      if (newIsLiked) {
-        await likePost(user.id, id);
-      } else {
-        await unlikePost(user.id, id);
-      }
-
-      // Notify parent component if needed
-      if (onLikeStatusChange) {
-        onLikeStatusChange(id, newIsLiked);
-      }
-    } catch (error) {
-      console.error('Error handling like:', error);
-
-      // Revert UI if there was an error
-      setIsLiked(!newIsLiked);
-      setLikesCount(newIsLiked ? likesCount : likesCount + 1);
-
-      Alert.alert('Error', 'Failed to update like status. Please try again.');
-    } finally {
-      setIsUpdating(false);
+    // Call the parent handler from useFeed
+    if (onLikePress) {
+      onLikePress();
     }
   };
 
@@ -335,37 +426,62 @@ const EventCard: React.FC<EventCardProps> = ({
             </Text>
           )}
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 }}>
-            {/* GOING */}
-            <View style={{ alignItems: 'center' }}>
-              <TouchableOpacity
-                style={[
-                  styles.iconButton,
-                  isGoing ? styles.goingButtonActiveGreen : styles.goingButtonInactive,
-                ]}
-                onPress={toggleGoing}>
-                <AntDesign name="check" size={20} color={isGoing ? '#fff' : '#00AF9F'} />
-              </TouchableOpacity>
+          {status === 'upcoming' && (
+            <View style={styles.attendanceContainer}>
+              {/* Counter section */}
+              <View style={styles.countersContainer}>
+                <View style={styles.counterItem}>
+                  <Text style={styles.counterValue}>{attendeeCount.going}</Text>
+                  <Text style={styles.counterLabel}>Going</Text>
+                </View>
+                <View style={styles.counterItem}>
+                  <Text style={styles.counterValue}>{attendeeCount.interested}</Text>
+                  <Text style={styles.counterLabel}>Interested</Text>
+                </View>
+              </View>
 
-              <Text style={{ marginTop: 4, fontSize: 12, color: '#00AF9F' }}>Going</Text>
+              {/* Buttons section */}
+              <View style={styles.attendanceButtons}>
+                {isLoadingAttendees ? (
+                  <ActivityIndicator size="small" color="#00AF9F" />
+                ) : (
+                  <>
+                    {/* GOING */}
+                    <TouchableOpacity
+                      style={[
+                        styles.iconButton,
+                        attendeeStatus === 'going' ? styles.goingButtonActiveGreen : styles.goingButtonInactive,
+                      ]}
+                      onPress={toggleGoing}
+                      disabled={isUpdating}>
+                      <AntDesign
+                        name="check"
+                        size={20}
+                        color={attendeeStatus === 'going' ? '#fff' : '#00AF9F'}
+                      />
+                    </TouchableOpacity>
+
+                    {/* INTERESTED */}
+                    <TouchableOpacity
+                      style={[
+                        styles.iconButton,
+                        attendeeStatus === 'interested'
+                          ? styles.interestedButtonActiveGray
+                          : styles.interestedButtonInactive,
+                      ]}
+                      onPress={toggleInterested}
+                      disabled={isUpdating}>
+                      <AntDesign
+                        name="staro"
+                        size={20}
+                        color={attendeeStatus === 'interested' ? '#fff' : '#F39237'}
+                      />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
             </View>
-
-            {/* INTERESTED */}
-            <View style={{ alignItems: 'center' }}>
-              <TouchableOpacity
-                style={[
-                  styles.iconButton,
-                  isinterested
-                    ? styles.interestedButtonActiveGray
-                    : styles.interestedButtonInactive,
-                ]}
-                onPress={toggleinterested}>
-                <AntDesign name="staro" size={20} color={isinterested ? '#fff' : '#F39237'} />
-              </TouchableOpacity>
-
-              <Text style={{ marginTop: 4, fontSize: 12, color: '#F39237' }}>Interested</Text>
-            </View>
-          </View>
+          )}
 
           {/* NUM OF LIKES AND COMMENTS */}
           <View style={styles.engagementStats}>
@@ -381,7 +497,7 @@ const EventCard: React.FC<EventCardProps> = ({
                 <TouchableOpacity
                   style={styles.actionIcon}
                   onPress={handleLikePress}
-                  disabled={isUpdating}>
+                >
                   <LottieView
                     ref={animationRef}
                     source={require('../assets/animations/heart.json')}
@@ -411,7 +527,7 @@ const EventCard: React.FC<EventCardProps> = ({
   );
 };
 
-// Existing styles remain unchanged
+// Existing styles remain with added attendance styles
 const styles = StyleSheet.create({
   card: {
     backgroundColor: 'white',
@@ -480,6 +596,33 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 16,
   },
+  // Attendance section
+  attendanceContainer: {
+    marginBottom: 16,
+  },
+  countersContainer: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  counterItem: {
+    marginRight: 24,
+    alignItems: 'center',
+  },
+  counterValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  counterLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  attendanceButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
   // Icon Buttons (GOING & NOT GOING)
   iconButton: {
     width: 48,
@@ -546,7 +689,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-
   containerHeartComment: {
     flexDirection: 'row',
   },
@@ -562,7 +704,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#262626',
   },
-
   containerTimePosted: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

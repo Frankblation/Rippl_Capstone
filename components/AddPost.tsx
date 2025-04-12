@@ -1,7 +1,6 @@
 'use client';
 
 import type React from 'react';
-import { useTabsReload } from '~/app/(tabs)/_layout';
 import { format, type ISOStringFormat } from 'date-fns';
 import { useEffect, useState, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -9,6 +8,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Calendar, CalendarList, Agenda } from 'react-native-calendars';
+import { addPostToFeeds } from '~/hooks/useFeed';
+import { formatPostsForUI } from '~/utils/formatPosts';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -138,7 +139,6 @@ const AddPostForm = () => {
   const [isStartTimePickerVisible, setStartTimePickerVisible] = useState(false);
   const [isEndTimePickerVisible, setEndTimePickerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { triggerReload } = useTabsReload();
   const descriptionRef = useRef<TextInput>(null);
 
   // Calendar marked dates state
@@ -480,6 +480,7 @@ const AddPostForm = () => {
         interest_id: string | null;
         location?: string;
         event_date?: ISOStringFormat | null;
+        created_at?: string;
       } = {
         user_id: authUser.id,
         title: data.title,
@@ -487,6 +488,7 @@ const AddPostForm = () => {
         image: data.image || '', // Ensure image is always a string
         post_type: data.type,
         interest_id: data.interestGroup || null,
+        created_at: new Date().toISOString(),
       };
 
       // Only add location and date for events
@@ -515,11 +517,17 @@ const AddPostForm = () => {
           image: postData.image ?? '',
           interest_id: postData.interest_id ?? '',
           event_date: postData.event_date ?? undefined,
+          created_at: postData.created_at ?? new Date().toISOString(),
         },
         initializePopularity: true,
       });
 
-      console.log('Post created successfully:', createdPost);
+      // Format the post for UI and add it to feeds
+      const formattedPosts = await formatPostsForUI([createdPost]);
+      if (formattedPosts.length > 0) {
+        // Add the post to the top of relevant feeds
+        addPostToFeeds(formattedPosts[0]);
+      }
 
       // Reset form and state
       reset();
@@ -542,7 +550,6 @@ const AddPostForm = () => {
         `Your ${data.type === PostType.NOTE ? 'post' : 'event'} has been created successfully!`,
         [{ text: 'OK', onPress: () => router.push('/(tabs)/home') }]
       );
-      triggerReload();
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post. Please try again.');

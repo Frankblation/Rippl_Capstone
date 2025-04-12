@@ -14,7 +14,6 @@ import {
 import LottieView from 'lottie-react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { likePost, unlikePost } from '~/utils/data';
 import { useAuth } from '~/components/providers/AuthProvider';
 
 interface PostCardProps {
@@ -34,7 +33,8 @@ interface PostCardProps {
   onPress?: () => void;
   onCommentPress?: () => void;
   onProfilePress?: () => void;
-  onLikeStatusChange?: (postId: string, isLiked: boolean) => void; // Callback to notify parent of like status changes
+  // Update to use the same prop name as in EventCard and HomeScreen
+  onLikePress?: () => void;
 }
 
 const PostCard: React.FC<PostCardProps> = ({
@@ -54,11 +54,10 @@ const PostCard: React.FC<PostCardProps> = ({
   commentsCount,
   onCommentPress,
   onProfilePress,
-  onLikeStatusChange,
+  onLikePress, // Updated prop name
 }) => {
   const [isLiked, setIsLiked] = useState(initialIsLiked);
   const [likesCount, setLikesCount] = useState(initialLikesCount);
-  const [isUpdating, setIsUpdating] = useState(false);
   const animationRef = useRef<LottieView>(null);
   const router = useRouter();
   const { user } = useAuth();
@@ -78,44 +77,20 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   }, [isLiked]);
 
-  const handleLikePress = async () => {
+  // UPDATED: simplified handleLikePress to use hook's handler
+  const handleLikePress = () => {
     if (!user?.id) {
       Alert.alert('Sign in required', 'Please sign in to like posts');
       return;
     }
 
-    if (isUpdating) return; // Prevent multiple rapid clicks
-    setIsUpdating(true);
+    // Update local state for animation
+    setIsLiked(!isLiked);
+    setLikesCount(isLiked ? Math.max(0, likesCount - 1) : likesCount + 1);
 
-    // Optimistically update UI
-    const newIsLiked = !isLiked;
-    const newLikesCount = newIsLiked ? likesCount + 1 : Math.max(0, likesCount - 1);
-
-    setIsLiked(newIsLiked);
-    setLikesCount(newLikesCount);
-
-    try {
-      // Make API call
-      if (newIsLiked) {
-        await likePost(user.id, id);
-      } else {
-        await unlikePost(user.id, id);
-      }
-
-      // Notify parent component if needed
-      if (onLikeStatusChange) {
-        onLikeStatusChange(id, newIsLiked);
-      }
-    } catch (error) {
-      console.error('Error handling like:', error);
-
-      // Revert UI if there was an error
-      setIsLiked(!newIsLiked);
-      setLikesCount(newIsLiked ? likesCount : likesCount + 1);
-
-      Alert.alert('Error', 'Failed to update like status. Please try again.');
-    } finally {
-      setIsUpdating(false);
+    // Call the parent handler from useFeed
+    if (onLikePress) {
+      onLikePress();
     }
   };
 
@@ -131,7 +106,6 @@ const PostCard: React.FC<PostCardProps> = ({
 
           <Pressable
             onPress={() => router.push(`/(tabs)/profile/${postUserId}`)}
-
             style={styles.userInfo}>
             <Image source={userAvatar} style={styles.avatar} />
             <View>
@@ -164,7 +138,6 @@ const PostCard: React.FC<PostCardProps> = ({
               <Pressable
                 style={styles.actionIcon}
                 onPress={handleLikePress}
-                disabled={isUpdating}
               >
                 <LottieView
                   ref={animationRef}

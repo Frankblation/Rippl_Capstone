@@ -194,7 +194,7 @@ export const createPost = async ({
   postData,
   initializePopularity = true,
 }: {
-  postData: Omit<PostsTable, 'id' | 'created_at'>;
+  postData: Omit<PostsTable, 'id'>;
   initializePopularity?: boolean;
 }) => {
   try {
@@ -1063,16 +1063,16 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
         swiped_user_id: swipedUserId,
         swipe_yes: isLiked
       });
-      
+
     console.log('Supabase response status:', status);
     console.log('Supabase response data:', data);
     console.log('Supabase response error:', error);
-    
+
     if (error) {
       console.error('Error saving swipe:', error);
       return { success: false, error, isMatch: false };
     }
-    
+
     // If this was a "like" swipe, check for a match
     if (isLiked) {
       // Check if the other user has swiped right on this user
@@ -1084,29 +1084,29 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
         .eq('swipe_yes', true)
         .gt('swiped_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .maybeSingle();
-        
+
       if (matchError) {
         console.error('Error checking for match:', matchError);
         return { success: false, error: matchError, isMatch: false };
       }
-      
+
       // If a match is found, create a record in user_matches
       if (matchData) {
         console.log('Match found! Creating match record...');
-        
+
         try {
           // Create a match record
           const newMatch = await createUserMatch({
             user_id: userId,
             matched_user_id: swipedUserId
           });
-          
+
           console.log('Successfully created match record:', newMatch);
-          
-          return { 
-            success: true, 
-            isMatch: true, 
-            matchData: newMatch 
+
+          return {
+            success: true,
+            isMatch: true,
+            matchData: newMatch
           };
         } catch (createError) {
           console.error('Error creating match record:', createError);
@@ -1114,11 +1114,11 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
           return { success: true, isMatch: true, error: createError };
         }
       }
-      
+
       console.log('User swiped right, but no match yet');
       return { success: true, isMatch: false, data };
     }
-    
+
     return { success: true, data, isMatch: false };
   } catch (err) {
     console.error('Exception in saveSwipe:', err);
@@ -1203,10 +1203,10 @@ export const matchExists = async (userId1: string, userId2: string): Promise<Swi
       console.error('Error checking if match exists:', error);
       return { success: false, isMatch: false, error };
     }
-    
+
     // Return a properly formatted SwipeResult
-    return { 
-      success: true, 
+    return {
+      success: true,
       isMatch: data !== null,
       matchData: data
     };
