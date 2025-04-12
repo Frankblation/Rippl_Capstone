@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import {
   View,
@@ -7,13 +5,11 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
   FlatList,
   Keyboard,
   Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useTabsReload } from '~/app/(tabs)/_layout';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
@@ -39,6 +35,7 @@ export default function EditProfileScreen() {
   const [filteredSuggestions, setFilteredSuggestions] = useState<InterestsTable[]>([]);
   const [availableInterests, setAvailableInterests] = useState<InterestsTable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageUpdated, setImageUpdated] = useState(false); // Track if image was updated
 
   const { triggerReload } = useTabsReload();
   const bioInputRef = useRef<TextInput>(null);
@@ -158,12 +155,11 @@ export default function EditProfileScreen() {
     setIsLoading(true);
 
     try {
-      // Update user profile
+      // Update user profile including the image field
       await updateUser(user.id, {
         name: name,
         description: bio,
-        // You'd need to handle image upload separately
-        // image: uploadedImageUrl
+        image: image || '', // Add this to ensure image is updated even if null
       });
 
       // Refresh the user data
@@ -189,21 +185,28 @@ export default function EditProfileScreen() {
     <View className="flex-1 bg-white">
       <ScrollView>
         <View className="p-6">
-          <View className="mb-6 items-center">
+          {/* Profile Image Section with improved spacing */}
+          <View className="mb-10 items-center justify-center">
             {authUser?.id ? (
-              <Suspense fallback={<Text>Loading uploader...</Text>}>
+              <Suspense
+                fallback={
+                  <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
+                    <Text>Loading...</Text>
+                  </View>
+                }>
                 <SupabaseImageUploader
                   bucketName="images"
                   userId={authUser.id}
                   onUploadComplete={(imageUrl) => {
-                    // Simply update the image state without handling deletion
                     setImage(imageUrl);
+                    setImageUpdated(true); // Mark that the image was updated
                   }}
                   existingImageUrl={image}
                   placeholderLabel="Update Photo"
                   imageSize={128}
                   aspectRatio={[1, 1]}
                   folder="profiles"
+                  updateUserProfile={true} // This is correct - profile images should update the user profile
                 />
               </Suspense>
             ) : (
