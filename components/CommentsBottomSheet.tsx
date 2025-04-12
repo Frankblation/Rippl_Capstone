@@ -115,7 +115,7 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
     };
 
     const handleSheetChanges = useCallback((index: number) => {
-      if (index === 0) {
+      if (index === -1) {
         // Sheet is closed, dismiss keyboard
         Keyboard.dismiss();
       }
@@ -126,7 +126,7 @@ const CommentsBottomSheet = forwardRef<CommentsBottomSheetRef, CommentsBottomShe
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        index={0}
+        index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
