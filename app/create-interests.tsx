@@ -1,33 +1,34 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { getAllInterests, createMultipleUserInterests } from '~/utils/data';
 import { InterestsTable } from '~/utils/db';
 import { supabase } from '~/utils/supabase';
 
-
 const MIN_INTERESTS_REQUIRED = 6;
 
 export default function CreateInterestsScreen() {
   const router = useRouter();
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [ DBInterests, setDBInterests ] = useState<InterestsTable[]>([])
+  const [DBInterests, setDBInterests] = useState<InterestsTable[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const getData = async () => {
-      const allInterests = await getAllInterests()
+      const allInterests = await getAllInterests();
       setDBInterests(allInterests);
       const { data } = await supabase.auth.getUser();
-        if (data?.user) {
-          setUserId(data.user.id);
-        }
-    }
+      if (data?.user) {
+        setUserId(data.user.id);
+      }
+    };
     getData();
-  }, [])
+  }, []);
 
   const toggleInterest = (id: string) => {
     if (selectedInterests.includes(id)) {
@@ -38,17 +39,17 @@ export default function CreateInterestsScreen() {
   };
 
   const updateUserInterests = async () => {
-    if (!selectedInterests || selectedInterests.length < 6 ) {
+    if (!selectedInterests || selectedInterests.length < 6) {
       Alert.alert('Missing Information', 'Please choose a minimum of 6 interests!');
-      return
+      return;
     }
-    if (!userId ) {
+    if (!userId) {
       Alert.alert('Opps there was an issue!', 'No user ID is present!');
-      return
+      return;
     }
-    createMultipleUserInterests(userId, selectedInterests)
+    createMultipleUserInterests(userId, selectedInterests);
     goNext();
-  }
+  };
 
   const goNext = () => {
     if (selectedInterests.length >= MIN_INTERESTS_REQUIRED) {
@@ -69,10 +70,9 @@ export default function CreateInterestsScreen() {
         </Text>
 
         <ScrollView
-          className="flex-1 mb-4"
+          className="mb-4 flex-1"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 8 }}
-        >
+          contentContainerStyle={{ paddingBottom: 8 }}>
           <View className="flex-row flex-wrap justify-between">
             {DBInterests.map((interest) => (
               <TouchableOpacity

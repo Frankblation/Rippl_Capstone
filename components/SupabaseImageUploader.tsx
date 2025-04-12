@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Feather from '@expo/vector-icons/Feather';
-import { uploadImage } from '~/utils/data';
+import { uploadImage, deleteImage, updateUser } from '~/utils/data';
 
 interface SupabaseImageUploaderProps {
   userId: string;
@@ -13,6 +13,7 @@ interface SupabaseImageUploaderProps {
   imageSize?: number;
   aspectRatio?: [number, number];
   folder?: string;
+  updateUserProfile?: boolean; // Add new prop to control user profile updates
 }
 
 export default function SupabaseImageUploader({
@@ -24,6 +25,7 @@ export default function SupabaseImageUploader({
   imageSize = 100,
   aspectRatio = [1, 1],
   folder = '',
+  updateUserProfile = false, // Default to false to prevent unintended profile updates
 }: SupabaseImageUploaderProps) {
   const [image, setImage] = useState<string | null>(existingImageUrl);
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -63,6 +65,20 @@ export default function SupabaseImageUploader({
     try {
       setIsUploading(true);
       const imageUrl = await uploadImage(imageUri, userId, bucketName, folder);
+
+      // Delete the old image if it exists and is different
+      if (existingImageUrl && existingImageUrl !== imageUrl) {
+        await deleteImage(existingImageUrl, bucketName, folder);
+      }
+
+      // Only update the user profile if explicitly requested
+      if (updateUserProfile) {
+        await updateUser(userId, {
+          image: imageUrl,
+        });
+      }
+
+      // Call the callback to update the UI
       onUploadComplete(imageUrl);
     } catch (error: unknown) {
       console.error('Error uploading file:', error);

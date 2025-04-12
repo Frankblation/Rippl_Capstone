@@ -1,4 +1,5 @@
 import { ISOStringFormat } from "date-fns";
+import { ShadowNodeWrapper, Timestamp } from "react-native-reanimated/lib/typescript/commonTypes";
 
 // ENUM Types
 export enum PostType {
@@ -135,10 +136,38 @@ export interface UserInterestsTable {
     interest_id: string;
 }
 
+// User Swipe Yes Data Type
+export interface UserSwipedYesTable {
+  user_id: string;
+  swiped_user_id: string;
+  swiped_yes: boolean;
+}
+
 // User Matches Data Type
 export interface UserMatchesTable {
     user_id: string;
     matched_user_id: string;
+}
+
+// User User Recommendations Data Types
+export interface UserUserRecommendationsTable {
+  id: string;
+  user_id: string;
+  recommended_user_id: string;
+  has_been_recommended: boolean;
+  similarity_score: number;
+  timestamp: string;
+}
+
+export interface RecommendedUserResponse {
+  recommended_user_id: string;
+  recommended_users: {
+    id: string;
+    name: string;
+    bio: string | null;
+    picture_url: string | null;
+    interests: string[] | null;
+  };
 }
 
 export interface SupabaseUser {

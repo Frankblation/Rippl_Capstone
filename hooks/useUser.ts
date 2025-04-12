@@ -86,18 +86,10 @@ export function useUser(userId: string | null) {
         isLoading: false,
         error: null
       };
-
-      // Log the full user data when it's loaded
-      console.log('User data loaded:', JSON.stringify(updatedUserData, null, 2));
-
       // Log specific details
       console.log(`User Profile - ${updatedUserData.name || 'Unnamed User'}`);
-      console.log(`ID: ${updatedUserData.id}`);
       console.log(`Email: ${updatedUserData.email || 'No email'}`);
-      console.log(`Has profile image: ${updatedUserData.image ? 'Yes' : 'No'}`);
-      console.log(`Has description: ${updatedUserData.description ? 'Yes' : 'No'}`);
-      console.log(`Friends: ${updatedUserData.friendships.filter(f => f.status === 'accepted').length}`);
-      console.log(`Interests: ${updatedUserData.interests.length}`);
+      console.log(`ID: ${updatedUserData.id}`);
 
       setUserData(updatedUserData);
 
@@ -117,11 +109,11 @@ export function useUser(userId: string | null) {
   }, [fetchUserData]);
 
   // The refreshUser function that can be called from components
-  const refreshUser = useCallback(async () => {
+  const refreshUser = async () => {
     console.log('Manually refreshing user data...');
     await fetchUserData();
-    return true; // Return success indicator
-  }, [fetchUserData]);
+    return true;
+  };
 
   // Helper function to get interest IDs
   const getInterestIds = () => {
@@ -174,6 +166,6 @@ export function useUser(userId: string | null) {
     getFriendsCount,
     hasInterest,
     isFriendsWith,
-    refreshUser 
+    refreshUser
   };
 }

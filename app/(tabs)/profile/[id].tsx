@@ -1,157 +1,137 @@
 'use client';
 
 import { FlashList } from '@shopify/flash-list';
-import type React from 'react';
-import { useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, View, Alert } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import React, { Suspense } from 'react';
+import { StyleSheet, View, Alert, ActivityIndicator, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
-import CommentsBottomSheet, {
-  type CommentsBottomSheetRef,
-  type PostComment,
-} from '~/components/CommentsBottomSheet';
+import type { CommentsBottomSheetRef } from '~/components/CommentsBottomSheet';
+const CommentsBottomSheet = React.lazy(() => import('~/components/CommentsBottomSheet'));
+
 import PostCard from '~/components/PostCard';
 import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
-import { add } from 'date-fns';
+import { useUser } from '~/hooks/useUser';
+import { useAuth } from '~/components/providers/AuthProvider';
 
-const INTERESTS = [
-  { id: '1', name: 'Photography' },
-  { id: '2', name: 'Travel' },
-  { id: '3', name: 'Cooking' },
-  { id: '4', name: 'Fitness' },
-  { id: '5', name: 'Reading' },
-  { id: '6', name: 'Music' },
-  { id: '7', name: 'Movies' },
-  { id: '8', name: 'Art' },
-  { id: '9', name: 'Technology' },
-  { id: '10', name: 'Sports' },
-  { id: '11', name: 'Fashion' },
-  { id: '12', name: 'Gaming' },
-];
+// Import our feed hook
+import { useFeed, FeedItem } from '~/hooks/useFeed';
+
+// Define a header item type to combine with our feed
+type HeaderItem = { id: string; type: 'header' };
+type ProfileFeedItem = HeaderItem | FeedItem;
 
 function Profile() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
-  const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
-  const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
+  const { user: authUser } = useAuth();
 
-  const handleOpenComments = (comments: PostComment[], count: number) => {
-    setSelectedComments(comments);
-    setSelectedCommentsCount(count);
-    commentsSheetRef.current?.open();
-  };
+  // Fetch the profile user's data
+  const { user } = useUser(id || null);
 
-  const handleAddComment = (text: string) => {
-    const newComment: PostComment = {
-      id: Date.now().toString(),
-      username: 'current_user',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/68.jpg' },
-      text,
-      timePosted: 'Just now',
-    };
-    setSelectedComments((prev) => [...prev, newComment]);
-    setSelectedCommentsCount((prev) => prev + 1);
-  };
+  // Use the feed hook with profileUserId option
+  const {
+    feed: rawFeed,
+    loading,
+    refresh,
+    handleLikePost,
+    commentsSheetRef,
+    selectedComments,
+    selectedCommentsCount,
+    openComments,
+    addComment,
+    invalidateCache
+  } = useFeed('profile', authUser?.id || null, {
+    profileUserId: id || undefined,
+  });
 
-  const sampleComments: PostComment[] = [
-    {
-      id: '1',
-      username: 'alex_dev',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/men/42.jpg' },
-      text: 'This is awesome!',
-      timePosted: '2h ago',
-    },
-    {
-      id: '2',
-      username: 'jane_smith',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/33.jpg' },
-      text: 'Love the colors in this photo!',
-      timePosted: '1h ago',
-    },
+  // Combine header with feed items
+  const feed: ProfileFeedItem[] = [
+    { id: 'header', type: 'header' },
+    ...rawFeed
   ];
 
-  const posts = [
-    {
-      id: '1',
-      interest: 'Books',
-      username: 'Julia Smith',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/44.jpg' },
-      timePosted: '5 hours ago',
-      title: 'My trip to the mountains',
-      postText: 'Just finished reading an amazing book! Highly recommend it.',
-      likesCount: 87,
-      commentsCount: 32,
-      type: 'post',
-    },
-    {
-      id: '2',
-      interest: 'Photography',
-      username: 'travel_enthusiast',
-      userAvatar: { uri: 'https://randomuser.me/api/portraits/women/68.jpg' },
-      timePosted: '1 day ago',
-      title: 'My trip to the mountains',
-      postText: 'Sunset views from my hotel balcony. No filter needed!',
-      postImage: { uri: 'https://picsum.photos/id/1016/1000/1000' },
-      likesCount: 342,
-      commentsCount: 56,
-      type: 'post',
-    },
-  ];
+  // Format user interests for the interest grid
+  const userInterests = user.interests.map((interest) => ({
+    id: interest.interest_id,
+    name: interest.interests?.name || 'Interest',
+  }));
 
-  const feed = [{ id: 'header', type: 'header' }, ...posts];
-
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item }: { item: ProfileFeedItem }) => {
     if (item.type === 'header') {
       return (
         <View style={styles.headerContainer}>
           <UserProfileHeader
-            name="Jane Doe"
-            profileImage="https://randomuser.me/api/portraits/women/68.jpg"
-            postsCount={12}
-            friendsCount={34}
+            name={user.name || 'User'}
+            profileImage={user.image || 'https://randomuser.me/api/portraits/women/44.jpg'}
+            postsCount={feed.length - 1}
+            friendsCount={user.friendships?.filter((f) => f.status === 'accepted').length || 0}
           />
-
           <View style={styles.interestsContainer}>
-            <InterestGrid interests={INTERESTS} />
+            <InterestGrid interests={userInterests.length > 0 ? userInterests : []} />
           </View>
         </View>
       );
-    } else if (item.type === 'post') {
+    } else if ('id' in item) { // Check if it's a post/event (both have IDs)
       return (
         <PostCard
           {...item}
-          onLikePress={() => console.log('Like pressed')}
-          onProfilePress={() => Alert.alert('Profile', `Navigate to ${item.username} profile`)}
-          onCommentPress={() => handleOpenComments(sampleComments, item.commentsCount)}
+          userId={authUser?.id || ''}
+          postUserId={item.postUserId}
+          isLiked={item.isLiked || false}
+          onLikePress={() => handleLikePost(item.id)}
+          onCommentPress={() => openComments(item.id)}
         />
       );
     }
     return null;
   };
 
+  if (user.isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00AF9F" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
+        <StatusBar style="auto" />
         <View style={{ flex: 1 }}>
           <FlashList
             data={feed}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => ('id' in item ? item.id : 'header')}
             estimatedItemSize={300}
             contentContainerStyle={{
               ...styles.listContent,
               paddingBottom: insets.bottom + 16,
             }}
+            refreshing={loading}
+            onRefresh={refresh}
+            ListEmptyComponent={
+              !loading && feed.length <= 1 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No posts yet</Text>
+                  <Text style={styles.emptySubtext}>This user hasn't posted anything yet</Text>
+                </View>
+              ) : null
+            }
           />
-
-          <CommentsBottomSheet
-            ref={commentsSheetRef}
-            comments={selectedComments}
-            commentsCount={selectedCommentsCount}
-            onAddComment={handleAddComment}
-          />
+          <Suspense fallback={<Text style={{ padding: 20 }}>Loading comments...</Text>}>
+            <CommentsBottomSheet
+              ref={commentsSheetRef}
+              comments={selectedComments}
+              commentsCount={selectedCommentsCount}
+              onAddComment={addComment}
+            />
+          </Suspense>
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -159,20 +139,38 @@ function Profile() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
   listContent: {
     padding: 6,
   },
   headerContainer: {
-    paddingTop: 20,
+    paddingTop: 0,
   },
   interestsContainer: {
-    paddingTop: 20,
+    paddingTop: 0,
   },
-  addUserButton: {
-    position: 'absolute',
-    top: 10, // or use `insets.top + 10` if you want it under the status bar
-    right: 16,
-    zIndex: 10, // ensure it's above everything
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 18,
+    fontFamily: 'geistBold',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 

@@ -1,8 +1,10 @@
 'use client';
-
+import React, { Suspense } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
-import MatchedScreen from '../../components/MatchedScreen';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const MatchedScreen = React.lazy(() => import('~/components/MatchedScreen'));
 
 type User = {
   name: string;
@@ -32,17 +34,19 @@ const MatchScreen = () => {
   const parsedCurrentUser = JSON.parse(currentUser as string) as User;
 
   return (
-    <MatchedScreen
-      matchedUser={parsedMatchedUser}
-      currentUser={parsedCurrentUser}
-      onClose={() => router.back()}
-      onStartChat={() => {
-        console.log('Start chat with', parsedMatchedUser.name);
-        router.push({
-          pathname: '/(tabs)/matching',
-        });
-      }}
-    />
+    <Suspense fallback={<Text style={{ padding: 20 }}>Loading match...</Text>}>
+      <MatchedScreen
+        matchedUser={parsedMatchedUser}
+        currentUser={parsedCurrentUser}
+        onClose={() => router.back()}
+        onStartChat={() => {
+          console.log('Start chat with', parsedMatchedUser.name);
+          router.push({
+            pathname: '/(chat)/chat-list',
+          });
+        }}
+      />
+    </Suspense>
   );
 };
 
