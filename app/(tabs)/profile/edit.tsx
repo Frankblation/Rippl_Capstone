@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import {
   View,
@@ -8,14 +10,17 @@ import {
   FlatList,
   Keyboard,
   Alert,
+  StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { useUser } from '~/hooks/useUser';
-import { InterestsTable } from '~/utils/db';
+import type { InterestsTable } from '~/utils/db';
 import { useRouter } from 'expo-router';
+import { LogOutButton } from '~/components/profile/LogOutButton';
 
 import { createUserInterest, updateUser, getAllInterests, deleteUserInterest } from '~/utils/data';
+import { SafeAreaView } from 'react-native-safe-area-context';
 const SupabaseImageUploader = React.lazy(() => import('~/components/SupabaseImageUploader'));
 
 interface Interest {
@@ -177,9 +182,6 @@ export default function EditProfileScreen() {
         await refreshUser();
       }
 
-      // Trigger reload for other tabs
-
-
       Alert.alert('Success', 'Profile updated successfully!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -192,7 +194,10 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
+      <View style={styles.buttonContainer}>
+        <LogOutButton />
+      </View>
       <ScrollView>
         <View className="p-6">
           {/* Profile Image Section with improved spacing */}
@@ -314,6 +319,15 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  buttonContainer: {
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 20,
+  },
+});
