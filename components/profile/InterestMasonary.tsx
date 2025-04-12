@@ -36,13 +36,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 12,
-    backgroundColor: '#F39237',
+    backgroundColor: '#00AF9F',
     margin: 1,
   },
   chipText: {
     color: '#fff',
     fontSize: 14,
-    fontFamily: 'SFProTextRegular',
+    fontWeight: 'medium',
   },
 });
 

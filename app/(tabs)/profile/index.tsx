@@ -2,10 +2,10 @@
 
 import { FlashList } from '@shopify/flash-list';
 import React, { useRef, useState, useEffect, Suspense } from 'react';
-import { SafeAreaView, StyleSheet, View, Alert, ActivityIndicator, Text } from 'react-native';
+import { StyleSheet, View, Alert, ActivityIndicator, Text, SafeAreaView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-1;
+
 import type { CommentsBottomSheetRef, PostComment } from '~/components/CommentsBottomSheet';
 const CommentsBottomSheet = React.lazy(() => import('~/components/CommentsBottomSheet'));
 

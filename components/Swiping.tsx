@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Vibration, ActivityIndicator } from 'react-nati
 import UserCard from './UserSwipingCard';
 import { useAnimation } from '~/components/AnimationContext';
 import LottieView from 'lottie-react-native';
+import { AntDesign } from '@expo/vector-icons';
 
 import { getRecommendedUsers, getUserInterests, getUserById, saveSwipe } from '~/utils/data';
 
@@ -13,7 +14,7 @@ import { useAuth } from './providers/AuthProvider';
 type User = {
   name: string;
   bio: string;
-  picture: any; 
+  picture: any;
   interests: string[];
   id?: string;
 };
@@ -31,7 +32,7 @@ export default function Swipe() {
     async function loadData() {
       try {
         setLoading(true);
-        
+
         // Ensure user is authenticated
         if (!auth.user || !auth.user.id) {
           console.error('No authenticated user found');
@@ -39,27 +40,27 @@ export default function Swipe() {
           setLoading(false);
           return;
         }
-        
+
         // Get recommended users
         const { data, error } = await getRecommendedUsers(auth.user.id);
-        
+
         if (error) {
           console.error('Error fetching recommended users:', error);
           setUsers([]);
           return;
         }
-        
+
         if (!data || data.length === 0) {
           setUsers([]);
           return;
         }
-        
+
         // Make sure all users have an interests array, even if empty
-        const validatedUsers = data.map(user => ({
+        const validatedUsers = data.map((user) => ({
           ...user,
-          interests: Array.isArray(user.interests) ? user.interests : []
+          interests: Array.isArray(user.interests) ? user.interests : [],
         }));
-        
+
         console.log('Recommended users with interests:', validatedUsers);
         setUsers(validatedUsers);
       } catch (err) {
@@ -69,7 +70,7 @@ export default function Swipe() {
         setLoading(false);
       }
     }
-    
+
     // Only load data if we have an authenticated user
     if (auth.user) {
       loadData();
@@ -98,7 +99,7 @@ export default function Swipe() {
             speed={0.3}
             onAnimationFinish={() => {
               hideAnimationOverlay();
-              
+
               router.push({
                 pathname: '/(tabs)/matched-users',
                 params: {
@@ -116,21 +117,21 @@ export default function Swipe() {
   // Handle swipe gesture
   const handleSwipe = async (direction: string, cardIndex: number) => {
     const swipedUser = users[cardIndex];
-    
+
     if (!auth.user?.id || !swipedUser.id) {
       console.error('Missing user IDs for swipe action');
       return;
     }
-    
+
     // For both right and left swipes, we'll save the action to the database
     // true for right swipe (like), false for left swipe (pass)
     const isLiked = direction === 'right';
-    
+
     try {
       // Save the swipe action to database
       const swipeResult = await saveSwipe(auth.user.id, swipedUser.id, isLiked);
       console.log('Swipe saved:', swipeResult);
-      
+
       // Only proceed with the match flow for right swipes that result in a match
       if (isLiked) {
         // Trigger vibration for right swipe
@@ -138,44 +139,44 @@ export default function Swipe() {
 
         // Determine if there was a match
         const isMatch = swipeResult.isMatch;
-        
+
         // Even if it's not a match now, it could be in the future when the other user swipes
         // So we'll just log that info for now
         if (!isMatch) {
           console.log('User swiped right, but no match yet');
           return;
         }
-        
+
         // If there's a match, proceed with showing the match screen
         console.log('Match found! Preparing match screen...');
-        
+
         // Ensure the matched user has defined interests
         const matchedUserWithValidInterests = {
           ...swipedUser,
-          interests: Array.isArray(swipedUser.interests) ? swipedUser.interests : []
+          interests: Array.isArray(swipedUser.interests) ? swipedUser.interests : [],
         };
-        
+
         // Initialize with basic data in case fetching fails
         let currentUserData: User = {
           id: auth.user.id,
           name: 'You',
           bio: '',
           picture: null,
-          interests: []
+          interests: [],
         };
-        
+
         try {
           // Get full user profile data
           const userProfile = await getUserById(auth.user.id);
-          
+
           // Fetch the current user's interests
           const authUserInterests = await getUserInterests(auth.user.id);
-          
+
           // Extract interest names from the response
           const currentUserInterests = authUserInterests
-            .map(item => item.interests?.name)
+            .map((item) => item.interests?.name)
             .filter(Boolean) as string[];
-          
+
           // Update user data if profile was fetched successfully
           if (userProfile) {
             currentUserData = {
@@ -183,42 +184,58 @@ export default function Swipe() {
               name: userProfile.name || 'You',
               bio: userProfile.description || '',
               picture: userProfile.image || null,
-              interests: currentUserInterests
+              interests: currentUserInterests,
             };
           }
-          
+
           // Prepare final matched user data
           const matchUserData: User = {
             id: matchedUserWithValidInterests.id,
             name: matchedUserWithValidInterests.name,
             bio: matchedUserWithValidInterests.bio || '',
             picture: matchedUserWithValidInterests.picture,
-            interests: matchedUserWithValidInterests.interests || []
+            interests: matchedUserWithValidInterests.interests || [],
           };
-          
+
           // Show animation and navigate
           const AnimationOverlay = createAnimationOverlay(matchUserData, currentUserData);
           showAnimationOverlay(<AnimationOverlay />);
         } catch (err) {
           console.error('Error preparing match data:', err);
-          
+
           // Create fallback data
           const fallbackMatchedUser: User = {
             id: swipedUser.id,
             name: swipedUser.name,
             bio: swipedUser.bio || '',
             picture: swipedUser.picture || null,
-            interests: Array.isArray(swipedUser.interests) ? swipedUser.interests : []
+            interests: Array.isArray(swipedUser.interests) ? swipedUser.interests : [],
           };
-          
+
           // Show animation and navigate with fallback data
-          const FallbackAnimationOverlay = createAnimationOverlay(fallbackMatchedUser, currentUserData);
+          const FallbackAnimationOverlay = createAnimationOverlay(
+            fallbackMatchedUser,
+            currentUserData
+          );
           showAnimationOverlay(<FallbackAnimationOverlay />);
         }
       }
     } catch (err) {
       console.error('Error processing swipe action:', err);
     }
+  };
+
+  // Render swipe indicators
+  const renderOverlayLabel = (label: string) => {
+    return (
+      <View style={styles.overlayLabelContainer}>
+        {label === 'LEFT' ? (
+          <AntDesign name="close" size={80} color="#F39237" style={styles.overlayIcon} />
+        ) : (
+          <AntDesign name="check" size={80} color="#00AF9F" style={styles.overlayIcon} />
+        )}
+      </View>
+    );
   };
 
   if (!auth.user) {
@@ -232,7 +249,7 @@ export default function Swipe() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#00AF9F" />
       </View>
     );
   }
@@ -251,6 +268,20 @@ export default function Swipe() {
           backgroundColor="transparent"
           stackSize={3}
           verticalSwipe={false}
+          overlayLabels={{
+            left: {
+              element: renderOverlayLabel('LEFT'),
+              style: {
+                wrapper: styles.overlayWrapper,
+              },
+            },
+            right: {
+              element: renderOverlayLabel('RIGHT'),
+              style: {
+                wrapper: styles.overlayWrapper,
+              },
+            },
+          }}
         />
       ) : (
         <Text style={styles.noUsersText}>No recommendations available</Text>
@@ -280,5 +311,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#666',
     padding: 20,
+  },
+  overlayLabelContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlayIcon: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  overlayWrapper: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'absolute',
+    bottom: -80,
+    zIndex: 2,
+    opacity: 0.8,
   },
 });

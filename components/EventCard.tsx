@@ -68,7 +68,7 @@ const EventCard: React.FC<EventCardProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [hasCalendarPermission, setHasCalendarPermission] = useState(false);
   const animationRef = useRef<LottieView>(null);
-  const { user : authUser } = useAuth();
+  const { user: authUser } = useAuth();
   // Use our custom hook to get full user data
   const { user } = useUser(authUser?.id || null);
 
@@ -139,12 +139,17 @@ const EventCard: React.FC<EventCardProps> = ({
         endDate,
         notes: description || '',
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        alarms: [{ relativeOffset: -60 }],
+        alarms: [
+          { relativeOffset: -1440 }, // One day before (24 hours × 60 minutes)
+          { relativeOffset: -60 }, // Day of the event (1 hour before)
+        ],
       });
 
-      Alert.alert('Added to Calendar', 'Youll get a reminder before it starts.', [
-        { text: 'Great' },
-      ]);
+      Alert.alert(
+        'Added Event to Calendar',
+        'Youll get a reminders one day before and an hour before it starts',
+        [{ text: 'Great!' }]
+      );
 
       return eventId;
     } catch (error) {
@@ -330,10 +335,9 @@ const EventCard: React.FC<EventCardProps> = ({
             </Text>
           )}
 
-          {status === 'upcoming' && (
-            <View
-              style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 }}>
-              {/* GOING */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 }}>
+            {/* GOING */}
+            <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
                 style={[
                   styles.iconButton,
@@ -343,7 +347,11 @@ const EventCard: React.FC<EventCardProps> = ({
                 <AntDesign name="check" size={20} color={isGoing ? '#fff' : '#00AF9F'} />
               </TouchableOpacity>
 
-              {/* NOT GOING */}
+              <Text style={{ marginTop: 4, fontSize: 12, color: '#00AF9F' }}>Going</Text>
+            </View>
+
+            {/* INTERESTED */}
+            <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
                 style={[
                   styles.iconButton,
@@ -354,8 +362,10 @@ const EventCard: React.FC<EventCardProps> = ({
                 onPress={toggleinterested}>
                 <AntDesign name="staro" size={20} color={isinterested ? '#fff' : '#F39237'} />
               </TouchableOpacity>
+
+              <Text style={{ marginTop: 4, fontSize: 12, color: '#F39237' }}>Interested</Text>
             </View>
-          )}
+          </View>
 
           {/* NUM OF LIKES AND COMMENTS */}
           <View style={styles.engagementStats}>
@@ -371,8 +381,7 @@ const EventCard: React.FC<EventCardProps> = ({
                 <TouchableOpacity
                   style={styles.actionIcon}
                   onPress={handleLikePress}
-                  disabled={isUpdating}
-                >
+                  disabled={isUpdating}>
                   <LottieView
                     ref={animationRef}
                     source={require('../assets/animations/heart.json')}

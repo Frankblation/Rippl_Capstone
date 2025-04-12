@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useLocalSearchParams } from 'expo-router';
 import { Channel, MessageList, MessageInput, useChatContext } from 'stream-chat-expo';
 import { StreamChat, Channel as StreamChannel } from 'stream-chat';
