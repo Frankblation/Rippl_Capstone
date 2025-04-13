@@ -105,6 +105,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     padding: 20,
+    paddingRight: 20,
+    width: '100%',
   },
   text: {
     color: 'white',
@@ -123,10 +125,11 @@ const styles = StyleSheet.create({
   bio: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
-
     fontFamily: 'geistMedium',
     marginBottom: 20,
-    marginHorizontal: 10,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    paddingRight: 30,
   },
   interestsContainer: {},
   interestsTitle: {
