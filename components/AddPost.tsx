@@ -1155,13 +1155,15 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    borderRadius: Platform.OS === 'ios' ? 50 : 25,
+    borderRadius: Platform.OS === 'ios' ? 12 : 8,
     marginBottom: 20,
+    // Shadow for iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    // Elevation for Android
+    elevation: Platform.OS === 'android' ? 2 : 0,
   },
   calendarContainer: {
     marginVertical: 10,
@@ -1206,20 +1208,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#333',
   },
+  // Update accordion section styling
   accordionSection: {
-    marginBottom: 12,
+    marginBottom: Platform.OS === 'ios' ? 12 : 8,
     borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
+    borderColor: Platform.OS === 'ios' ? '#eee' : '#e0e0e0',
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     overflow: 'hidden',
     width: '100%',
+    backgroundColor: 'white',
   },
   accordionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#fdfdfd ',
+    padding: Platform.OS === 'ios' ? 12 : 16,
+    backgroundColor: Platform.OS === 'ios' ? '#fdfdfd' : 'white',
   },
   accordionTitleContainer: {
     flexDirection: 'row',
@@ -1239,7 +1243,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   accordionContent: {
-    padding: 12,
+    padding: Platform.OS === 'ios' ? 12 : 16,
     backgroundColor: 'white',
   },
   // Original styles
@@ -1255,15 +1259,19 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     padding: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 16,
     backgroundColor: 'white',
+    // Add this for Android text inputs
+    ...(Platform.OS === 'android' && {
+      paddingVertical: 8,
+    }),
   },
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
-    paddingTop: Platform.OS === 'android' ? 10 : 12,
+    paddingTop: Platform.OS === 'android' ? 8 : 12,
   },
   radioGroup: {
     flexDirection: 'row',
@@ -1272,8 +1280,8 @@ const styles = StyleSheet.create({
   radioButton: {
     borderWidth: 1,
     borderColor: '#00AF9F',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: Platform.OS === 'ios' ? 10 : 4,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     paddingHorizontal: 20,
     marginRight: 10,
     backgroundColor: 'white',
@@ -1355,11 +1363,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 16,
+    marginBottom: Platform.OS === 'android' ? 16 : 0,
   },
   cancelButton: {
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     marginRight: 10,
     borderWidth: 1,
     borderColor: '#ddd',
@@ -1375,9 +1384,9 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#00AF9F',
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
   },
   submitButtonText: {
     fontSize: 16,

@@ -10,6 +10,7 @@ import {
   Keyboard,
   Alert,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '~/components/providers/AuthProvider';
@@ -17,7 +18,8 @@ import { useUser } from '~/hooks/useUser';
 import type { InterestsTable } from '~/utils/db';
 import { useRouter } from 'expo-router';
 import { LogOutButton } from '~/components/profile/LogOutButton';
-import { invalidateAllFeedCaches } from '~/hooks/useFeed';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 import { createUserInterest, updateUser, getAllInterests, deleteUserInterest } from '~/utils/data';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -214,144 +216,135 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
-      <View style={styles.buttonContainer}>
-        <LogOutButton />
-      </View>
-
-      <ScrollView ref={scrollViewRef}>
-        <View style={styles.content}>
-          {/* Profile Image Section with improved spacing */}
-          <View style={styles.imageSection}>
-            {authUser?.id ? (
-              <Suspense
-                fallback={
-                  <View style={styles.imagePlaceholder}>
-                    <Text>Loading...</Text>
-                  </View>
-                }>
-                <SupabaseImageUploader
-                  bucketName="images"
-                  userId={authUser.id}
-                  onUploadComplete={(imageUrl) => {
-                    setImage(imageUrl);
-                    setImageUpdated(true);
-                  }}
-                  existingImageUrl={image}
-                  placeholderLabel="Update Photo"
-                  imageSize={128}
-                  aspectRatio={[1, 1]}
-                  folder="profiles"
-                  updateUserProfile={true}
-                />
-              </Suspense>
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Feather name="user" size={50} color="#9ca3af" />
-                <Text style={styles.signInText}>Sign in to update photo</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              keyboardType="default"
-              placeholder="Enter your name"
-              style={styles.input}
-              returnKeyType="next"
-              onSubmitEditing={() => bioInputRef.current?.focus()}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Bio</Text>
-            <TextInput
-              ref={bioInputRef}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="Tell us about yourself"
-              keyboardType="default"
-              multiline
-              numberOfLines={4}
-              style={styles.bioInput}
-              textAlignVertical="top"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Interests</Text>
-
-            <View style={styles.interestsContainer}>
-              {userInterests.map((interest) => (
-                <View
-                  key={interest.id}
-                  style={styles.interestTag}>
-                  <Text style={styles.interestText}>{interest.name}</Text>
-                  <TouchableOpacity onPress={() => removeInterest(interest.id)}>
-                    <Feather name="x" size={16} color="#00AF9F" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.interestInputContainer}>
-              <View style={styles.interestInputWrapper}>
-                <TextInput
-                  ref={interestInputRef}
-                  value={newInterest}
-                  onChangeText={handleInterestInput}
-                  placeholder="Add an interest"
-                  style={styles.interestInput}
-                  returnKeyType="done"
-                  onFocus={() => {
-                    if (newInterest.length > 0) {
-                      setShowSuggestions(true);
-                    }
-                  }}
-                  onSubmitEditing={() => addInterest(newInterest)}
-                />
-                <TouchableOpacity onPress={() => addInterest(newInterest)}>
-                  <Feather name="plus" size={20} color="#4b5563" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Dropdown suggestions list */}
-              {showSuggestions && filteredSuggestions.length > 0 && (
-                <View style={styles.dropdownContainer}>
-                  <ScrollView
-                    style={styles.dropdownList}
-                    nestedScrollEnabled={true}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {filteredSuggestions.map(item => (
-                      <TouchableOpacity
-                        key={item.id}
-                        onPress={() => selectSuggestion(item)}
-                        style={styles.dropdownItem}>
-                        <Text>{item.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar style="auto" />
+        <View style={styles.buttonContainer}>
+          <LogOutButton />
+        </View>
+        <ScrollView>
+          <View className="p-6">
+            {/* Profile Image Section with improved spacing */}
+            <View className="mb-10 items-center justify-center">
+              {authUser?.id ? (
+                <Suspense
+                  fallback={
+                    <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
+                      <Text>Loading...</Text>
+                    </View>
+                  }>
+                  <SupabaseImageUploader
+                    bucketName="images"
+                    userId={authUser.id}
+                    onUploadComplete={(imageUrl) => {
+                      setImage(imageUrl);
+                      setImageUpdated(true); // Mark that the image was updated
+                    }}
+                    existingImageUrl={image}
+                    placeholderLabel="Update Photo"
+                    imageSize={128}
+                    aspectRatio={[1, 1]}
+                    folder="profiles"
+                    updateUserProfile={true} // This is correct - profile images should update the user profile
+                  />
+                </Suspense>
+              ) : (
+                <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
+                  <Feather name="user" size={50} color="#9ca3af" />
+                  <Text className="mt-2 text-sm text-gray-500">Sign in to update photo</Text>
                 </View>
               )}
             </View>
-          </View>
 
-          <TouchableOpacity
-            onPress={saveProfile}
-            disabled={isLoading}
-            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}>
-            <Text style={styles.saveButtonText}>
-              {isLoading ? 'Saving...' : 'Save Profile'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            <View className="mb-6">
+              <Text className="mb-2 font-semibold text-gray-700">Name</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                keyboardType="default"
+                placeholder="Enter your name"
+                className="rounded-lg border border-gray-300 p-3 text-base"
+                returnKeyType="next"
+                onSubmitEditing={() => bioInputRef.current?.focus()}
+              />
+            </View>
+
+            <View className="mb-6">
+              <Text className="mb-2 font-semibold text-gray-700">Bio</Text>
+              <TextInput
+                ref={bioInputRef}
+                value={bio}
+                onChangeText={setBio}
+                placeholder="Tell us about yourself"
+                keyboardType="default"
+                multiline
+                numberOfLines={4}
+                className="min-h-[100px] rounded-lg border border-gray-300 p-3 text-base"
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View className="mb-6">
+              <Text className="mb-2 font-semibold text-gray-700">Interests</Text>
+
+              <View className="mb-3 flex-row flex-wrap">
+                {userInterests.map((interest) => (
+                  <View
+                    key={interest.id}
+                    className="mb-2 mr-2 flex-row items-center rounded-full bg-[#E6F7F5] px-3 py-1">
+                    <Text className="mr-1 text-[#00AF9F]">{interest.name}</Text>
+                    <TouchableOpacity onPress={() => removeInterest(interest.id)}>
+                      <Feather name="x" size={16} color="#00AF9F" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+
+              <View className="relative">
+                <View className="flex-row items-center rounded-lg border border-gray-300 p-2">
+                  <TextInput
+                    value={newInterest}
+                    onChangeText={handleInterestInput}
+                    placeholder="Add an interest"
+                    className="flex-1 p-1 text-base"
+                    returnKeyType="done"
+                    onSubmitEditing={() => addInterest(newInterest)}
+                  />
+                  <TouchableOpacity onPress={() => addInterest(newInterest)}>
+                    <Feather name="plus" size={20} color="#4b5563" />
+                  </TouchableOpacity>
+                </View>
+
+                {showSuggestions && filteredSuggestions.length > 0 && (
+                  <View className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 rounded-lg border border-gray-300 bg-white">
+                    <FlatList
+                      data={filteredSuggestions}
+                      keyExtractor={(item) => item.id}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          onPress={() => selectSuggestion(item)}
+                          className="border-b border-gray-200 p-3">
+                          <Text>{item.name}</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={saveProfile}
+              disabled={isLoading}
+              className={`items-center rounded-lg bg-[#00AF9F] py-3 ${isLoading ? 'opacity-70' : ''}`}>
+              <Text className="text-base font-semibold text-white">
+                {isLoading ? 'Saving...' : 'Save Profile'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -365,125 +358,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     padding: 20,
-  },
-  content: {
-    padding: 24,
-  },
-  imageSection: {
-    marginBottom: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imagePlaceholder: {
-    height: 128,
-    width: 128,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 64,
-  },
-  signInText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#9ca3af',
-  },
-  formGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    marginBottom: 8,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4b5563',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  bioInput: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 100,
-  },
-  interestsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  interestTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E6F7F5',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  interestText: {
-    color: '#00AF9F',
-    marginRight: 4,
-  },
-  interestInputContainer: {
-    position: 'relative',
-    zIndex: 10, // Ensure dropdown appears above other content
-  },
-  interestInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 8,
-  },
-  interestInput: {
-    flex: 1,
-    fontSize: 16,
-    padding: 4,
-  },
-  dropdownContainer: {
-    position: 'absolute',
-    top: '100%', // Position just below the input
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    marginTop: 4, // Small gap between input and dropdown
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-    zIndex: 20,
-  },
-  dropdownList: {
-    maxHeight: 150,
-  },
-  dropdownItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  saveButton: {
-    backgroundColor: '#00AF9F',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    paddingTop: Platform.OS === 'android' ? 20 : 0,
   },
 });
