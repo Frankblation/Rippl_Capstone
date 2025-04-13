@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   Keyboard,
   Alert,
   StyleSheet,
@@ -41,35 +42,15 @@ export default function EditProfileScreen() {
   const [filteredSuggestions, setFilteredSuggestions] = useState<InterestsTable[]>([]);
   const [availableInterests, setAvailableInterests] = useState<InterestsTable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [imageUpdated, setImageUpdated] = useState(false);
+  const [imageUpdated, setImageUpdated] = useState(false); // Track if image was updated
 
   const bioInputRef = useRef<TextInput>(null);
-  const interestInputRef = useRef<TextInput>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
 
   // Use our custom hook to get full user data
   const { user, refreshUser } = useUser(authUser?.id || null);
-
-  // Dismiss dropdown when tapping outside
-  useEffect(() => {
-    const handleOutsideTouch = (e: TouchEvent) => {
-      if (showSuggestions && interestInputRef.current) {
-        // This is a simple check - in a real app you might want to check
-        // if the tap is actually outside the dropdown area
-        setShowSuggestions(false);
-      }
-    };
-
-    // Add touchend listener to detect taps outside
-    document.addEventListener('touchend', handleOutsideTouch);
-
-    return () => {
-      document.removeEventListener('touchend', handleOutsideTouch);
-    };
-  }, [showSuggestions]);
 
   // Fetch all available interests and user's current interests
   useEffect(() => {
@@ -203,7 +184,7 @@ export default function EditProfileScreen() {
       if (refreshUser) {
         await refreshUser();
       }
-      invalidateAllFeedCaches();
+
       Alert.alert('Success', 'Profile updated successfully!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -349,15 +330,10 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
   buttonContainer: {
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'flex-end',
     padding: 20,
-    paddingTop: Platform.OS === 'android' ? 20 : 0,
   },
 });
