@@ -1064,10 +1064,6 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
         swipe_yes: isLiked
       });
 
-    console.log('Supabase response status:', status);
-    console.log('Supabase response data:', data);
-    console.log('Supabase response error:', error);
-
     if (error) {
       console.error('Error saving swipe:', error);
       return { success: false, error, isMatch: false };
