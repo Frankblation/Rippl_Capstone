@@ -12,6 +12,7 @@ import {
   Alert,
   StyleSheet,
   Platform,
+  Modal,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '~/components/providers/AuthProvider';
@@ -37,9 +38,7 @@ export default function EditProfileScreen() {
   const [name, setName] = useState<string>('');
   const [bio, setBio] = useState('');
   const [userInterests, setUserInterests] = useState<Interest[]>([]);
-  const [newInterest, setNewInterest] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredSuggestions, setFilteredSuggestions] = useState<InterestsTable[]>([]);
+  const [showInterestPicker, setShowInterestPicker] = useState(false);
   const [availableInterests, setAvailableInterests] = useState<InterestsTable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [imageUpdated, setImageUpdated] = useState(false); // Track if image was updated
@@ -86,60 +85,33 @@ export default function EditProfileScreen() {
     fetchData();
   }, [user.id, user.interests, user.isLoading]);
 
-  const handleInterestInput = (text: string) => {
-    setNewInterest(text);
+  const addInterest = async (interest: InterestsTable) => {
+    if (!user.id) return;
 
-    if (text.length > 0) {
-      const filtered = availableInterests.filter(
-        (interest) =>
-          interest.name.toLowerCase().includes(text.toLowerCase()) &&
-          !userInterests.some((ui) => ui.id === interest.id)
-      );
-      setFilteredSuggestions(filtered);
-      setShowSuggestions(true);
-    } else {
-      setShowSuggestions(false);
-    }
-  };
+    // Check if user already has this interest
+    if (!userInterests.some((ui) => ui.id === interest.id)) {
+      try {
+        // Add interest to user in the database
+        await createUserInterest({
+          user_id: user.id,
+          interest_id: interest.id,
+        });
 
-  const addInterest = async (interestName: string) => {
-    if (!interestName.trim() || !user.id) return;
-
-    // Find if this interest exists in our available interests
-    const existingInterest = availableInterests.find(
-      (int) => int.name.toLowerCase() === interestName.toLowerCase()
-    );
-
-    if (existingInterest) {
-      // Check if user already has this interest
-      if (!userInterests.some((ui) => ui.id === existingInterest.id)) {
-        try {
-          // Add interest to user in the database
-          await createUserInterest({
-            user_id: user.id,
-            interest_id: existingInterest.id,
-          });
-
-          // Add to local state
-          setUserInterests([
-            ...userInterests,
-            {
-              id: existingInterest.id,
-              name: existingInterest.name,
-            },
-          ]);
-        } catch (error) {
-          console.error('Error adding interest:', error);
-          Alert.alert('Error', 'Failed to add interest');
-        }
+        // Add to local state
+        setUserInterests([
+          ...userInterests,
+          {
+            id: interest.id,
+            name: interest.name,
+          },
+        ]);
+      } catch (error) {
+        console.error('Error adding interest:', error);
+        Alert.alert('Error', 'Failed to add interest');
       }
-    } else {
-      Alert.alert('Interest not found', 'Please select an interest from the suggestions');
     }
 
-    setNewInterest('');
-    setShowSuggestions(false);
-    Keyboard.dismiss();
+    setShowInterestPicker(false);
   };
 
   const removeInterest = async (id: string) => {
@@ -158,10 +130,6 @@ export default function EditProfileScreen() {
       console.error('Error removing interest:', error);
       Alert.alert('Error', 'Failed to remove interest');
     }
-  };
-
-  const selectSuggestion = (interest: InterestsTable) => {
-    addInterest(interest.name);
   };
 
   const saveProfile = async () => {
@@ -195,6 +163,11 @@ export default function EditProfileScreen() {
       setIsLoading(false);
     }
   };
+
+  // Filter out interests that the user already has
+  const availableInterestsToAdd = availableInterests.filter(
+    (interest) => !userInterests.some((ui) => ui.id === interest.id)
+  );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -281,37 +254,54 @@ export default function EditProfileScreen() {
                 ))}
               </View>
 
-              <View className="relative">
-                <View className="flex-row items-center rounded-lg border border-gray-300 p-2">
-                  <TextInput
-                    value={newInterest}
-                    onChangeText={handleInterestInput}
-                    placeholder="Add an interest"
-                    className="flex-1 p-1 text-base"
-                    returnKeyType="done"
-                    onSubmitEditing={() => addInterest(newInterest)}
-                  />
-                  <TouchableOpacity onPress={() => addInterest(newInterest)}>
-                    <Feather name="plus" size={20} color="#4b5563" />
-                  </TouchableOpacity>
-                </View>
+              {/* Interest Dropdown Button */}
+              <TouchableOpacity
+                onPress={() => setShowInterestPicker(true)}
+                className="flex-row items-center justify-between rounded-lg border border-gray-300 p-3">
+                <Text className="text-base text-gray-500">Select an interest</Text>
+                <Feather name="chevron-down" size={20} color="#4b5563" />
+              </TouchableOpacity>
 
-                {showSuggestions && filteredSuggestions.length > 0 && (
-                  <View className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 rounded-lg border border-gray-300 bg-white">
-                    <FlatList
-                      data={filteredSuggestions}
-                      keyExtractor={(item) => item.id}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          onPress={() => selectSuggestion(item)}
-                          className="border-b border-gray-200 p-3">
-                          <Text>{item.name}</Text>
-                        </TouchableOpacity>
-                      )}
-                    />
+              {/* Interest Picker Modal */}
+              <Modal
+                visible={showInterestPicker}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowInterestPicker(false)}>
+                <View className="flex-1 justify-end bg-opacity-30">
+                  <View className=" max-h-[70%] rounded-t-lg bg-white ">
+                    <View className="flex-row items-center justify-between border-b border-gray-200 p-4">
+                      <Text className="text-lg font-semibold">Select an Interest</Text>
+                      <TouchableOpacity onPress={() => setShowInterestPicker(false)}>
+                        <Feather name="x" size={24} color="#4b5563" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {availableInterestsToAdd.length > 0 ? (
+                      <FlatList
+                        data={availableInterestsToAdd}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            onPress={() => addInterest(item)}
+                            className="border-b border-gray-100 p-4">
+                            <Text className="text-base">{item.name}</Text>
+                          </TouchableOpacity>
+                        )}
+                        ListEmptyComponent={
+                          <View className="items-center p-4">
+                            <Text className="text-gray-500">No more interests available</Text>
+                          </View>
+                        }
+                      />
+                    ) : (
+                      <View className="items-center p-4">
+                        <Text className="text-gray-500">No more interests available</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
+                </View>
+              </Modal>
             </View>
 
             <TouchableOpacity
