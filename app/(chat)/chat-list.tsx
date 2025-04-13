@@ -12,6 +12,7 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { Channel } from 'stream-chat';
+import Feather from '@expo/vector-icons/Feather';
 
 import { getUserById, searchUsers } from '~/utils/data';
 
@@ -68,17 +69,17 @@ export default function ChatListScreen() {
 
       try {
         const pendingMatchChatData = await AsyncStorage.getItem('pendingMatchChat');
-        
+
         if (pendingMatchChatData) {
           const matchData: PendingMatchChat = JSON.parse(pendingMatchChatData);
-          
+
           // Only proceed if the createChat flag is true
           if (matchData.createChat && matchData.matchedUserId) {
             console.log('Creating chat for recent match with:', matchData.matchedUserName);
-            
+
             // Clear the stored data first to prevent duplicate creation
             await AsyncStorage.removeItem('pendingMatchChat');
-            
+
             // Create the chat channel
             await createMatchChat(matchData);
           }
@@ -101,10 +102,10 @@ export default function ChatListScreen() {
     try {
       // Generate a unique channel ID
       const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
-      
+
       // Create a channel name
       const channelName = `Match with ${matchData.matchedUserName}`;
-      
+
       // Create channel with current user and the matched user
       const channel = chatClient.channel('messaging', channelId, {
         name: channelName,
@@ -518,18 +519,22 @@ export default function ChatListScreen() {
               </TouchableOpacity>
 
               <View style={styles.buttonContainer}>
-                {/* Delete Button */}
-                <TouchableOpacity
-                  style={[styles.actionIconButton, styles.deleteButton]}
-                  onPress={() => deleteChannel(previewProps.channel)}>
-                  <Text style={styles.actionIconText}>🗑️</Text>
-                </TouchableOpacity>
-
                 {/* Add User Button */}
                 <TouchableOpacity
                   style={styles.actionIconButton}
                   onPress={() => toggleAddUserInterface(previewProps.channel)}>
-                  <Text style={styles.actionIconText}>+</Text>
+                  <Text style={styles.actionIconText}>
+                    <Feather name="plus" size={18} color="white" />
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Delete Button */}
+                <TouchableOpacity
+                  style={[styles.actionIconButton, styles.deleteButton]}
+                  onPress={() => deleteChannel(previewProps.channel)}>
+                  <Text style={styles.actionIconText}>
+                    <Feather name="trash" size={18} color="white" />
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -633,13 +638,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00AF9F',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
   },
   deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#F39237',
   },
   actionIconText: {
     color: 'white',
