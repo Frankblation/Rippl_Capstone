@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   ChannelList,
@@ -19,6 +20,15 @@ type UserSearchResult = {
   id: string;
   name: string;
   // Add other properties you might want to display (avatar, etc.)
+};
+
+// Type for the pending match chat data
+type PendingMatchChat = {
+  matchedUserId: string;
+  matchedUserName: string;
+  currentUserName: string;
+  timestamp: string;
+  createChat: boolean;
 };
 
 export default function ChatListScreen() {
@@ -50,6 +60,77 @@ export default function ChatListScreen() {
       [user.id]: user.id, // Initialize with ID, will be updated when we get profile data
     }));
   }, [user]);
+
+  // Check for pending match chat on mount
+  useEffect(() => {
+    const checkPendingMatchChat = async () => {
+      if (!user || !chatClient) return;
+
+      try {
+        const pendingMatchChatData = await AsyncStorage.getItem('pendingMatchChat');
+        
+        if (pendingMatchChatData) {
+          const matchData: PendingMatchChat = JSON.parse(pendingMatchChatData);
+          
+          // Only proceed if the createChat flag is true
+          if (matchData.createChat && matchData.matchedUserId) {
+            console.log('Creating chat for recent match with:', matchData.matchedUserName);
+            
+            // Clear the stored data first to prevent duplicate creation
+            await AsyncStorage.removeItem('pendingMatchChat');
+            
+            // Create the chat channel
+            await createMatchChat(matchData);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for pending match chat:', error);
+      }
+    };
+
+    checkPendingMatchChat();
+  }, [user, chatClient]);
+
+  // Function to create a chat from match data
+  const createMatchChat = async (matchData: PendingMatchChat) => {
+    if (!chatClient || !user) {
+      Alert.alert('Error', 'Chat service not available. Please try again later.');
+      return;
+    }
+
+    try {
+      // Generate a unique channel ID
+      const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
+      
+      // Create a channel name
+      const channelName = `Match with ${matchData.matchedUserName}`;
+      
+      // Create channel with current user and the matched user
+      const channel = chatClient.channel('messaging', channelId, {
+        name: channelName,
+        members: [user.id, matchData.matchedUserId],
+        created_by_id: user.id,
+        // Add custom data for displaying user names
+        customData: {
+          memberNames: {
+            [user.id]: matchData.currentUserName,
+            [matchData.matchedUserId]: matchData.matchedUserName,
+          },
+          matchCreated: true,
+        },
+      });
+
+      // Create the channel on the Stream server
+      await channel.create();
+      console.log('Match chat created successfully:', channelId);
+
+      // Navigate directly to the chat screen with this specific channel
+      router.push(`/(chat)/${channel.id}`);
+    } catch (error) {
+      console.error('Error creating match chat:', error);
+      Alert.alert('Error', 'Failed to create chat. Please try again.');
+    }
+  };
 
   // Function to fetch user name and update profiles state
   const fetchUserName = async (userId: string) => {
