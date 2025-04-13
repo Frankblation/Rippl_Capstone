@@ -6,6 +6,7 @@ import {
   ImageBackground,
   StyleSheet,
   Platform,
+  Animated,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Feather from '@expo/vector-icons/Feather';
@@ -31,6 +32,12 @@ const DEFAULT_USER_IMAGE = require('../assets/user.jpg');
 const DEFAULT_MATCHED_USER_IMAGE = require('../assets/user2.jpg');
 
 const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchScreenProps) => {
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.5)).current;
+  const slideLeftAnim = useRef(new Animated.Value(-50)).current;
+  const slideRightAnim = useRef(new Animated.Value(50)).current;
+  
   // Find shared interests between users
   const sharedInterests = matchedUser.interests
     .filter((interest) => currentUser.interests && currentUser.interests.includes(interest))
@@ -48,113 +55,191 @@ const MatchScreen = ({ matchedUser, currentUser, onClose, onStartChat }: MatchSc
   const isCurrentUserImageUrl = typeof currentUserImage === 'string';
   const isMatchedUserImageUrl = typeof matchedUserImage === 'string';
 
+  // Start animations when component mounts
+  useEffect(() => {
+    const animationSequence = Animated.parallel([
+      // Fade in the entire screen
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      // Scale up the content
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      // Slide left profile from left to center
+      Animated.timing(slideLeftAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      // Slide right profile from right to center
+      Animated.timing(slideRightAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]);
+    
+    // Start the animation sequence
+    animationSequence.start();
+  }, []);
+
   return (
-    <ImageBackground
-      source={require('../assets/background.jpg')}
-      style={styles.backgroundImage}
-      resizeMode="cover">
-      {/* Close button */}
-      <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-        <Feather name="x" size={24} color="white" />
-      </TouchableOpacity>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <ImageBackground
+        source={require('../assets/background.jpg')}
+        style={styles.backgroundImage}
+        resizeMode="cover">
+        {/* Close button */}
+        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <Feather name="x" size={24} color="white" />
+        </TouchableOpacity>
 
-      <Text style={styles.title}>You're Making Waves!</Text>
+        <Animated.Text 
+          style={[
+            styles.title, 
+            { 
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }] 
+            }
+          ]}
+        >
+          You're Making Waves!
+        </Animated.Text>
 
-      <View style={styles.container}>
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={80} tint="default" style={styles.blurContainer}>
-            <View style={styles.contentContainer}>
-              <View style={styles.bottomContent}>
-                <View style={styles.interestsContainer}>
-                  <Text style={styles.interestsTitle}>
-                    {sharedInterests.length > 0
-                      ? `You and ${matchedUser.name} are both interested in`
-                      : `${matchedUser.name} is interested in`}
-                  </Text>
+        <View style={styles.mainContainer}>
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={80} tint="default" style={styles.blurContainer}>
+              <Animated.View 
+                style={[
+                  styles.contentContainer, 
+                  { 
+                    opacity: fadeAnim,
+                    transform: [{ scale: scaleAnim }] 
+                  }
+                ]}
+              >
+                <View style={styles.bottomContent}>
+                  <View style={styles.interestsContainer}>
+                    <Text style={styles.interestsTitle}>
+                      {sharedInterests.length > 0
+                        ? `You and ${matchedUser.name} are both interested in`
+                        : `${matchedUser.name} is interested in`}
+                    </Text>
 
-                  <View style={styles.interestTags}>
-                    {interestsToShow.map((interest, index) => (
-                      <View key={index} style={styles.interestTag}>
-                        <Text style={styles.interestTagText}>{interest}</Text>
-                      </View>
-                    ))}
+                    <View style={styles.interestTags}>
+                      {interestsToShow.map((interest, index) => (
+                        <View key={index} style={styles.interestTag}>
+                          <Text style={styles.interestTagText}>{interest}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
                 </View>
-              </View>
-              <TouchableOpacity style={styles.chatButton} onPress={onStartChat} activeOpacity={0.8}>
-                <View style={styles.buttonContent}>
-                  <Text style={styles.chatButtonText}>Jump In</Text>
-                  <Ionicons name="chatbubbles-outline" size={24} color="white" />
-                </View>
-              </TouchableOpacity>
-            </View>
-          </BlurView>
-        ) : (
-          <View style={[styles.blurContainer, styles.androidBlurFallback]}>
-            <View style={styles.contentContainer}>
-              <View style={styles.bottomContent}>
-                <View style={styles.interestsContainer}>
-                  <Text style={styles.interestsTitle}>
-                    {sharedInterests.length > 0
-                      ? `You and ${matchedUser.name} both enjoy these activities`
-                      : `${matchedUser.name} enjoys these activities`}
-                  </Text>
+                <TouchableOpacity style={styles.chatButton} onPress={onStartChat} activeOpacity={0.8}>
+                  <View style={styles.buttonContent}>
+                    <Text style={styles.chatButtonText}>Jump In</Text>
+                    <Ionicons name="chatbubbles-outline" size={24} color="white" />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            </BlurView>
+          ) : (
+            <View style={[styles.blurContainer, styles.androidBlurFallback]}>
+              <Animated.View 
+                style={[
+                  styles.contentContainer, 
+                  { 
+                    opacity: fadeAnim,
+                    transform: [{ scale: scaleAnim }] 
+                  }
+                ]}
+              >
+                <View style={styles.bottomContent}>
+                  <View style={styles.interestsContainer}>
+                    <Text style={styles.interestsTitle}>
+                      {sharedInterests.length > 0
+                        ? `You and ${matchedUser.name} both enjoy these activities`
+                        : `${matchedUser.name} enjoys these activities`}
+                    </Text>
 
-                  <View style={styles.interestTags}>
-                    {interestsToShow.map((interest, index) => (
-                      <View key={index} style={styles.interestTag}>
-                        <Text style={styles.interestTagText}>{interest}</Text>
-                      </View>
-                    ))}
+                    <View style={styles.interestTags}>
+                      {interestsToShow.map((interest, index) => (
+                        <View key={index} style={styles.interestTag}>
+                          <Text style={styles.interestTagText}>{interest}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
                 </View>
-              </View>
-              <TouchableOpacity style={styles.chatButton} onPress={onStartChat} activeOpacity={0.8}>
-                <View style={styles.buttonContent}>
-                  <Text style={styles.chatButtonText}>Jump In</Text>
-                  <Ionicons name="chatbubbles-outline" size={24} color="white" />
-                </View>
-              </TouchableOpacity>
+                <TouchableOpacity style={styles.chatButton} onPress={onStartChat} activeOpacity={0.8}>
+                  <View style={styles.buttonContent}>
+                    <Text style={styles.chatButtonText}>Jump In</Text>
+                    <Ionicons name="chatbubbles-outline" size={24} color="white" />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
             </View>
-          </View>
-        )}
+          )}
 
-        <View style={styles.profileContainer}>
-          <View style={styles.profileImagesContainer}>
-            <View style={styles.profileImageLeft}>
-              {isCurrentUserImageUrl ? (
-                <Image
-                  source={{ uri: currentUserImage }}
-                  style={styles.profileImage}
-                  borderRadius={100}
-                />
-              ) : (
-                <Image source={currentUserImage} style={styles.profileImage} borderRadius={100} />
-              )}
-            </View>
-            <View style={styles.profileImageRight}>
-              {isMatchedUserImageUrl ? (
-                <Image
-                  source={{ uri: matchedUserImage }}
-                  style={styles.profileImage}
-                  borderRadius={100}
-                />
-              ) : (
-                <Image source={matchedUserImage} style={styles.profileImage} borderRadius={100} />
-              )}
+          <View style={styles.profileContainer}>
+            <View style={styles.profileImagesContainer}>
+              <Animated.View 
+                style={[
+                  styles.profileImageLeft,
+                  {
+                    transform: [{ translateX: slideLeftAnim }]
+                  }
+                ]}
+              >
+                {isCurrentUserImageUrl ? (
+                  <Image
+                    source={{ uri: currentUserImage }}
+                    style={styles.profileImage}
+                    borderRadius={100}
+                  />
+                ) : (
+                  <Image source={currentUserImage} style={styles.profileImage} borderRadius={100} />
+                )}
+              </Animated.View>
+              <Animated.View 
+                style={[
+                  styles.profileImageRight,
+                  {
+                    transform: [{ translateX: slideRightAnim }]
+                  }
+                ]}
+              >
+                {isMatchedUserImageUrl ? (
+                  <Image
+                    source={{ uri: matchedUserImage }}
+                    style={styles.profileImage}
+                    borderRadius={100}
+                  />
+                ) : (
+                  <Image source={matchedUserImage} style={styles.profileImage} borderRadius={100} />
+                )}
+              </Animated.View>
             </View>
           </View>
         </View>
-      </View>
-    </ImageBackground>
+      </ImageBackground>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   backgroundImage: {
     flex: 1,
   },
-  container: {
+  mainContainer: {
     flex: 1,
     padding: 20,
     justifyContent: 'center',
@@ -247,7 +332,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 6,
     elevation: 10,
-
     borderRadius: 100,
   },
   profileImageRight: {
@@ -263,7 +347,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 6,
     elevation: 10,
-
     borderRadius: 100,
   },
   profileImage: {
@@ -276,7 +359,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-
   chatButton: {
     position: 'absolute',
     bottom: 20,

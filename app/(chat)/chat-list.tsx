@@ -12,6 +12,7 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { Channel } from 'stream-chat';
+import Feather from '@expo/vector-icons/Feather';
 
 import { getUserById, searchUsers } from '~/utils/data';
 
@@ -68,17 +69,17 @@ export default function ChatListScreen() {
 
       try {
         const pendingMatchChatData = await AsyncStorage.getItem('pendingMatchChat');
-        
+
         if (pendingMatchChatData) {
           const matchData: PendingMatchChat = JSON.parse(pendingMatchChatData);
-          
+
           // Only proceed if the createChat flag is true
           if (matchData.createChat && matchData.matchedUserId) {
             console.log('Creating chat for recent match with:', matchData.matchedUserName);
-            
+
             // Clear the stored data first to prevent duplicate creation
             await AsyncStorage.removeItem('pendingMatchChat');
-            
+
             // Create the chat channel
             await createMatchChat(matchData);
           }
@@ -101,13 +102,13 @@ export default function ChatListScreen() {
     try {
       // Generate a unique channel ID
       const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
-      
-      // Create a channel name
-      const channelName = `Match with ${matchData.matchedUserName}`;
+
+      // Don't set a fixed channel name - we'll use the dynamic display logic instead
+      // to ensure each user sees the other person's name
       
       // Create channel with current user and the matched user
       const channel = chatClient.channel('messaging', channelId, {
-        name: channelName,
+        // No fixed name - will be dynamically generated for each user
         members: [user.id, matchData.matchedUserId],
         created_by_id: user.id,
         // Add custom data for displaying user names
@@ -220,13 +221,11 @@ export default function ChatListScreen() {
     }
 
     try {
-      // Use provided channel name or generate a default one
-      const channelNameToUse = channelName.trim() || `Chat ${new Date().toLocaleDateString()}`;
+      // Skip the channel name to ensure each user sees the other's name
+      // We'll only use the provided name if explicitly entered
       const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
-
-      // Create channel with current user and the selected user
-      const channel = chatClient.channel('messaging', channelId, {
-        name: channelNameToUse,
+      
+      const channelData: any = {
         members: [user.id, selectedUser.id],
         created_by_id: user.id,
         // Add custom data for displaying user names
@@ -236,7 +235,15 @@ export default function ChatListScreen() {
             [selectedUser.id]: selectedUser.name,
           },
         },
-      });
+      };
+      
+      // Only set a specific channel name if provided by user
+      if (channelName.trim()) {
+        channelData.name = channelName.trim();
+      }
+
+      // Create channel with current user and the selected user
+      const channel = chatClient.channel('messaging', channelId, channelData);
 
       await channel.create();
       console.log('Channel created successfully:', channelId);
@@ -356,12 +363,8 @@ export default function ChatListScreen() {
 
   // Function to get display name for the channel (shows other user's name)
   const getChannelDisplayName = (channel: Channel<DefaultStreamChatGenerics>) => {
-    // If there's a custom channel name set by the user, use that
-    if (
-      channel.data?.name &&
-      typeof channel.data.created_at === 'string' &&
-      channel.data.name !== `Chat ${new Date(channel.data.created_at).toLocaleDateString()}`
-    ) {
+    // If there's a custom channel name explicitly set by the user, use that
+    if (channel.data?.name) {
       return channel.data.name;
     }
 
@@ -518,18 +521,22 @@ export default function ChatListScreen() {
               </TouchableOpacity>
 
               <View style={styles.buttonContainer}>
-                {/* Delete Button */}
-                <TouchableOpacity
-                  style={[styles.actionIconButton, styles.deleteButton]}
-                  onPress={() => deleteChannel(previewProps.channel)}>
-                  <Text style={styles.actionIconText}>🗑️</Text>
-                </TouchableOpacity>
-
                 {/* Add User Button */}
                 <TouchableOpacity
                   style={styles.actionIconButton}
                   onPress={() => toggleAddUserInterface(previewProps.channel)}>
-                  <Text style={styles.actionIconText}>+</Text>
+                  <Text style={styles.actionIconText}>
+                    <Feather name="plus" size={18} color="white" />
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Delete Button */}
+                <TouchableOpacity
+                  style={[styles.actionIconButton, styles.deleteButton]}
+                  onPress={() => deleteChannel(previewProps.channel)}>
+                  <Text style={styles.actionIconText}>
+                    <Feather name="trash" size={18} color="white" />
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -633,13 +640,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00AF9F',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
   },
   deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#F39237',
   },
   actionIconText: {
     color: 'white',
