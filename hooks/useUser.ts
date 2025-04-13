@@ -87,9 +87,9 @@ export function useUser(userId: string | null) {
         error: null
       };
       // Log specific details
-      console.log(`User Profile - ${updatedUserData.name || 'Unnamed User'}`);
-      console.log(`Email: ${updatedUserData.email || 'No email'}`);
-      console.log(`ID: ${updatedUserData.id}`);
+      // console.log(`User Profile - ${updatedUserData.name || 'Unnamed User'}`);
+      // console.log(`Email: ${updatedUserData.email || 'No email'}`);
+      // console.log(`ID: ${updatedUserData.id}`);
 
       setUserData(updatedUserData);
 

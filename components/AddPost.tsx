@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Calendar, CalendarList, Agenda } from 'react-native-calendars';
 import { addPostToFeeds } from '~/hooks/useFeed';
+import * as ExpoCalendar from 'expo-calendar';
 import { formatPostsForUI } from '~/utils/formatPosts';
 import Animated, {
   useSharedValue,
@@ -31,6 +32,7 @@ import {
   Alert,
   Switch,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
@@ -141,6 +143,10 @@ const AddPostForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const descriptionRef = useRef<TextInput>(null);
 
+  // Add this state for calendar error handling
+  const [calendarError, setCalendarError] = useState(false);
+  const [hasCalendarPermission, setHasCalendarPermission] = useState(false);
+
   // Calendar marked dates state
   const [markedDates, setMarkedDates] = useState<any>({});
 
@@ -161,6 +167,143 @@ const AddPostForm = () => {
     interest: false,
     image: false,
   });
+
+  // Add this function to request calendar permissions
+  const requestCalendarPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const { status } = await ExpoCalendar.requestCalendarPermissionsAsync();
+        setHasCalendarPermission(status === 'granted');
+
+        if (status === 'granted') {
+          // Check if there are any calendars available
+          const calendars = await ExpoCalendar.getCalendarsAsync(ExpoCalendar.EntityTypes.EVENT);
+          if (calendars.length === 0) {
+            setCalendarError(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error requesting calendar permissions:', error);
+        setCalendarError(true);
+      }
+    }
+  };
+
+  // Call the permission request on component mount
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      requestCalendarPermissions();
+    }
+  }, []);
+
+  const handleManualDateSelection = (date: Date) => {
+    if (dateType === 'single') {
+      setValue('startDate', date);
+      setValue('endDate', date);
+    } else {
+      // Range selection logic
+      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+        setValue('startDate', date);
+        setValue('endDate', undefined);
+      } else if (selectedStartDate && !selectedEndDate) {
+        if (date < selectedStartDate) {
+          setValue('endDate', selectedStartDate);
+          setValue('startDate', date);
+        } else {
+          setValue('endDate', date);
+        }
+      }
+    }
+  };
+
+  // Create a function to render the calendar or fallback
+  const renderCalendar = () => {
+    if (Platform.OS === 'android' && calendarError) {
+      // Fallback UI for Android when calendar fails
+      const today = new Date();
+      const nextMonth = new Date();
+      nextMonth.setMonth(today.getMonth() + 1);
+
+      // Generate dates for the current month
+      const dates = [];
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+
+      for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(currentMonth);
+        date.setDate(i);
+        dates.push(date);
+      }
+
+      return (
+        <View style={styles.calendarFallback}>
+          <Text style={styles.calendarFallbackTitle}>Select a date for your event:</Text>
+          <Text style={styles.calendarFallbackMonth}>{format(today, 'MMMM yyyy')}</Text>
+          <View style={styles.calendarFallbackGrid}>
+            {dates.map((date, index) => {
+              const dateStr = date.toISOString().split('T')[0];
+              const isSelected = markedDates[dateStr];
+              const isPastDate = date < new Date(new Date().setHours(0, 0, 0, 0));
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.calendarFallbackDay,
+                    isSelected && styles.calendarFallbackDaySelected,
+                    isPastDate && styles.calendarFallbackDayDisabled,
+                  ]}
+                  onPress={() => !isPastDate && handleManualDateSelection(date)}
+                  disabled={isPastDate}>
+                  <Text
+                    style={[
+                      styles.calendarFallbackDayText,
+                      isSelected && styles.calendarFallbackDayTextSelected,
+                      isPastDate && styles.calendarFallbackDayTextDisabled,
+                    ]}>
+                    {date.getDate()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      );
+    }
+
+    // Default calendar UI
+    try {
+      return (
+        <Calendar
+          onDayPress={handleDateSelect}
+          markedDates={markedDates}
+          minDate={new Date().toISOString().split('T')[0]}
+          markingType={dateType === 'range' ? 'period' : 'custom'}
+          theme={{
+            todayTextColor: '#00AF9F',
+            selectedDayBackgroundColor: '#00AF9F',
+            selectedDayTextColor: '#ffffff',
+            arrowColor: '#00AF9F',
+          }}
+          // Add these props to prevent system calendar access issues on Android
+          disableAllTouchEventsForDisabledDays={true}
+          disableAllTouchEventsForInactiveDays={true}
+          enableSwipeMonths={true}
+        />
+      );
+    } catch (error) {
+      console.error('Calendar render error:', error);
+      setCalendarError(true);
+      // Return the fallback UI if there's an error
+      return (
+        <View style={styles.calendarError}>
+          <Text style={styles.calendarErrorText}>
+            Calendar could not be loaded. Please try again or select dates manually.
+          </Text>
+        </View>
+      );
+    }
+  };
 
   interface OpenSections {
     [key: string]: boolean;
@@ -761,20 +904,7 @@ const AddPostForm = () => {
                 </View>
 
                 {/* Calendar */}
-                <View style={styles.calendarContainer}>
-                  <Calendar
-                    onDayPress={handleDateSelect}
-                    markedDates={markedDates}
-                    minDate={new Date().toISOString().split('T')[0]}
-                    markingType={dateType === 'range' ? 'period' : 'custom'}
-                    theme={{
-                      todayTextColor: '#00AF9F',
-                      selectedDayBackgroundColor: '#00AF9F',
-                      selectedDayTextColor: '#ffffff',
-                      arrowColor: '#00AF9F',
-                    }}
-                  />
-                </View>
+                <View style={styles.calendarContainer}>{renderCalendar()}</View>
 
                 {/* Display selected dates */}
                 <View style={styles.selectedDatesContainer}>
@@ -821,10 +951,7 @@ const AddPostForm = () => {
 
                 {/* START TIME PICKER - Improved styling */}
                 <Pressable
-                  style={[
-                    styles.datePickerButton,
-                    selectedStartTime && styles.datePickerButton,
-                  ]}
+                  style={[styles.datePickerButton, selectedStartTime && styles.datePickerButton]}
                   onPress={showStartTimePicker}>
                   <Text
                     style={[
@@ -1028,13 +1155,15 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    borderRadius: Platform.OS === 'ios' ? 50 : 25,
+    borderRadius: Platform.OS === 'ios' ? 12 : 8,
     marginBottom: 20,
+    // Shadow for iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    // Elevation for Android
+    elevation: Platform.OS === 'android' ? 2 : 0,
   },
   calendarContainer: {
     marginVertical: 10,
@@ -1079,20 +1208,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#333',
   },
+  // Update accordion section styling
   accordionSection: {
-    marginBottom: 12,
+    marginBottom: Platform.OS === 'ios' ? 12 : 8,
     borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
+    borderColor: Platform.OS === 'ios' ? '#eee' : '#e0e0e0',
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     overflow: 'hidden',
     width: '100%',
+    backgroundColor: 'white',
   },
   accordionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#fdfdfd ',
+    padding: Platform.OS === 'ios' ? 12 : 16,
+    backgroundColor: Platform.OS === 'ios' ? '#fdfdfd' : 'white',
   },
   accordionTitleContainer: {
     flexDirection: 'row',
@@ -1112,7 +1243,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   accordionContent: {
-    padding: 12,
+    padding: Platform.OS === 'ios' ? 12 : 16,
     backgroundColor: 'white',
   },
   // Original styles
@@ -1128,15 +1259,19 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     padding: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 16,
     backgroundColor: 'white',
+    // Add this for Android text inputs
+    ...(Platform.OS === 'android' && {
+      paddingVertical: 8,
+    }),
   },
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
-    paddingTop: Platform.OS === 'android' ? 10 : 12,
+    paddingTop: Platform.OS === 'android' ? 8 : 12,
   },
   radioGroup: {
     flexDirection: 'row',
@@ -1145,8 +1280,8 @@ const styles = StyleSheet.create({
   radioButton: {
     borderWidth: 1,
     borderColor: '#00AF9F',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: Platform.OS === 'ios' ? 10 : 4,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     paddingHorizontal: 20,
     marginRight: 10,
     backgroundColor: 'white',
@@ -1228,11 +1363,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 16,
+    marginBottom: Platform.OS === 'android' ? 16 : 0,
   },
   cancelButton: {
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     marginRight: 10,
     borderWidth: 1,
     borderColor: '#ddd',
@@ -1248,9 +1384,9 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#00AF9F',
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
   },
   submitButtonText: {
     fontSize: 16,
@@ -1300,6 +1436,67 @@ const styles = StyleSheet.create({
     color: 'white',
     fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
+  calendarFallback: {
+    padding: 10,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  calendarFallbackTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 10,
+    color: '#333',
+  },
+  calendarFallbackMonth: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 10,
+    color: '#00AF9F',
+    textAlign: 'center',
+  },
+  calendarFallbackGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  calendarFallbackDay: {
+    width: '14%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderRadius: 20,
+  },
+  calendarFallbackDaySelected: {
+    backgroundColor: '#00AF9F',
+  },
+  calendarFallbackDayDisabled: {
+    opacity: 0.3,
+  },
+  calendarFallbackDayText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  calendarFallbackDayTextSelected: {
+    color: 'white',
+  },
+  calendarFallbackDayTextDisabled: {
+    color: '#999',
+  },
+  calendarError: {
+    padding: 20,
+    backgroundColor: '#fff8f8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffdddd',
+    alignItems: 'center',
+  },
+  calendarErrorText: {
+    color: '#d32f2f',
+    textAlign: 'center',
+    fontSize: 14,
+  },
 });
-
 export default AddPostForm;

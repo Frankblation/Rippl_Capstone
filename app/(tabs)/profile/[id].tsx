@@ -3,12 +3,10 @@
 import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams } from 'expo-router';
 import React, { Suspense } from 'react';
-import { StyleSheet, View, Alert, ActivityIndicator, Text } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-
-import type { CommentsBottomSheetRef } from '~/components/CommentsBottomSheet';
 const CommentsBottomSheet = React.lazy(() => import('~/components/CommentsBottomSheet'));
 
 import PostCard from '~/components/PostCard';
@@ -16,9 +14,10 @@ import { UserProfileHeader } from '~/components/profile/UserProfileHeader';
 import InterestGrid from '~/components/profile/InterestMasonary';
 import { useUser } from '~/hooks/useUser';
 import { useAuth } from '~/components/providers/AuthProvider';
+import { AddUserButton } from '~/components/profile/AddUserButton';
 
 // Import our feed hook
-import { useFeed, FeedItem } from '~/hooks/useFeed';
+import { useFeed, type FeedItem } from '~/hooks/useFeed';
 
 // Define a header item type to combine with our feed
 type HeaderItem = { id: string; type: 'header' };
@@ -43,16 +42,13 @@ function Profile() {
     selectedCommentsCount,
     openComments,
     addComment,
-    invalidateCache
+    invalidateCache,
   } = useFeed('profile', authUser?.id || null, {
     profileUserId: id || undefined,
   });
 
   // Combine header with feed items
-  const feed: ProfileFeedItem[] = [
-    { id: 'header', type: 'header' },
-    ...rawFeed
-  ];
+  const feed: ProfileFeedItem[] = [{ id: 'header', type: 'header' }, ...rawFeed];
 
   // Format user interests for the interest grid
   const userInterests = user.interests.map((interest) => ({
@@ -64,6 +60,13 @@ function Profile() {
     if (item.type === 'header') {
       return (
         <View style={styles.headerContainer}>
+          <View style={styles.buttonContainer}>
+            <AddUserButton
+              status="none"
+              onAddFriend={async () => true}
+              onRemoveFriend={async () => true}
+            />
+          </View>
           <UserProfileHeader
             name={user.name || 'User'}
             profileImage={user.image || 'https://randomuser.me/api/portraits/women/44.jpg'}
@@ -75,7 +78,8 @@ function Profile() {
           </View>
         </View>
       );
-    } else if ('id' in item) { // Check if it's a post/event (both have IDs)
+    } else if ('id' in item) {
+      // Check if it's a post/event (both have IDs)
       return (
         <PostCard
           {...item}
@@ -171,6 +175,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  buttonContainer: {
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 20,
   },
 });
 

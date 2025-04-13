@@ -60,8 +60,6 @@ export default function Swipe() {
           ...user,
           interests: Array.isArray(user.interests) ? user.interests : [],
         }));
-
-        console.log('Recommended users with interests:', validatedUsers);
         setUsers(validatedUsers);
       } catch (err) {
         console.error('Exception loading data:', err);
@@ -130,7 +128,6 @@ export default function Swipe() {
     try {
       // Save the swipe action to database
       const swipeResult = await saveSwipe(auth.user.id, swipedUser.id, isLiked);
-      console.log('Swipe saved:', swipeResult);
 
       // Only proceed with the match flow for right swipes that result in a match
       if (isLiked) {
