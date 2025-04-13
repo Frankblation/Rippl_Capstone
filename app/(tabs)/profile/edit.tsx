@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  FlatList,
   Keyboard,
   Alert,
   StyleSheet,
@@ -18,7 +17,7 @@ import { useUser } from '~/hooks/useUser';
 import type { InterestsTable } from '~/utils/db';
 import { useRouter } from 'expo-router';
 import { LogOutButton } from '~/components/profile/LogOutButton';
-
+import { invalidateAllFeedCaches } from '~/hooks/useFeed';
 import { createUserInterest, updateUser, getAllInterests, deleteUserInterest } from '~/utils/data';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -40,15 +39,35 @@ export default function EditProfileScreen() {
   const [filteredSuggestions, setFilteredSuggestions] = useState<InterestsTable[]>([]);
   const [availableInterests, setAvailableInterests] = useState<InterestsTable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [imageUpdated, setImageUpdated] = useState(false); // Track if image was updated
+  const [imageUpdated, setImageUpdated] = useState(false);
 
   const bioInputRef = useRef<TextInput>(null);
+  const interestInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth();
 
   // Use our custom hook to get full user data
   const { user, refreshUser } = useUser(authUser?.id || null);
+
+  // Dismiss dropdown when tapping outside
+  useEffect(() => {
+    const handleOutsideTouch = (e: TouchEvent) => {
+      if (showSuggestions && interestInputRef.current) {
+        // This is a simple check - in a real app you might want to check
+        // if the tap is actually outside the dropdown area
+        setShowSuggestions(false);
+      }
+    };
+
+    // Add touchend listener to detect taps outside
+    document.addEventListener('touchend', handleOutsideTouch);
+
+    return () => {
+      document.removeEventListener('touchend', handleOutsideTouch);
+    };
+  }, [showSuggestions]);
 
   // Fetch all available interests and user's current interests
   useEffect(() => {
@@ -182,7 +201,7 @@ export default function EditProfileScreen() {
       if (refreshUser) {
         await refreshUser();
       }
-
+      invalidateAllFeedCaches();
       Alert.alert('Success', 'Profile updated successfully!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -195,19 +214,20 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
       <View style={styles.buttonContainer}>
         <LogOutButton />
       </View>
-      <ScrollView>
-        <View className="p-6">
+
+      <ScrollView ref={scrollViewRef}>
+        <View style={styles.content}>
           {/* Profile Image Section with improved spacing */}
-          <View className="mb-10 items-center justify-center">
+          <View style={styles.imageSection}>
             {authUser?.id ? (
               <Suspense
                 fallback={
-                  <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
+                  <View style={styles.imagePlaceholder}>
                     <Text>Loading...</Text>
                   </View>
                 }>
@@ -216,39 +236,39 @@ export default function EditProfileScreen() {
                   userId={authUser.id}
                   onUploadComplete={(imageUrl) => {
                     setImage(imageUrl);
-                    setImageUpdated(true); // Mark that the image was updated
+                    setImageUpdated(true);
                   }}
                   existingImageUrl={image}
                   placeholderLabel="Update Photo"
                   imageSize={128}
                   aspectRatio={[1, 1]}
                   folder="profiles"
-                  updateUserProfile={true} // This is correct - profile images should update the user profile
+                  updateUserProfile={true}
                 />
               </Suspense>
             ) : (
-              <View className="h-32 w-32 items-center justify-center rounded-full bg-gray-200">
+              <View style={styles.imagePlaceholder}>
                 <Feather name="user" size={50} color="#9ca3af" />
-                <Text className="mt-2 text-sm text-gray-500">Sign in to update photo</Text>
+                <Text style={styles.signInText}>Sign in to update photo</Text>
               </View>
             )}
           </View>
 
-          <View className="mb-6">
-            <Text className="mb-2 font-semibold text-gray-700">Name</Text>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Name</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               keyboardType="default"
               placeholder="Enter your name"
-              className="rounded-lg border border-gray-300 p-3 text-base"
+              style={styles.input}
               returnKeyType="next"
               onSubmitEditing={() => bioInputRef.current?.focus()}
             />
           </View>
 
-          <View className="mb-6">
-            <Text className="mb-2 font-semibold text-gray-700">Bio</Text>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Bio</Text>
             <TextInput
               ref={bioInputRef}
               value={bio}
@@ -257,20 +277,20 @@ export default function EditProfileScreen() {
               keyboardType="default"
               multiline
               numberOfLines={4}
-              className="min-h-[100px] rounded-lg border border-gray-300 p-3 text-base"
+              style={styles.bioInput}
               textAlignVertical="top"
             />
           </View>
 
-          <View className="mb-6">
-            <Text className="mb-2 font-semibold text-gray-700">Interests</Text>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Interests</Text>
 
-            <View className="mb-3 flex-row flex-wrap">
+            <View style={styles.interestsContainer}>
               {userInterests.map((interest) => (
                 <View
                   key={interest.id}
-                  className="mb-2 mr-2 flex-row items-center rounded-full bg-[#E6F7F5] px-3 py-1">
-                  <Text className="mr-1 text-[#00AF9F]">{interest.name}</Text>
+                  style={styles.interestTag}>
+                  <Text style={styles.interestText}>{interest.name}</Text>
                   <TouchableOpacity onPress={() => removeInterest(interest.id)}>
                     <Feather name="x" size={16} color="#00AF9F" />
                   </TouchableOpacity>
@@ -278,14 +298,20 @@ export default function EditProfileScreen() {
               ))}
             </View>
 
-            <View className="relative">
-              <View className="flex-row items-center rounded-lg border border-gray-300 p-2">
+            <View style={styles.interestInputContainer}>
+              <View style={styles.interestInputWrapper}>
                 <TextInput
+                  ref={interestInputRef}
                   value={newInterest}
                   onChangeText={handleInterestInput}
                   placeholder="Add an interest"
-                  className="flex-1 p-1 text-base"
+                  style={styles.interestInput}
                   returnKeyType="done"
+                  onFocus={() => {
+                    if (newInterest.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
                   onSubmitEditing={() => addInterest(newInterest)}
                 />
                 <TouchableOpacity onPress={() => addInterest(newInterest)}>
@@ -293,19 +319,23 @@ export default function EditProfileScreen() {
                 </TouchableOpacity>
               </View>
 
+              {/* Dropdown suggestions list */}
               {showSuggestions && filteredSuggestions.length > 0 && (
-                <View className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 rounded-lg border border-gray-300 bg-white">
-                  <FlatList
-                    data={filteredSuggestions}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
+                <View style={styles.dropdownContainer}>
+                  <ScrollView
+                    style={styles.dropdownList}
+                    nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {filteredSuggestions.map(item => (
                       <TouchableOpacity
+                        key={item.id}
                         onPress={() => selectSuggestion(item)}
-                        className="border-b border-gray-200 p-3">
+                        style={styles.dropdownItem}>
                         <Text>{item.name}</Text>
                       </TouchableOpacity>
-                    )}
-                  />
+                    ))}
+                  </ScrollView>
                 </View>
               )}
             </View>
@@ -314,8 +344,8 @@ export default function EditProfileScreen() {
           <TouchableOpacity
             onPress={saveProfile}
             disabled={isLoading}
-            className={`items-center rounded-lg bg-[#00AF9F] py-3 ${isLoading ? 'opacity-70' : ''}`}>
-            <Text className="text-base font-semibold text-white">
+            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}>
+            <Text style={styles.saveButtonText}>
               {isLoading ? 'Saving...' : 'Save Profile'}
             </Text>
           </TouchableOpacity>
@@ -326,10 +356,134 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
   buttonContainer: {
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'flex-end',
     padding: 20,
+  },
+  content: {
+    padding: 24,
+  },
+  imageSection: {
+    marginBottom: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePlaceholder: {
+    height: 128,
+    width: 128,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 64,
+  },
+  signInText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  formGroup: {
+    marginBottom: 24,
+  },
+  label: {
+    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  bioInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 100,
+  },
+  interestsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+  },
+  interestTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F7F5',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  interestText: {
+    color: '#00AF9F',
+    marginRight: 4,
+  },
+  interestInputContainer: {
+    position: 'relative',
+    zIndex: 10, // Ensure dropdown appears above other content
+  },
+  interestInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 8,
+  },
+  interestInput: {
+    flex: 1,
+    fontSize: 16,
+    padding: 4,
+  },
+  dropdownContainer: {
+    position: 'absolute',
+    top: '100%', // Position just below the input
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    marginTop: 4, // Small gap between input and dropdown
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+    zIndex: 20,
+  },
+  dropdownList: {
+    maxHeight: 150,
+  },
+  dropdownItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  saveButton: {
+    backgroundColor: '#00AF9F',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
