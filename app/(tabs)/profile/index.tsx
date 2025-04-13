@@ -2,7 +2,7 @@
 
 import { FlashList } from '@shopify/flash-list';
 import React, { Suspense } from 'react';
-import { StyleSheet, View, ActivityIndicator, Text, SafeAreaView } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Text, SafeAreaView, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const CommentsBottomSheet = React.lazy(() => import('~/components/CommentsBottomSheet'));
@@ -178,6 +178,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 10,
     paddingRight: 20,
+    paddingTop: Platform.OS === 'android' ? 20 : 0,
   },
 });
 
