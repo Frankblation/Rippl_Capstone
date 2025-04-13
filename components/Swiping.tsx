@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Swiper from 'react-native-deck-swiper';
-import { View, Text, StyleSheet, Vibration, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, Vibration, ActivityIndicator } from 'react-native';
 import UserCard from './UserSwipingCard';
 import { useAnimation } from '~/components/AnimationContext';
 import LottieView from 'lottie-react-native';
@@ -281,7 +281,9 @@ export default function Swipe() {
           }}
         />
       ) : (
-        <Text style={styles.noUsersText}>No recommendations available</Text>
+        <View style={styles.noUsersContainer}>
+          <Text style={styles.noUsersText}>No recommendations available</Text>
+        </View>
       )}
     </View>
   );
@@ -303,12 +305,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  noUsersText: {
-    fontSize: 18,
-    textAlign: 'center',
-    color: '#666',
-    padding: 20,
-  },
+
   overlayLabelContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -327,5 +324,16 @@ const styles = StyleSheet.create({
     bottom: -80,
     zIndex: 2,
     opacity: 0.8,
+  },
+  noUsersContainer: {
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    top: 400,
+  },
+  noUsersText: {
+    fontSize: 18,
+    textAlign: 'center',
+    color: '#666',
   },
 });

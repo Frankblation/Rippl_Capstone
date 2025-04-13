@@ -11,6 +11,7 @@ import {
   Keyboard,
   Alert,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '~/components/providers/AuthProvider';
@@ -334,5 +335,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     padding: 20,
+    paddingTop: Platform.OS === 'android' ? 20 : 0,
   },
 });
