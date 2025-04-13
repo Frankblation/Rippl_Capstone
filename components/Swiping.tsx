@@ -140,7 +140,6 @@ export default function Swipe() {
         // Even if it's not a match now, it could be in the future when the other user swipes
         // So we'll just log that info for now
         if (!isMatch) {
-          console.log('User swiped right, but no match yet');
           return;
         }
 
