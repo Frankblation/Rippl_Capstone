@@ -1,51 +1,13 @@
 /**
- * FEED MANAGEMENT HOOK
+ * SIMPLIFIED FEED MANAGEMENT
  *
- * This file provides the useFeed hook, a comprehensive solution for managing content feeds
- * in Rippl. It handles fetching, caching, pagination, and interactions with posts across
- * the application.
- *
- * KEY FEATURES:
- * - Smart caching: Maintains separate caches for different feed types
- * - Intelligent data loading: Only loads feed data when user data (including interests) is available
- * - Pagination support: Handles "load more" with proper deduplication
- * - Post interactions: Like/unlike with optimistic UI updates
- * - Comments functionality: View and add comments with real-time UI updates
- * - Cross-feed state management: Updates post status across different feed instances
- *
- * FEED TYPES:
- * - 'home': Main feed with personalized content from interests, friends, and recommendations
- * - 'profile': User-specific feed showing only posts from a particular user
- *
- * USAGE:
- * ```tsx
- * const {
- *   feed,                  // Array of feed items (posts, events, carousel)
- *   loading,               // Boolean indicating initial load state
- *   isLoadingMore,         // Boolean indicating "load more" operation in progress
- *   hasMoreContent,        // Boolean indicating if more content is available
- *   error,                 // Error message if feed load failed
- *   handleLikePost,        // Function to handle post liking
- *   commentsSheetRef,      // Ref to control comments bottom sheet
- *   openComments,          // Function to open comments for a post
- *   addComment,            // Function to add a comment to current post
- *   loadMore,              // Function to load more items when scrolling
- *   refresh,               // Function to refresh current feed
- *   invalidateCache        // Function to invalidate cache and force fresh data
- * } = useFeed(
- *   'home',                // Feed type: 'home' or 'profile'
- *   userId,                // User ID of current authenticated user
- *   {                      // Optional config object
- *     includeCarousel,     // Include events carousel in feed
- *     postsPerPage,        // Number of posts to fetch per page
- *     maxAgeDays,          // Max age of posts in days
- *     profileUserId        // User ID for profile feed (if different from auth user)
- *   }
- * );
- * ```
+ * Uses just three global states:
+ * 1. Home feed
+ * 2. Current user profile feed
+ * 3. Other user profile feed (reused for different profiles)
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '~/utils/supabase';
 import {
@@ -58,58 +20,114 @@ import {
   getCommentsByPost
 } from '~/utils/data';
 import { formatPostsForUI, UIPost, PostComment } from '~/utils/formatPosts';
-import { PostsTable } from '~/utils/db';
 import { useUser } from './useUser';
-import { CommentsBottomSheetRef } from '../components/CommentsBottomSheet';
+import { PostsTable } from '~/utils/db';
 
+// This will help us track update cycles for debugging
+let debugCounter = 0;
+
+// Types
 export type FeedItem = UIPost | { type: 'carousel' };
-export type FeedType = 'home' | 'profile';
+export type FeedType = 'home' | 'profile' | 'otherProfile';
 
-// Define cache structure for each feed type
-interface FeedCache {
-  home: Map<string, FeedState>; // key is authUserId
-  profile: Map<string, FeedState>; // key is profileUserId-authUserId
+// Interface for the comments bottom sheet ref
+export interface CommentSheetRef {
+  open: () => void;
+  close: () => void;
 }
 
+// Define feed state type to fix typing issues
 interface FeedState {
   items: FeedItem[];
-  page: number;
-  hasMore: boolean;
   isLoading: boolean;
   isLoadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
+  page: number;
   timestamp: number;
+  userId?: string | null; // Optional for otherUserFeed
 }
 
-// Create persistent cache between renders
-const CACHE: FeedCache = {
-  home: new Map(),
-  profile: new Map()
+// Simple global state with just three feeds
+const globalState = {
+  // The three main feeds
+  homeFeed: {
+    items: [] as FeedItem[],
+    isLoading: true,
+    isLoadingMore: false,
+    hasMore: true,
+    error: null as string | null,
+    page: 1,
+    timestamp: 0
+  } as FeedState,
+
+  currentUserFeed: {
+    items: [] as FeedItem[],
+    isLoading: true,
+    isLoadingMore: false,
+    hasMore: true,
+    error: null as string | null,
+    page: 1,
+    timestamp: 0
+  } as FeedState,
+
+  otherUserFeed: {
+    items: [] as FeedItem[],
+    isLoading: true,
+    isLoadingMore: false,
+    hasMore: true,
+    error: null as string | null,
+    page: 1,
+    timestamp: 0,
+    userId: null as string | null // Track whose feed this is
+  } as FeedState,
+
+  // Shared data across components
+  likedPosts: new Set<string>(),
+
+  // Subscribers for data changes
+  subscribers: {
+    home: new Set<() => void>(),
+    currentUser: new Set<() => void>(),
+    otherUser: new Set<() => void>()
+  },
+
+  // Helper to notify subscribers of changes
+  notifySubscribers(feedType: FeedType) {
+    debugCounter++;
+    console.log(`[${debugCounter}] Notifying ${feedType} subscribers`);
+
+    // Create a copy to avoid issues with subscribers removing themselves during iteration
+    const subscribers = feedType === 'home' ? [...this.subscribers.home] :
+                        feedType === 'profile' ? [...this.subscribers.currentUser] :
+                        [...this.subscribers.otherUser];
+
+    subscribers.forEach(callback => {
+      try {
+        callback();
+      } catch (err) {
+        console.error('Error in subscriber callback:', err);
+      }
+    });
+  }
 };
 
-const feedSubscribers = new Set<() => void>();
+// For forcefully resetting stuck loading state
+export function resetAllFeedLoadingStates() {
+  console.log('Manually resetting all feed loading states');
 
-// Function to notify subscribers of cache changes
-function notifyFeedSubscribers() {
-  feedSubscribers.forEach(callback => callback());
+  // Reset all feeds to not loading
+  globalState.homeFeed.isLoading = false;
+  globalState.currentUserFeed.isLoading = false;
+  globalState.otherUserFeed.isLoading = false;
+
+  // Notify all subscribers
+  globalState.notifySubscribers('home');
+  globalState.notifySubscribers('profile');
+  globalState.notifySubscribers('otherProfile');
 }
 
-// Shared liked posts cache across components
-const LIKED_POSTS = new Set<string>();
-
-// Comments related state stored globally
-interface CommentsState {
-  postId: string;
-  comments: PostComment[];
-  count: number;
-}
-
-let ACTIVE_COMMENTS: CommentsState = {
-  postId: '',
-  comments: [],
-  count: 0
-};
-
+// Options for feed configuration
 interface UseFeedOptions {
   includeCarousel?: boolean;
   postsPerPage?: number;
@@ -117,6 +135,12 @@ interface UseFeedOptions {
   profileUserId?: string; // For profile feed
 }
 
+/**
+ * Main hook for feed management
+ * @param feedType Type of feed to use
+ * @param authUserId Current authenticated user's ID
+ * @param options Configuration options
+ */
 export function useFeed(
   feedType: FeedType,
   authUserId: string | null,
@@ -129,57 +153,136 @@ export function useFeed(
     profileUserId
   } = options;
 
-  // Create a unique cache key based on feed type and user IDs
-  const cacheKey = useMemo(() => {
-    if (feedType === 'home') return authUserId || 'anonymous';
-    if (feedType === 'profile') {
-      const targetProfileId = profileUserId || authUserId;
-      return `${targetProfileId}-${authUserId || 'anonymous'}`;
+  // Determine which feed to use - memoize to prevent unnecessary rerenders
+  const getFeedState = useCallback((): FeedState => {
+    switch (feedType) {
+      case 'home':
+        return globalState.homeFeed;
+      case 'profile':
+        return globalState.currentUserFeed;
+      case 'otherProfile':
+        return globalState.otherUserFeed;
+      default:
+        // TypeScript needs this for exhaustiveness check
+        return globalState.homeFeed;
     }
-    return 'default';
-  }, [feedType, authUserId, profileUserId]);
+  }, [feedType]);
 
-  // Initialize state from cache or create new
-  const [state, setState] = useState<FeedState>(() => {
-    const cachedState = CACHE[feedType].get(cacheKey);
-    if (cachedState) return cachedState;
+  // Local state that reflects the global state
+  const [feedData, setFeedData] = useState<FeedState>(getFeedState());
+  const [likedPosts, setLikedPosts] = useState(globalState.likedPosts);
 
-    return {
-      items: [],
-      page: 1,
-      hasMore: true,
-      isLoading: true,
-      isLoadingMore: false,
-      error: null,
-      timestamp: 0
-    };
-  });
-
-  // For accessing user data (interests, friends)
-  const { user, getInterestIds, getFriendIds } = useUser(authUserId);
-
-  // Add this ref to track when user data is first loaded
-  const userDataLoadedRef = useRef(false);
-
-  // Track liked posts with state that references the global cache
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(LIKED_POSTS);
-
-  // Comments related state
-  const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
-  const [selectedComments, setSelectedComments] = useState<PostComment[]>(ACTIVE_COMMENTS.comments);
-  const [selectedCommentsCount, setSelectedCommentsCount] = useState<number>(ACTIVE_COMMENTS.count);
-  const [selectedPostId, setSelectedPostId] = useState<string>(ACTIVE_COMMENTS.postId);
+  // Comment state
+  const [selectedComments, setSelectedComments] = useState<PostComment[]>([]);
+  const [selectedCommentsCount, setSelectedCommentsCount] = useState(0);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
 
-  // Update the cache whenever our state changes
+  // Create ref for bottom sheet
+  const commentsSheetRef = useRef<CommentSheetRef>(null);
+
+  // Get user data from the user hook
+  const { user, getInterestIds, getFriendIds } = useUser(authUserId);
+
+  // Subscribe to global state changes
   useEffect(() => {
-    CACHE[feedType].set(cacheKey, state);
-  }, [feedType, cacheKey, state]);
+    const handleStateChange = () => {
+      setFeedData({ ...getFeedState() });
+      setLikedPosts(new Set(globalState.likedPosts));
+    };
+
+    // Add to the appropriate subscriber list
+    if (feedType === 'home') {
+      globalState.subscribers.home.add(handleStateChange);
+    } else if (feedType === 'profile') {
+      globalState.subscribers.currentUser.add(handleStateChange);
+    } else if (feedType === 'otherProfile') {
+      globalState.subscribers.otherUser.add(handleStateChange);
+    }
+
+    return () => {
+      // Remove from the subscriber list when unmounting
+      if (feedType === 'home') {
+        globalState.subscribers.home.delete(handleStateChange);
+      } else if (feedType === 'profile') {
+        globalState.subscribers.currentUser.delete(handleStateChange);
+      } else if (feedType === 'otherProfile') {
+        globalState.subscribers.otherUser.delete(handleStateChange);
+      }
+    };
+  }, [feedType, getFeedState]);
+
+  // For other user profiles, update the feed when profileUserId changes
+  useEffect(() => {
+    if (feedType !== 'otherProfile' || !profileUserId) return;
+
+    // Skip if user ID hasn't actually changed
+    if (globalState.otherUserFeed.userId === profileUserId) return;
+
+    console.log(`Switching otherProfile feed to user: ${profileUserId}`);
+
+    // Reset the other user feed when viewing a different user
+    globalState.otherUserFeed = {
+      ...globalState.otherUserFeed,
+      items: [],
+      isLoading: true,
+      page: 1,
+      timestamp: 0,
+      userId: profileUserId
+    };
+
+    // Notify subscribers
+    globalState.notifySubscribers('otherProfile');
+
+    // Don't call fetchFeedData directly here - let the normal feed loading effect handle it
+  }, [feedType, profileUserId]);  // Only depend on these two props
+
+  // Function to update feed state and notify subscribers
+  const updateFeedData = useCallback((updater: (data: FeedState) => FeedState) => {
+    const currentData = getFeedState();
+    const newData = updater(currentData);
+
+    // Skip update if nothing changes (deep compare important keys)
+    const hasChanged = JSON.stringify({
+      items: newData.items.map(item => 'id' in item ? item.id : 'carousel'),
+      isLoading: newData.isLoading,
+      isLoadingMore: newData.isLoadingMore,
+      error: newData.error,
+      page: newData.page
+    }) !== JSON.stringify({
+      items: currentData.items.map(item => 'id' in item ? item.id : 'carousel'),
+      isLoading: currentData.isLoading,
+      isLoadingMore: currentData.isLoadingMore,
+      error: currentData.error,
+      page: currentData.page
+    });
+
+    if (!hasChanged) {
+      console.log(`${feedType} feed update skipped - no changes`);
+      return;
+    }
+
+    // Update the global state
+    if (feedType === 'home') {
+      globalState.homeFeed = newData;
+    } else if (feedType === 'profile') {
+      globalState.currentUserFeed = newData;
+    } else if (feedType === 'otherProfile') {
+      globalState.otherUserFeed = {
+        ...newData,
+        userId: globalState.otherUserFeed.userId
+      };
+    }
+
+    // Notify subscribers
+    console.log(`${feedType} feed updated, notifying subscribers`);
+    globalState.notifySubscribers(feedType);
+  }, [feedType, getFeedState]);
 
   // Load user's liked posts if not already loaded
   useEffect(() => {
     const loadLikedPosts = async () => {
-      if (!authUserId || LIKED_POSTS.size > 0) {
+      if (!authUserId || globalState.likedPosts.size > 0) {
         return;
       }
 
@@ -192,8 +295,10 @@ export function useFeed(
 
         if (error) throw error;
 
-        data.forEach(item => LIKED_POSTS.add(item.post_id));
-        setLikedPosts(new Set(LIKED_POSTS));
+        if (data) {
+          data.forEach(item => globalState.likedPosts.add(item.post_id));
+          setLikedPosts(new Set(globalState.likedPosts));
+        }
       } catch (error) {
         console.error('Error loading liked posts:', error);
       }
@@ -205,37 +310,46 @@ export function useFeed(
   }, [authUserId]);
 
   // Main function to fetch feed data
-  const fetchFeedData = useCallback(async (loadMore = false) => {
-    if (!authUserId && feedType === 'home') {
-      return;
+  const fetchFeedData = useCallback(async (loadMore = false, force = false) => {
+    // Skip validation checks if force=true is passed
+    if (!force) {
+      // For home feed, require auth user
+      if (feedType === 'home' && !authUserId) return;
+
+      // For profile feed, check if we're logged in
+      if (feedType === 'profile' && !authUserId) return;
+
+      // For home feed, require interests
+      if (feedType === 'home' && (!user?.id || getInterestIds().length === 0)) {
+        updateFeedData(data => ({ ...data, isLoading: false }));
+        return;
+      }
     }
 
-    // Check if we have user data with interests
-    if (feedType === 'home' && (!user?.id || getInterestIds().length === 0)) {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: null
-      }));
-      return;
-    }
-
-    setState(prev => ({
-      ...prev,
+    // Update loading state
+    updateFeedData(data => ({
+      ...data,
       isLoading: !loadMore,
       isLoadingMore: loadMore,
       error: null
     }));
 
     try {
-      const currentPage = loadMore ? state.page + 1 : 1;
-      let posts: PostsTable[] = [];
+      console.log(`${feedType} feed: Starting data fetch...`);
+      const currentData = getFeedState();
+      const currentPage = loadMore ? currentData.page + 1 : 1;
+      let posts: UIPost[] = [];
+
+      // Determine which user ID to use for fetching
+      let targetUserId: string | null = null;
 
       if (feedType === 'home') {
         // HOME FEED LOGIC
         if (user?.id) {
+          console.log('Fetching home feed data');
+
           // 1. Get recommended posts
-          const recommendedPosts = await getRecommendedPostsForUser(user.id, postsPerPage / 2);
+          const recommendedPosts = await getRecommendedPostsForUser(user.id, Math.floor(postsPerPage / 2));
           posts = [...posts, ...recommendedPosts];
 
           // 2. Get posts from user's interests
@@ -269,8 +383,17 @@ export function useFeed(
           posts = [...posts].sort(() => Math.random() - 0.5);
         }
       } else if (feedType === 'profile') {
-        // PROFILE FEED LOGIC
-        const targetUserId = profileUserId || authUserId;
+        // CURRENT USER PROFILE FEED
+        targetUserId = authUserId;
+        if (targetUserId) {
+          posts = await getPostsByUserId(targetUserId, {
+            limit: postsPerPage,
+            page: currentPage
+          });
+        }
+      } else if (feedType === 'otherProfile') {
+        // OTHER USER PROFILE FEED
+        targetUserId = profileUserId || null;
         if (targetUserId) {
           posts = await getPostsByUserId(targetUserId, {
             limit: postsPerPage,
@@ -278,6 +401,8 @@ export function useFeed(
           });
         }
       }
+
+      console.log(`${feedType} feed: Fetched ${posts.length} posts`);
 
       // Remove duplicates
       const uniquePosts = Array.from(
@@ -289,19 +414,17 @@ export function useFeed(
         const formattedPosts = await formatPostsForUI(uniquePosts);
 
         // Add like status from our cache
-        const enhancedPosts = formattedPosts.map(post => {
-          const isLiked = LIKED_POSTS.has(post.id);
-          return {
-            ...post,
-            isLiked
-          };
-        });
+        const enhancedPosts = formattedPosts.map(post => ({
+          ...post,
+          isLiked: globalState.likedPosts.has(post.id)
+        }));
 
-        setState(prev => {
+        // Update feed data
+        updateFeedData(data => {
           if (loadMore) {
             // For pagination: filter out posts we already have
             const existingIds = new Set(
-              prev.items
+              data.items
                 .filter((item): item is UIPost => 'id' in item)
                 .map(item => item.id)
             );
@@ -309,8 +432,8 @@ export function useFeed(
             const newPosts = enhancedPosts.filter(post => !existingIds.has(post.id));
 
             return {
-              ...prev,
-              items: [...prev.items, ...newPosts],
+              ...data,
+              items: [...data.items, ...newPosts],
               page: currentPage,
               hasMore: newPosts.length >= postsPerPage / 2,
               isLoading: false,
@@ -320,12 +443,12 @@ export function useFeed(
           } else {
             // First page load
             const newItems: FeedItem[] = [];
-            if (includeCarousel) {
+            if (feedType === 'home' && includeCarousel) {
               newItems.push({ type: 'carousel' });
             }
 
-            return {
-              ...prev,
+            const result: FeedState = {
+              ...data,
               items: [...newItems, ...enhancedPosts],
               page: 1,
               hasMore: enhancedPosts.length >= postsPerPage,
@@ -333,23 +456,40 @@ export function useFeed(
               isLoadingMore: false,
               timestamp: Date.now()
             };
+
+            // Add userId for otherProfile
+            if (feedType === 'otherProfile') {
+              result.userId = profileUserId || null;
+            }
+
+            return result;
           }
         });
       } else {
         // No posts found
-        setState(prev => ({
-          ...prev,
-          items: !loadMore && includeCarousel ? [{ type: 'carousel' }] : [],
-          hasMore: false,
-          isLoading: false,
-          isLoadingMore: false,
-          timestamp: Date.now()
-        }));
+        console.log(`${feedType} feed: No posts found`);
+        updateFeedData(data => {
+          const result: FeedState = {
+            ...data,
+            items: feedType === 'home' && !loadMore && includeCarousel ? [{ type: 'carousel' }] : [],
+            hasMore: false,
+            isLoading: false,
+            isLoadingMore: false,
+            timestamp: Date.now()
+          };
+
+          // Add userId for otherProfile
+          if (feedType === 'otherProfile') {
+            result.userId = profileUserId || null;
+          }
+
+          return result;
+        });
       }
     } catch (err) {
       console.error('Error fetching feed:', err);
-      setState(prev => ({
-        ...prev,
+      updateFeedData(data => ({
+        ...data,
         error: err instanceof Error ? err.message : 'Failed to load feed',
         isLoading: false,
         isLoadingMore: false
@@ -359,282 +499,261 @@ export function useFeed(
     feedType,
     authUserId,
     profileUserId,
-    state.page,
     user?.id,
     includeCarousel,
     postsPerPage,
     maxAgeDays,
     getInterestIds,
-    getFriendIds
+    getFriendIds,
+    updateFeedData,
+    getFeedState
   ]);
 
-  // Load feed data when user data is fully loaded
+  // Load feed data on first render or when user data changes
   useEffect(() => {
-    // Track if user data is available and has interests
+    // Add a timeout to force load if stuck in loading state for too long
+    let timeout: NodeJS.Timeout | null = null;
+
+    if (getFeedState().isLoading) {
+      console.log(`${feedType} feed is already loading, checking for stuck state...`);
+
+      // If the feed has been in loading state for more than 5 seconds, force a refresh
+      const loadingTimestamp = getFeedState().timestamp;
+      const currentTime = Date.now();
+      const loadingDuration = currentTime - loadingTimestamp;
+
+      if (loadingTimestamp === 0 || loadingDuration > 5000) {
+        console.log(`${feedType} feed appears stuck in loading state, forcing refresh`);
+        timeout = setTimeout(() => fetchFeedData(false, true), 100);
+        return () => {
+          if (timeout) clearTimeout(timeout);
+        };
+      }
+
+      return;
+    }
+
     const userDataAvailable = !!user && !!user.id && !user.isLoading;
     const hasInterests = getInterestIds().length > 0;
 
-    // For profile feed, we don't need interests
-    const dataComplete = feedType === 'profile' ? userDataAvailable : (userDataAvailable && hasInterests);
+    // Different requirements for different feed types
+    let dataComplete = false;
 
-    if (dataComplete && !userDataLoadedRef.current) {
-      userDataLoadedRef.current = true;
+    if (feedType === 'home') {
+      dataComplete = userDataAvailable && hasInterests;
+    } else if (feedType === 'profile') {
+      dataComplete = userDataAvailable;
+    } else if (feedType === 'otherProfile') {
+      dataComplete = !!profileUserId;
+    }
 
-      // Get cache state
-      const cachedState = CACHE[feedType].get(cacheKey);
-      const isCacheStale = !cachedState ||
-                          Date.now() - cachedState.timestamp > 5 * 60 * 1000 ||
-                          cachedState.items.length === 0;
+    if (dataComplete) {
+      const currentData = getFeedState();
+      const isCacheStale =
+        Date.now() - currentData.timestamp > 5 * 60 * 1000 ||
+        currentData.items.length === 0;
 
-      if (isCacheStale) {
-        fetchFeedData(false);
+      // For otherProfile, check if the userId changed
+      const userChanged = feedType === 'otherProfile' &&
+        currentData.userId !== profileUserId;
+
+      if (isCacheStale || userChanged) {
+        console.log(`${feedType} feed needs refresh, fetching data`);
+        timeout = setTimeout(() => fetchFeedData(false), 0);
       }
     }
 
-    // Reset ref when user changes
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [user, getInterestIds, feedType, profileUserId, fetchFeedData, getFeedState]);
+
+  // LIKE FUNCTIONALITY
+  const handleLikePost = useCallback(async (postId: string) => {
     if (!user?.id) {
-      userDataLoadedRef.current = false;
+      Alert.alert('Sign in required', 'Please sign in to like posts');
+      return;
     }
-  }, [user, getInterestIds, feedType, cacheKey, fetchFeedData]);
 
-  useEffect(() => {
-  // Create a random ID for this component instance
-  const componentId = Math.random().toString(36).substring(2, 15);
+    // Check if already liked
+    const isCurrentlyLiked = globalState.likedPosts.has(postId);
+    const newIsLiked = !isCurrentlyLiked;
 
-  // Subscribe to feed updates
-  const subscribeToFeedUpdates = () => {
-    // Look up fresh state from the cache
-    const cachedState = CACHE[feedType].get(cacheKey);
-    if (cachedState) {
-      setState(cachedState);
-    }
-  };
-
-  // Add our subscriber
-  feedSubscribers.add(subscribeToFeedUpdates);
-
-  // Cleanup when unmounting
-  return () => {
-    feedSubscribers.delete(subscribeToFeedUpdates);
-  };
-}, [feedType, cacheKey]);
-
-// LIKE FUNCTIONALITY
-// Handle like status changes - updates all feeds with the post
-const handleLikePost = useCallback(async (postId: string) => {
-  if (!user?.id) {
-    Alert.alert('Sign in required', 'Please sign in to like posts');
-    return;
-  }
-
-  // Check if already liked
-  const isCurrentlyLiked = LIKED_POSTS.has(postId);
-  const newIsLiked = !isCurrentlyLiked;
-
-  // Optimistically update UI across all feeds
-  if (newIsLiked) {
-    LIKED_POSTS.add(postId);
-  } else {
-    LIKED_POSTS.delete(postId);
-  }
-  setLikedPosts(new Set(LIKED_POSTS));
-
-  // Update post across all feeds using our helper function
-  updatePostAcrossFeeds(postId, (post) => ({
-    ...post,
-    isLiked: newIsLiked,
-    likesCount: newIsLiked ? post.likesCount + 1 : Math.max(0, post.likesCount - 1)
-  }));
-
-  // Call API to persist change
-  try {
+    // Optimistically update UI
     if (newIsLiked) {
-      await likePost(user.id, postId);
+      globalState.likedPosts.add(postId);
     } else {
-      await unlikePost(user.id, postId);
+      globalState.likedPosts.delete(postId);
     }
-  } catch (error) {
-    console.error('Error updating like status:', error);
+    setLikedPosts(new Set(globalState.likedPosts));
 
-    // Revert UI changes on error
-    if (isCurrentlyLiked) {
-      LIKED_POSTS.add(postId);
-    } else {
-      LIKED_POSTS.delete(postId);
-    }
-    setLikedPosts(new Set(LIKED_POSTS));
-
-    // Revert changes across all feeds
-    updatePostAcrossFeeds(postId, (post) => ({
+    // Update post in all feeds
+    updatePostInAllFeeds(postId, (post) => ({
       ...post,
-      isLiked: isCurrentlyLiked,
-      likesCount: isCurrentlyLiked ? post.likesCount : post.likesCount - 1
+      isLiked: newIsLiked,
+      likesCount: newIsLiked ? post.likesCount + 1 : Math.max(0, post.likesCount - 1)
     }));
 
-    Alert.alert('Error', 'Failed to update like status. Please try again.');
-  }
-}, [user?.id]);
+    // Persist to database
+    try {
+      if (newIsLiked) {
+        await likePost(user.id, postId);
+      } else {
+        await unlikePost(user.id, postId);
+      }
+    } catch (error) {
+      console.error('Error updating like status:', error);
+
+      // Revert optimistic update
+      if (isCurrentlyLiked) {
+        globalState.likedPosts.add(postId);
+      } else {
+        globalState.likedPosts.delete(postId);
+      }
+      setLikedPosts(new Set(globalState.likedPosts));
+
+      // Revert updates in all feeds
+      updatePostInAllFeeds(postId, (post) => ({
+        ...post,
+        isLiked: isCurrentlyLiked,
+        likesCount: isCurrentlyLiked ? post.likesCount + 1 : Math.max(0, post.likesCount - 1)
+      }));
+
+      Alert.alert('Error', 'Failed to update like status');
+    }
+  }, [user?.id]);
 
   // COMMENTS FUNCTIONALITY
+
   // Open comments for a post
   const openComments = useCallback(async (postId: string) => {
-    // Find the post in this feed
-    const post = state.items.find(
+    // Find post in current feed
+    const post = feedData.items.find(
       (item): item is UIPost => 'id' in item && item.id === postId
     );
 
     if (!post) return;
 
-    // Update the global active comments
-    ACTIVE_COMMENTS = {
-      postId,
-      comments: post.comments || [],
-      count: post.commentsCount || 0
-    };
-
-    // Update local state
     setSelectedPostId(postId);
     setSelectedComments(post.comments || []);
     setSelectedCommentsCount(post.commentsCount || 0);
-
-    // Try to load the latest comments from the server
     setIsLoadingComments(true);
+
+    // Open comments sheet
+    if (commentsSheetRef.current) {
+      commentsSheetRef.current.open();
+    }
+
+    // Fetch latest comments
     try {
-      const latestComments = await getCommentsByPost(postId);
-      if (latestComments) {
-        ACTIVE_COMMENTS.comments = latestComments.map(comment => ({
+      const comments = await getCommentsByPost(postId);
+      if (comments) {
+        const formattedComments = comments.map(comment => ({
           id: comment.id,
           username: comment.user.name,
           userAvatar: { uri: comment.user.image },
           text: comment.content,
           timePosted: comment.sent_at,
         }));
-        ACTIVE_COMMENTS.count = latestComments.length;
-        setSelectedComments(latestComments.map(comment => ({
-          id: comment.id,
-          username: comment.user.name,
-          userAvatar: { uri: comment.user.image },
-          text: comment.content,
-          timePosted: comment.sent_at,
-        })));
-        setSelectedCommentsCount(latestComments.length);
 
-        // Update all feeds with the latest comment count
-        updateCommentCountInFeeds(postId, latestComments.length - (post.commentsCount || 0));
+        setSelectedComments(formattedComments);
+        setSelectedCommentsCount(formattedComments.length);
+
+        // Update comment count if it changed
+        if (formattedComments.length !== (post.commentsCount || 0)) {
+          updatePostInAllFeeds(postId, (p) => ({
+            ...p,
+            commentsCount: formattedComments.length,
+            comments: formattedComments
+          }));
+        }
       }
     } catch (error) {
-      console.error('Error loading comments:', error);
+      console.error('Error fetching comments:', error);
+      Alert.alert('Error', 'Failed to load comments');
     } finally {
       setIsLoadingComments(false);
     }
-
-    // Open the comments sheet
-    commentsSheetRef.current?.open();
-  }, [state.items]);
+  }, [feedData.items]);
 
   // Add a comment to a post
   const addComment = useCallback(async (text: string) => {
     if (!text.trim() || !selectedPostId || !user?.id) {
       if (!user?.id) Alert.alert('Sign in required', 'Please sign in to comment');
-      return;
+      return false;
     }
 
-    const tempId = `temp-${Date.now()}`;
+    // Optimistically update UI
     const newComment: PostComment = {
-      id: tempId,
-      username: user.name || 'User',
-      userAvatar: { uri: user.image || '' },
-      text,
-      timePosted: 'Just now',
+      id: `temp-${Date.now()}`,
+      username: user.name || 'You',
+      userAvatar: { uri: user.image || '' } as { uri: string },
+      text: text,
+      timePosted: new Date().toISOString(),
     };
 
-    // Optimistically update UI
-    setSelectedComments(prev => [...prev, newComment]);
+    setSelectedComments(prev => [newComment, ...prev]);
     setSelectedCommentsCount(prev => prev + 1);
 
-    // Update the global state
-    ACTIVE_COMMENTS.comments = [...ACTIVE_COMMENTS.comments, newComment];
-    ACTIVE_COMMENTS.count++;
+    // Update post in all feeds
+    updatePostInAllFeeds(selectedPostId, (post) => ({
+      ...post,
+      commentsCount: (post.commentsCount || 0) + 1,
+      comments: [newComment, ...(post.comments || [])]
+    }));
 
-    // Update comment count across all feeds
-    updateCommentCountInFeeds(selectedPostId, 1);
-
+    // Persist to database
     try {
-      // Persist to database
       await createComment({
         post_id: selectedPostId,
         user_id: user.id,
         content: text,
       });
+      return true;
     } catch (error) {
       console.error('Error adding comment:', error);
 
-      // Revert optimistic update on error
-      setSelectedComments(prev => prev.filter(c => c.id !== tempId));
+      // Revert optimistic updates
+      setSelectedComments(prev => prev.filter(c => c.id !== newComment.id));
       setSelectedCommentsCount(prev => prev - 1);
 
-      ACTIVE_COMMENTS.comments = ACTIVE_COMMENTS.comments.filter(c => c.id !== tempId);
-      ACTIVE_COMMENTS.count--;
-
-      // Revert the comment count update
-      updateCommentCountInFeeds(selectedPostId, -1);
-
-      Alert.alert('Error', 'Failed to add comment. Please try again.');
-    }
-  }, [selectedPostId, user]);
-
-    // Helper to update comment count across all feeds
-    const updateCommentCountInFeeds = useCallback((postId: string, increment: number) => {
-      // Use our helper function to update all feeds
-      updatePostAcrossFeeds(postId, (post) => ({
+      // Revert feed updates
+      updatePostInAllFeeds(selectedPostId, (post) => ({
         ...post,
-        commentsCount: Math.max(0, (post.commentsCount || 0) + increment)
+        commentsCount: Math.max(0, (post.commentsCount || 0) - 1),
+        comments: post.comments?.filter(c => c.id !== newComment.id) || []
       }));
-    }, []);
 
-  // Load more posts for pagination
+      Alert.alert('Error', 'Failed to add comment');
+      return false;
+    }
+  }, [selectedPostId, user?.id, user?.name, user?.image]);
+
+  // Load more posts
   const loadMore = useCallback(() => {
-    if (state.hasMore && !state.isLoadingMore && !state.isLoading) {
+    if (feedData.hasMore && !feedData.isLoadingMore && !feedData.isLoading) {
       fetchFeedData(true);
     }
-  }, [state.hasMore, state.isLoadingMore, state.isLoading, fetchFeedData]);
+  }, [feedData.hasMore, feedData.isLoadingMore, feedData.isLoading, fetchFeedData]);
 
-  // Force refresh feed data
+  // Force refresh feed
   const refresh = useCallback(() => {
-    setState(prev => ({ ...prev, isLoading: true }));
     fetchFeedData(false);
   }, [fetchFeedData]);
 
-  // Invalidate cache and force refresh
-  const invalidateCache = useCallback(() => {
-    // Remove this specific feed from cache
-    CACHE[feedType].delete(cacheKey);
+  // Force refresh that ignores any loading state
+  const forceRefresh = useCallback(() => {
+    fetchFeedData(false, true);
+  }, [fetchFeedData]);
 
-    // Reset state to initial values
-    setState({
-      items: [],
-      page: 1,
-      hasMore: true,
-      isLoading: true,
-      isLoadingMore: false,
-      error: null,
-      timestamp: 0
-    });
-
-    // Reset user data loaded flag so we recheck
-    userDataLoadedRef.current = false;
-
-    // Fetch fresh data
-    fetchFeedData(false);
-  }, [feedType, cacheKey, fetchFeedData]);
-
-  // Return what components need
+  // Public utility functions
   return {
-    feed: state.items,
-    loading: state.isLoading,
-    isLoadingMore: state.isLoadingMore,
-    hasMoreContent: state.hasMore,
-    error: state.error,
+    // Feed data
+    feed: feedData.items,
+    loading: feedData.isLoading,
+    isLoadingMore: feedData.isLoadingMore,
+    hasMoreContent: feedData.hasMore,
+    error: feedData.error,
 
     // Like functionality
     likedPosts,
@@ -651,158 +770,209 @@ const handleLikePost = useCallback(async (postId: string) => {
     // Feed manipulation
     loadMore,
     refresh,
-    invalidateCache,
+    forceRefresh, // Add force refresh function
 
-    // Cross-feed update helpers
-    updatePostAcrossFeeds,
-    replacePostAcrossFeeds,
-    invalidateAllFeedCaches
+    // Add these two functions with force option
+    invalidateFeed: (force = false) => {
+      // Reset just the current feed
+      updateFeedData(data => ({
+        ...data,
+        items: feedType === 'home' && includeCarousel ?
+          [{ type: 'carousel' }] : [],
+        isLoading: true,
+        timestamp: 0
+      }));
+
+      // Refetch data with force option
+      fetchFeedData(false, force);
+    },
+
+    // Helper to add a new post (wrapper for the global function)
+    addNewPost: addPostToFeeds
   };
 }
 
-// Helper functions
-// Helper to update a post in all feed caches
-export function updatePostAcrossFeeds(postId: string, updater: (post: UIPost) => UIPost) {
-  let cacheUpdated = false;
-
-  // Update the post in all feed caches
-  Object.keys(CACHE).forEach(type => {
-    CACHE[type as FeedType].forEach((feedState, key) => {
-      const updatedItems = feedState.items.map(item => {
-        if ('id' in item && item.id === postId) {
-          return updater(item);
-        }
-        return item;
-      });
-
-      // Check if a post was actually modified
-      const postWasUpdated = updatedItems.some((item, index) => {
-        const originalItem = feedState.items[index];
-        return 'id' in item && 'id' in originalItem &&
-               item.id === originalItem.id &&
-               JSON.stringify(item) !== JSON.stringify(originalItem);
-      });
-
-      if (postWasUpdated) {
-        CACHE[type as FeedType].set(key, {
-          ...feedState,
-          items: updatedItems,
-          timestamp: Date.now() // Update timestamp to indicate change
-        });
-        cacheUpdated = true;
-      }
-    });
-  });
-
-  // Notify subscribers if cache was updated
-  if (cacheUpdated) {
-    notifyFeedSubscribers();
-  }
-}
-
-// Helper to replace a post in all feed caches
-export function replacePostAcrossFeeds(updatedPost: UIPost) {
-  updatePostAcrossFeeds(updatedPost.id, (existingPost) => {
-    // Preserve like status from existing post
-    return {
-      ...updatedPost,
-      isLiked: existingPost.isLiked
-    };
-  });
-}
-
-// Helper to invalidate all feed caches
-export function invalidateAllFeedCaches() {
-  Object.keys(CACHE).forEach(type => {
-    CACHE[type as FeedType].clear();
-  });
-
-  // Always notify subscribers when clearing all caches
-  notifyFeedSubscribers();
-}
-
 /**
- * Add a new post to the top of all relevant feeds
- * @param post The formatted UI post to add
- * @param feedTypes Array of feed types to add the post to (defaults to all feeds)
+ * Adds a newly created post to the top of home feed and current user profile feed
+ * @param newPost The new post to add to feeds
  */
-export function addPostToFeeds(post: UIPost, feedTypes: FeedType[] = ['home', 'profile']) {
-  let cacheUpdated = false;
+export async function addPostToFeeds(newPost: UIPost) {
+  console.log('Adding new post to feeds:', newPost.id);
 
-  // For each specified feed type
-  feedTypes.forEach(feedType => {
-    // For each cache entry of this feed type
-    CACHE[feedType].forEach((feedState, cacheKey) => {
-      // For profile feeds, only add to the relevant profile
-      if (feedType === 'profile') {
-        // Extract the profile user ID from the cache key
-        const profileUserId = cacheKey.split('-')[0];
+  try {
+    // Format the post for UI display
+    const [formattedPost] = await formatPostsForUI([newPost]);
 
-        // Only add to this profile if it matches the post's user
-        if (profileUserId !== post.postUserId) {
-          return;
-        }
+    if (!formattedPost) {
+      console.error('Failed to format new post for UI');
+      return;
+    }
+
+    // Use a setTimeout to avoid potential batch update issues
+    setTimeout(() => {
+      // Add to home feed (after carousel if it exists)
+      const homeItems = [...globalState.homeFeed.items];
+      const carouselIndex = homeItems.findIndex(item => 'type' in item && item.type === 'carousel');
+
+      if (carouselIndex !== -1) {
+        // Insert after carousel
+        homeItems.splice(carouselIndex + 1, 0, formattedPost);
+      } else {
+        // Insert at top
+        homeItems.unshift(formattedPost);
       }
 
-      // Check if the post already exists in this feed
-      const postExists = feedState.items.some(item =>
-        'id' in item && item.id === post.id
-      );
+      globalState.homeFeed = {
+        ...globalState.homeFeed,
+        items: homeItems,
+        timestamp: Date.now()
+      };
 
-      if (!postExists) {
-        // Create a new array with the post at the beginning (after any special items like carousel)
-        const newItems = [...feedState.items];
+      // Add to current user profile feed
+      globalState.currentUserFeed = {
+        ...globalState.currentUserFeed,
+        items: [formattedPost, ...globalState.currentUserFeed.items],
+        timestamp: Date.now()
+      };
 
-        // Find the index to insert - after carousel if it exists
-        const insertIndex = newItems.findIndex(item =>
-          !('type' in item) || item.type !== 'carousel'
-        );
+      // Batch notifications
+      globalState.notifySubscribers('home');
+      globalState.notifySubscribers('profile');
 
-        // Add the post at the appropriate position
-        if (insertIndex >= 0) {
-          newItems.splice(insertIndex, 0, post);
-        } else {
-          newItems.unshift(post);
-        }
+      console.log('New post added successfully to feeds');
+    }, 0);
 
-        // Update the cache with the new array
-        CACHE[feedType].set(cacheKey, {
-          ...feedState,
-          items: newItems,
-          timestamp: Date.now()
-        });
-        cacheUpdated = true;
-      }
-    });
-  });
-
-  // Notify subscribers if cache was updated
-  if (cacheUpdated) {
-    notifyFeedSubscribers();
+  } catch (error) {
+    console.error('Error adding post to feeds:', error);
   }
 }
 
-// Add this function for debugging
+// Update a post in all three feeds
+function updatePostInAllFeeds(postId: string, updater: (post: UIPost) => UIPost) {
+  const feeds: FeedState[] = [
+    globalState.homeFeed,
+    globalState.currentUserFeed,
+    globalState.otherUserFeed
+  ];
+
+  // Keep track of which feeds were updated
+  const feedsUpdated = {
+    home: false,
+    currentUser: false,
+    otherUser: false
+  };
+
+  // Update each feed
+  feeds.forEach((feed, index) => {
+    const updatedItems = feed.items.map(item => {
+      if ('id' in item && item.id === postId) {
+        return updater(item);
+      }
+      return item;
+    });
+
+    // Check if anything changed
+    let changed = false;
+    updatedItems.forEach((item, i) => {
+      const original = feed.items[i];
+      if ('id' in item && 'id' in original &&
+          item.id === postId &&
+          JSON.stringify(item) !== JSON.stringify(original)) {
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      if (index === 0) {
+        // Home feed
+        globalState.homeFeed = {
+          ...feed,
+          items: updatedItems,
+          timestamp: Date.now()
+        };
+        feedsUpdated.home = true;
+      } else if (index === 1) {
+        // Current user feed
+        globalState.currentUserFeed = {
+          ...feed,
+          items: updatedItems,
+          timestamp: Date.now()
+        };
+        feedsUpdated.currentUser = true;
+      } else if (index === 2) {
+        // Other user feed
+        globalState.otherUserFeed = {
+          ...feed,
+          items: updatedItems,
+          timestamp: Date.now(),
+          userId: globalState.otherUserFeed.userId // Preserve the user ID
+        };
+        feedsUpdated.otherUser = true;
+      }
+    }
+  });
+
+  // Notify subscribers of changes
+  if (feedsUpdated.home) globalState.notifySubscribers('home');
+  if (feedsUpdated.currentUser) globalState.notifySubscribers('profile');
+  if (feedsUpdated.otherUser) globalState.notifySubscribers('otherProfile');
+}
+
+// Invalidate all feed caches
+export function invalidateAllFeedCaches() {
+  console.log('Invalidating all feed caches...');
+
+  // Reset home feed
+  globalState.homeFeed = {
+    ...globalState.homeFeed,
+    isLoading: true,
+    items: [],
+    timestamp: 0
+  };
+
+  // Reset current user feed
+  globalState.currentUserFeed = {
+    ...globalState.currentUserFeed,
+    isLoading: true,
+    items: [],
+    timestamp: 0
+  };
+
+  // Reset other user feed
+  globalState.otherUserFeed = {
+    ...globalState.otherUserFeed,
+    isLoading: true,
+    items: [],
+    timestamp: 0
+  };
+
+  // Notify all subscribers
+  globalState.notifySubscribers('home');
+  globalState.notifySubscribers('profile');
+  globalState.notifySubscribers('otherProfile');
+
+  console.log('All feed subscribers notified of invalidation');
+}
+
+// Debug helper
 export function debugFeedCache() {
   console.log('===== FEED CACHE DEBUG =====');
-  console.log(`Subscribers: ${feedSubscribers.size}`);
 
-  Object.keys(CACHE).forEach(type => {
-    console.log(`FEED TYPE: ${type}`);
-    CACHE[type as FeedType].forEach((state, key) => {
-      console.log(`  Key: ${key}`);
-      console.log(`  Items: ${state.items.length}`);
-      console.log(`  Updated: ${new Date(state.timestamp).toLocaleTimeString()}`);
+  console.log('HOME FEED:');
+  console.log(`  Items: ${globalState.homeFeed.items.length}`);
+  console.log(`  Loading: ${globalState.homeFeed.isLoading}`);
+  console.log(`  Updated: ${new Date(globalState.homeFeed.timestamp).toLocaleTimeString()}`);
 
-      // Log the first few items
-      state.items.slice(0, 2).forEach((item, idx) => {
-        if ('id' in item) {
-          console.log(`    ${idx}: Post ${item.id.substring(0, 5)}... | Liked: ${item.isLiked} | Comments: ${item.commentsCount || 0}`);
-        } else {
-          console.log(`    ${idx}: ${item.type}`);
-        }
-      });
-    });
-  });
+  console.log('CURRENT USER FEED:');
+  console.log(`  Items: ${globalState.currentUserFeed.items.length}`);
+  console.log(`  Loading: ${globalState.currentUserFeed.isLoading}`);
+  console.log(`  Updated: ${new Date(globalState.currentUserFeed.timestamp).toLocaleTimeString()}`);
+
+  console.log('OTHER USER FEED:');
+  console.log(`  User ID: ${globalState.otherUserFeed.userId}`);
+  console.log(`  Items: ${globalState.otherUserFeed.items.length}`);
+  console.log(`  Loading: ${globalState.otherUserFeed.isLoading}`);
+  console.log(`  Updated: ${new Date(globalState.otherUserFeed.timestamp).toLocaleTimeString()}`);
+
   console.log('===========================');
 }

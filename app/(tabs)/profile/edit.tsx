@@ -24,6 +24,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { createUserInterest, updateUser, getAllInterests, deleteUserInterest } from '~/utils/data';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { invalidateAllFeedCaches } from '~/hooks/useFeed';
 const SupabaseImageUploader = React.lazy(() => import('~/components/SupabaseImageUploader'));
 
 interface Interest {
@@ -184,7 +185,7 @@ export default function EditProfileScreen() {
       if (refreshUser) {
         await refreshUser();
       }
-
+      invalidateAllFeedCaches();
       Alert.alert('Success', 'Profile updated successfully!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -266,21 +267,6 @@ export default function EditProfileScreen() {
             </View>
 
             <View className="mb-6">
-              <Text className="mb-2 font-semibold text-gray-700">Interests</Text>
-
-              <View className="mb-3 flex-row flex-wrap">
-                {userInterests.map((interest) => (
-                  <View
-                    key={interest.id}
-                    className="mb-2 mr-2 flex-row items-center rounded-full bg-[#E6F7F5] px-3 py-1">
-                    <Text className="mr-1 text-[#00AF9F]">{interest.name}</Text>
-                    <TouchableOpacity onPress={() => removeInterest(interest.id)}>
-                      <Feather name="x" size={16} color="#00AF9F" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-
               <View className="relative">
                 <View className="flex-row items-center rounded-lg border border-gray-300 p-2">
                   <TextInput
@@ -311,6 +297,21 @@ export default function EditProfileScreen() {
                     />
                   </View>
                 )}
+              </View>
+
+              <Text className="mb-2 font-semibold text-gray-700">Interests</Text>
+
+              <View className="mb-3 flex-row flex-wrap">
+                {userInterests.map((interest) => (
+                  <View
+                    key={interest.id}
+                    className="mb-2 mr-2 flex-row items-center rounded-full bg-[#E6F7F5] px-3 py-1">
+                    <Text className="mr-1 text-[#00AF9F]">{interest.name}</Text>
+                    <TouchableOpacity onPress={() => removeInterest(interest.id)}>
+                      <Feather name="x" size={16} color="#00AF9F" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
             </View>
 
