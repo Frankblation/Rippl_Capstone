@@ -796,50 +796,58 @@ export function useFeed(
  * Adds a newly created post to the top of home feed and current user profile feed
  * @param newPost The new post to add to feeds
  */
+// In the addPostToFeeds function
 export async function addPostToFeeds(newPost: UIPost) {
+  if (!newPost || !newPost.id) {
+    console.error('Cannot add post to feeds: Invalid post data', newPost);
+    return;
+  }
+
   console.log('Adding new post to feeds:', newPost.id);
 
   try {
-    // Format the post for UI display
-    const [formattedPost] = await formatPostsForUI([newPost]);
-
-    if (!formattedPost) {
-      console.error('Failed to format new post for UI');
+    // No need to format again - post is already formatted
+    if (!newPost) {
+      console.error('Failed to add post: Invalid post data');
       return;
     }
 
     // Use a setTimeout to avoid potential batch update issues
     setTimeout(() => {
-      // Add to home feed (after carousel if it exists)
-      const homeItems = [...globalState.homeFeed.items];
-      const carouselIndex = homeItems.findIndex(item => 'type' in item && item.type === 'carousel');
+      try {
+        // Add to home feed (after carousel if it exists)
+        const homeItems = [...globalState.homeFeed.items];
+        const carouselIndex = homeItems.findIndex(item => 'type' in item && item.type === 'carousel');
 
-      if (carouselIndex !== -1) {
-        // Insert after carousel
-        homeItems.splice(carouselIndex + 1, 0, formattedPost);
-      } else {
-        // Insert at top
-        homeItems.unshift(formattedPost);
+        if (carouselIndex !== -1) {
+          // Insert after carousel
+          homeItems.splice(carouselIndex + 1, 0, newPost);
+        } else {
+          // Insert at top
+          homeItems.unshift(newPost);
+        }
+
+        globalState.homeFeed = {
+          ...globalState.homeFeed,
+          items: homeItems,
+          timestamp: Date.now()
+        };
+
+        // Add to current user profile feed
+        globalState.currentUserFeed = {
+          ...globalState.currentUserFeed,
+          items: [newPost, ...globalState.currentUserFeed.items],
+          timestamp: Date.now()
+        };
+
+        // Batch notifications
+        globalState.notifySubscribers('home');
+        globalState.notifySubscribers('profile');
+
+        console.log('New post added successfully to feeds');
+      } catch (error) {
+        console.error('Error in feed update:', error);
       }
-
-      globalState.homeFeed = {
-        ...globalState.homeFeed,
-        items: homeItems,
-        timestamp: Date.now()
-      };
-
-      // Add to current user profile feed
-      globalState.currentUserFeed = {
-        ...globalState.currentUserFeed,
-        items: [formattedPost, ...globalState.currentUserFeed.items],
-        timestamp: Date.now()
-      };
-
-      // Batch notifications
-      globalState.notifySubscribers('home');
-      globalState.notifySubscribers('profile');
-
-      console.log('New post added successfully to feeds');
     }, 0);
 
   } catch (error) {
