@@ -986,7 +986,7 @@ export const getPendingFriendRequests = async (
 export const updateFriendshipStatus = async (
   userId: string,
   friendId: string,
-  status: 'pending' | 'accepted' | 'blocked'
+  status: 'pending' | 'accepted' | 'blocked' | 'rejected'
 ): Promise<(FriendshipsTable & { status: string }) | null> => {
   const { data: friendship, error: selectError } = await supabase
     .from('friendships')
@@ -1041,6 +1041,219 @@ export const deleteFriendship = async (
 
   if (error) throw error;
   return friendship;
+};
+
+// Add these new functions after your existing friendship functions
+
+/**
+ * Sends a friend request from one user to another
+ * @param userId The ID of the user sending the request
+ * @param friendId The ID of the user receiving the request
+ * @returns Promise with boolean indicating success
+ */
+export const sendFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+    console.log(`Sending friend request from ${userId} to ${friendId}`);
+
+    // Check if a friendship already exists in either direction
+    const { data: existingFriendship, error: checkError } = await supabase
+      .from('friendships')
+      .select('*')
+      .or(
+        `and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`
+      )
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking for existing friendship:', checkError);
+      return false;
+    }
+
+    // If friendship already exists, don't create a new one
+    if (existingFriendship) {
+      console.log('Friendship already exists with status:', existingFriendship.status);
+      return false;
+    }
+
+    // Create a new pending friendship
+    await createFriendship({
+      user_id: userId,
+      friend_id: friendId,
+      status: 'pending'
+    });
+
+    console.log('Friend request sent successfully');
+    return true;
+  } catch (error) {
+    console.error('Error sending friend request:', error);
+    return false;
+  }
+};
+
+
+/**
+ * Cancels a friend request that was sent
+ * @param userId The ID of the user who sent the request
+ * @param friendId The ID of the user who received the request
+ * @returns Promise with boolean indicating success
+ */
+export const cancelFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+    console.log(`Cancelling friend request from ${userId} to ${friendId}`);
+
+    const result = await deleteFriendship(userId, friendId);
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error cancelling friend request:', error);
+    return false;
+  }
+};
+
+/**
+ * Rejects a friend request
+ * @param userId The ID of the user rejecting the request
+ * @param friendId The ID of the user who sent the request
+ * @returns Promise with boolean indicating success
+ */
+export const rejectFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+    console.log(`Rejecting friend request from ${friendId} for ${userId}`);
+
+    const result = await updateFriendshipStatus(userId, friendId, 'rejected');
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error rejecting friend request:', error);
+    return false;
+  }
+};
+
+/**
+ * Removes a friend (deletes an accepted friendship)
+ * @param userId The ID of the user removing the friend
+ * @param friendId The ID of the friend being removed
+ * @returns Promise with boolean indicating success
+ */
+export const removeFriend = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+    console.log(`Removing friendship between ${userId} and ${friendId}`);
+
+    const result = await deleteFriendship(userId, friendId);
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error removing friend:', error);
+    return false;
+  }
+};
+
+/**
+ * Blocks a user
+ * @param userId The ID of the user doing the blocking
+ * @param blockId The ID of the user being blocked
+ * @returns Promise with boolean indicating success
+ */
+export const blockUser = async (
+  userId: string,
+  blockId: string
+): Promise<boolean> => {
+  try {
+    console.log(`Blocking user ${blockId} from ${userId}`);
+
+    // First remove any existing friendship
+    await deleteFriendship(userId, blockId);
+
+    // Then create a blocked relationship
+    await createFriendship({
+      user_id: userId,
+      friend_id: blockId,
+      status: 'blocked'
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    return false;
+  }
+};
+
+/**
+ * Unblocks a user
+ * @param userId The ID of the user doing the unblocking
+ * @param blockId The ID of the user being unblocked
+ * @returns Promise with boolean indicating success
+ */
+export const unblockUser = async (
+  userId: string,
+  blockId: string
+): Promise<boolean> => {
+  try {
+    console.log(`Unblocking user ${blockId} from ${userId}`);
+
+    const result = await deleteFriendship(userId, blockId);
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    return false;
+  }
+};
+
+/**
+ * Updates friendship status between two users to 'accepted'
+ * @param userId The ID of the user accepting the request
+ * @param friendId The ID of the user who sent the request
+ * @returns Promise with boolean indicating success
+ */
+export const acceptFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+    // Find the friendship record
+    const { data: existingFriendship, error: checkError } = await supabase
+      .from('friendships')
+      .select('*')
+      .eq('user_id', friendId)  // The sender is the user_id
+      .eq('friend_id', userId)  // The receiver (you) is the friend_id
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (checkError) {
+      return false;
+    }
+
+    if (!existingFriendship) {
+      return false;
+    }
+
+    // Update the status of the existing friendship to 'accepted'
+    const { error: updateError } = await supabase
+      .from('friendships')
+      .update({ status: 'accepted' })
+      .eq('id', existingFriendship.id);
+
+    if (updateError) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
 /* ------ SWIPE YES CRUD ------ */
