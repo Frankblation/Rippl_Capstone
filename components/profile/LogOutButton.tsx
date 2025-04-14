@@ -3,12 +3,29 @@
 import { Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import Feather from '@expo/vector-icons/Feather';
+import { invalidateAllFeedCaches, resetAllFeedLoadingStates } from '~/hooks/useFeed';
+import { supabase } from '~/utils/supabase';
+
 
 export function LogOutButton() {
   const router = useRouter();
 
-  function logout() {
-    router.push('/login');
+  async function logout() {
+    try {
+      // First, clear all feed caches
+      invalidateAllFeedCaches();
+      resetAllFeedLoadingStates();
+
+      // Sign out the user from Supabase
+      await supabase.auth.signOut();
+
+      // Then navigate to login screen
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Still navigate to login even if there's an error
+      router.push('/login');
+    }
   }
 
   return (

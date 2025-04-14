@@ -11,15 +11,35 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Feather } from '@expo/vector-icons';
 import ForgotPasswordModal from '~/components/ForgotPasswordModal';
+import { invalidateAllFeedCaches, resetAllFeedLoadingStates } from '~/hooks/useFeed';
+import { supabase } from '~/utils/supabase';
+
 
 export default function LoginScreen() {
   const router = useRouter();
   const { email, setEmail, password, setPassword, authLoading, signInWithEmail } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPasswordModalVisible, setForgotPasswordModalVisible] = useState(false);
+
+  useEffect(() => {
+    // When login screen mounts, ensure we're in a clean state
+    const cleanupPreviousSession = async () => {
+      invalidateAllFeedCaches();
+      resetAllFeedLoadingStates();
+
+      // Check if we have an active session that should be cleared
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        console.log('Found active session, signing out');
+        await supabase.auth.signOut();
+      }
+    };
+
+    cleanupPreviousSession();
+  }, []);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);

@@ -23,6 +23,7 @@ export function AddUserButton({
 
   const handlePress = async () => {
     if (isLoading) return;
+    console.log('Button Pressed')
 
     setIsLoading(true);
     try {
