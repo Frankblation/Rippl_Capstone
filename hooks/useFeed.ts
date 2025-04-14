@@ -338,7 +338,7 @@ export function useFeed(
       console.log(`${feedType} feed: Starting data fetch...`);
       const currentData = getFeedState();
       const currentPage = loadMore ? currentData.page + 1 : 1;
-      let posts: UIPost[] = [];
+      let posts: PostsTable[] = [];
 
       // Determine which user ID to use for fetching
       let targetUserId: string | null = null;
