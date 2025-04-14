@@ -2,7 +2,7 @@
 
 import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams } from 'expo-router';
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,9 +16,16 @@ import { useUser } from '~/hooks/useUser';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { AddUserButton } from '~/components/profile/AddUserButton';
 import { useRouter } from 'expo-router';
+import { supabase } from '~/utils/supabase';
 
-// Import our feed hook
+// Import our feed hook and friendship functions
 import { useFeed, type FeedItem } from '~/hooks/useFeed';
+import {
+  sendFriendRequest,
+  cancelFriendRequest,
+  removeFriend,
+  updateFriendshipStatus
+} from '~/utils/data';
 
 // Define a header item type to combine with our feed
 type HeaderItem = { id: string; type: 'header' };
@@ -29,16 +36,63 @@ function Profile() {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isPendingFromMe, setIsPendingFromMe] = useState(true);
 
-  if ( id === authUser?.id ) {
-    // If it is current user then route to profile page
-    router.push('/(tabs)/profile/index');
-  }
+  // Get current auth user's data for friendship functionality
+  const { user: currentUser, isFriendsWith, refreshUser } = useUser(
+    isRedirecting ? null : (authUser?.id || null)
+  );
 
-  // Fetch the profile user's data
-  const { user } = useUser(id || null);
+  // Get profile user's data
+  const { user: profileUser } = useUser(
+    isRedirecting ? null : (id || null)
+  );
 
-  // Use the feed hook with otherProfile type instead of profile
+  // Determine friendship status
+  const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted' | 'blocked'>('none');
+
+  // Redirect if viewing own profile
+  useEffect(() => {
+    if (id === authUser?.id) {
+      setIsRedirecting(true);
+      router.replace('/(tabs)/profile');
+    }
+  }, [id, authUser?.id, router]);
+
+  // Determine friendship status from user data
+  useEffect(() => {
+    if (isRedirecting || currentUser.isLoading || profileUser.isLoading || !id || !authUser?.id) {
+      return;
+    }
+
+    // Check if users are friends
+    if (isFriendsWith(id)) {
+      setFriendStatus('accepted');
+      return;
+    }
+
+    // Check for pending friendship
+    const pendingRequest = currentUser.friendships.find(
+      friendship =>
+        friendship.status === 'pending' &&
+        ((friendship.user_id === authUser.id && friendship.friend_id === id) ||
+         (friendship.user_id === id && friendship.friend_id === authUser.id))
+    );
+
+    if (pendingRequest) {
+      setFriendStatus('pending');
+      // Determine who sent the request
+      setIsPendingFromMe(pendingRequest.user_id === authUser.id);
+      return;
+    }
+
+    // Default is no relationship
+    setFriendStatus('none');
+
+  }, [currentUser, profileUser, id, authUser?.id, isFriendsWith, isRedirecting]);
+
+  // Use the feed hook with otherProfile type
   const {
     feed: rawFeed,
     loading,
@@ -49,15 +103,111 @@ function Profile() {
     selectedCommentsCount,
     openComments,
     addComment,
-  } = useFeed('otherProfile', authUser?.id || null, {
-    profileUserId: id || undefined,
-  });
+  } = useFeed(
+    'otherProfile',
+    isRedirecting ? null : (authUser?.id || null),
+    {
+      profileUserId: isRedirecting ? undefined : (id || undefined),
+    }
+  );
+
+  // Friend action handlers
+  const handleAddFriend = async () => {
+    if (!authUser?.id || !id) return false;
+
+    try {
+      const result = await sendFriendRequest(authUser.id, id);
+
+      if (result) {
+        setFriendStatus('pending');
+        setIsPendingFromMe(true);
+        await refreshUser();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!authUser?.id || !id) return false;
+
+    try {
+      const result = await cancelFriendRequest(authUser.id, id);
+
+      if (result) {
+        setFriendStatus('none');
+        await refreshUser();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const handleAcceptRequest = async () => {
+    if (!authUser?.id || !id) return false;
+
+    try {
+      // Find the pending request sent by the other user
+      const pendingRequest = currentUser.friendships.find(
+        friendship =>
+          friendship.status === 'pending' &&
+          friendship.user_id === id &&
+          friendship.friend_id === authUser.id
+      );
+
+      if (!pendingRequest) return false;
+
+      // Update it to accepted
+      const result = await updateFriendshipStatus(id, authUser.id, 'accepted');
+      await updateFriendshipStatus(authUser.id, id, 'accepted');
+
+      if (result) {
+        setFriendStatus('accepted');
+        await refreshUser();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const handleRemoveFriend = async () => {
+    if (!authUser?.id || !id) return false;
+
+    try {
+      const result = await removeFriend(authUser.id, id);
+
+      if (result) {
+        setFriendStatus('none');
+        await refreshUser();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Show loading screen while redirecting
+  if (isRedirecting) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00AF9F" />
+        <Text style={styles.loadingText}>Redirecting...</Text>
+      </View>
+    );
+  }
 
   // Combine header with feed items
   const feed: ProfileFeedItem[] = [{ id: 'header', type: 'header' }, ...rawFeed];
 
   // Format user interests for the interest grid
-  const userInterests = user.interests.map((interest) => ({
+  const userInterests = profileUser.interests.map((interest) => ({
     id: interest.interest_id,
     name: interest.interests?.name || 'Interest',
   }));
@@ -68,16 +218,19 @@ function Profile() {
         <View style={styles.headerContainer}>
           <View style={styles.buttonContainer}>
             <AddUserButton
-              status="none"
-              onAddFriend={async () => true}
-              onRemoveFriend={async () => true}
+              status={friendStatus}
+              isPendingFromMe={isPendingFromMe}
+              onAddFriend={handleAddFriend}
+              onRemoveFriend={handleRemoveFriend}
+              onCancelRequest={handleCancelRequest}
+              onAcceptRequest={handleAcceptRequest}
             />
           </View>
           <UserProfileHeader
-            name={user.name || 'User'}
-            profileImage={user.image || 'https://randomuser.me/api/portraits/women/44.jpg'}
+            name={profileUser.name || 'User'}
+            profileImage={profileUser.image || 'https://randomuser.me/api/portraits/women/44.jpg'}
             postsCount={feed.length - 1}
-            friendsCount={user.friendships?.filter((f) => f.status === 'accepted').length || 0}
+            friendsCount={profileUser.friendships?.filter((f) => f.status === 'accepted').length || 0}
           />
           <View style={styles.interestsContainer}>
             <InterestGrid interests={userInterests.length > 0 ? userInterests : []} />
@@ -85,7 +238,6 @@ function Profile() {
         </View>
       );
     } else if ('id' in item) {
-      // Check if it's a post/event (both have IDs)
       return (
         <PostCard
           {...item}
@@ -100,7 +252,7 @@ function Profile() {
     return null;
   };
 
-  if (user.isLoading) {
+  if (profileUser.isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#00AF9F" />

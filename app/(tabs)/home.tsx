@@ -21,7 +21,6 @@ const CommentsBottomSheet = React.lazy(() => import('../../components/CommentsBo
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
-  console.log('Home screen rendering')
   // Use our new hook for all feed functionality
   const {
     feed,

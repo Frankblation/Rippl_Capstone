@@ -7,77 +7,112 @@ type FriendshipStatus = 'none' | 'pending' | 'accepted' | 'blocked';
 type Props = {
   style?: StyleProp<ViewStyle>;
   status: FriendshipStatus;
+  isPendingFromMe?: boolean;
   onAddFriend: () => Promise<boolean>;
   onRemoveFriend: () => Promise<boolean>;
   onCancelRequest?: () => Promise<boolean>;
+  onAcceptRequest?: () => Promise<boolean>;
 };
 
 export function AddUserButton({
   style,
   status = 'none',
+  isPendingFromMe = true,
   onAddFriend,
   onRemoveFriend,
-  onCancelRequest
+  onCancelRequest,
+  onAcceptRequest
 }: Props) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePress = async () => {
-    if (isLoading) return;
-    console.log('Button Pressed')
+    if (isLoading) {
+      return;
+    }
 
-    setIsLoading(true);
-    try {
-      let success = false;
+    // Handle each status case separately with proper loading states
+    switch (status) {
+      case 'none':
+        try {
+          setIsLoading(true);
+          const success = await onAddFriend();
 
-      switch (status) {
-        case 'none':
-          // Send friend request
-          success = await onAddFriend();
           if (!success) {
             Alert.alert('Error', 'Failed to send friend request');
           }
-          break;
+        } catch (error) {
+          Alert.alert('Error', 'Failed to send friend request');
+        } finally {
+          setIsLoading(false);
+        }
+        break;
 
-        case 'pending':
-          // Cancel pending request
-          if (onCancelRequest) {
-            success = await onCancelRequest();
+      case 'pending':
+        if (isPendingFromMe && onCancelRequest) {
+          // If I sent the request, allow cancellation
+          try {
+            setIsLoading(true);
+            const success = await onCancelRequest();
+
             if (!success) {
               Alert.alert('Error', 'Failed to cancel friend request');
             }
+          } catch (error) {
+            Alert.alert('Error', 'Failed to cancel friend request');
+          } finally {
+            setIsLoading(false);
           }
-          break;
+        } else if (!isPendingFromMe && onAcceptRequest) {
+          // If they sent the request, allow acceptance
+          try {
+            setIsLoading(true);
+            const success = await onAcceptRequest();
 
-        case 'accepted':
-          // Remove friend
-          Alert.alert(
-            'Remove Friend',
-            'Are you sure you want to remove this friend?',
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel'
-              },
-              {
-                text: 'Remove',
-                style: 'destructive',
-                onPress: async () => {
-                  success = await onRemoveFriend();
+            if (!success) {
+              Alert.alert('Error', 'Failed to accept friend request');
+            }
+          } catch (error) {
+            Alert.alert('Error', 'Failed to accept friend request');
+          } finally {
+            setIsLoading(false);
+          }
+        }
+        break;
+
+      case 'accepted':
+        Alert.alert(
+          'Remove Friend',
+          'Are you sure you want to remove this friend?',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Remove',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  setIsLoading(true);
+                  const success = await onRemoveFriend();
+
                   if (!success) {
                     Alert.alert('Error', 'Failed to remove friend');
                   }
+                } catch (error) {
+                  Alert.alert('Error', 'Failed to remove friend');
+                } finally {
+                  setIsLoading(false);
                 }
               }
-            ]
-          );
-          break;
-      }
+            }
+          ]
+        );
+        break;
 
-    } catch (error) {
-      console.error('Friendship action failed:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
+      case 'blocked':
+        // Blocked users can't interact
+        break;
     }
   };
 
@@ -98,14 +133,25 @@ export function AddUserButton({
           />
         );
       case 'pending':
-        return (
-          <Feather
-            name="clock"
-            size={24}
-            color="#F59E0B"
-            style={{ marginRight: 16 }}
-          />
-        );
+        if (isPendingFromMe) {
+          return (
+            <Feather
+              name="clock"
+              size={24}
+              color="#F59E0B"
+              style={{ marginRight: 16 }}
+            />
+          );
+        } else {
+          return (
+            <Feather
+              name="user-plus"
+              size={24}
+              color="#10B981"
+              style={{ marginRight: 16 }}
+            />
+          );
+        }
       case 'accepted':
         return (
           <Feather
