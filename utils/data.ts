@@ -1056,7 +1056,6 @@ export const sendFriendRequest = async (
   friendId: string
 ): Promise<boolean> => {
   try {
-    console.log(`Sending friend request from ${userId} to ${friendId}`);
 
     // Check if a friendship already exists in either direction
     const { data: existingFriendship, error: checkError } = await supabase
@@ -1074,7 +1073,6 @@ export const sendFriendRequest = async (
 
     // If friendship already exists, don't create a new one
     if (existingFriendship) {
-      console.log('Friendship already exists with status:', existingFriendship.status);
       return false;
     }
 
@@ -1085,7 +1083,6 @@ export const sendFriendRequest = async (
       status: 'pending'
     });
 
-    console.log('Friend request sent successfully');
     return true;
   } catch (error) {
     console.error('Error sending friend request:', error);
@@ -1105,7 +1102,6 @@ export const cancelFriendRequest = async (
   friendId: string
 ): Promise<boolean> => {
   try {
-    console.log(`Cancelling friend request from ${userId} to ${friendId}`);
 
     const result = await deleteFriendship(userId, friendId);
 
@@ -1127,7 +1123,6 @@ export const rejectFriendRequest = async (
   friendId: string
 ): Promise<boolean> => {
   try {
-    console.log(`Rejecting friend request from ${friendId} for ${userId}`);
 
     const result = await updateFriendshipStatus(userId, friendId, 'rejected');
 
@@ -1149,7 +1144,6 @@ export const removeFriend = async (
   friendId: string
 ): Promise<boolean> => {
   try {
-    console.log(`Removing friendship between ${userId} and ${friendId}`);
 
     const result = await deleteFriendship(userId, friendId);
 
@@ -1171,7 +1165,6 @@ export const blockUser = async (
   blockId: string
 ): Promise<boolean> => {
   try {
-    console.log(`Blocking user ${blockId} from ${userId}`);
 
     // First remove any existing friendship
     await deleteFriendship(userId, blockId);
@@ -1201,7 +1194,6 @@ export const unblockUser = async (
   blockId: string
 ): Promise<boolean> => {
   try {
-    console.log(`Unblocking user ${blockId} from ${userId}`);
 
     const result = await deleteFriendship(userId, blockId);
 
@@ -1309,8 +1301,6 @@ export async function saveSwipe(userId: string, swipedUserId: string, isLiked: b
             user_id: userId,
             matched_user_id: swipedUserId
           });
-
-          console.log('Successfully created match record:', newMatch);
 
           return {
             success: true,
@@ -1783,7 +1773,6 @@ export const uploadImage = async (
 
     if (!publicUrlData?.publicUrl) throw new Error('Could not retrieve public URL');
 
-    console.log('Uploaded to:', publicUrlData.publicUrl);
     return publicUrlData.publicUrl;
   } catch (error) {
     console.error('Upload error:', error);
