@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Channel, MessageList, MessageInput, useChatContext } from 'stream-chat-expo';
 import { StreamChat, Channel as StreamChannel } from 'stream-chat';
+import { StatusBar } from 'expo-status-bar';
 
 export default function ChatDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -41,13 +42,18 @@ export default function ChatDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <Channel channel={channel}>
-        <View style={{ flex: 1 }}>
-          <MessageList />
-          <MessageInput />
-        </View>
-      </Channel>
+    <SafeAreaView
+      edges={['bottom', 'left', 'right']}
+      style={{ flex: 1, backgroundColor: '#FCFCFC' }}>
+      <StatusBar style="auto" />
+      <View style={{ flex: 1 }}>
+        <Channel channel={channel}>
+          <View style={{ flex: 1 }}>
+            <MessageList />
+            <MessageInput />
+          </View>
+        </Channel>
+      </View>
     </SafeAreaView>
   );
 }
