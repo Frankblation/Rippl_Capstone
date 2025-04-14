@@ -42,7 +42,6 @@ function Profile() {
     selectedCommentsCount,
     openComments,
     addComment,
-    invalidateCache,
   } = useFeed('profile', authUser?.id || null, {
     profileUserId: id || undefined,
   });

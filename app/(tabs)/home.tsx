@@ -11,7 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '~/components/providers/AuthProvider';
 // Import our new hook
-import { useFeed, FeedItem } from '~/hooks/useFeed';
+import { useFeed, FeedItem, debugFeedCache } from '~/hooks/useFeed';
 import EventCard from '../../components/EventCard';
 import PostCard from '../../components/PostCard';
 import EventCarousel from '../../components/UpcomingEventsCarousel';
@@ -21,17 +21,13 @@ const CommentsBottomSheet = React.lazy(() => import('../../components/CommentsBo
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
-
+  console.log('Home screen rendering')
   // Use our new hook for all feed functionality
   const {
     feed,
     loading,
     isLoadingMore,
-    hasMoreContent,
-    error,
 
-    // Add the invalidateCache function to your destructuring
-    invalidateCache,
     // Like functionality
     handleLikePost,
 
@@ -39,7 +35,6 @@ const HomeScreen = () => {
     commentsSheetRef,
     selectedComments,
     selectedCommentsCount,
-    isLoadingComments,
     openComments,
     addComment,
 
@@ -48,10 +43,12 @@ const HomeScreen = () => {
     refresh
   } = useFeed('home', authUser?.id || null, {
     includeCarousel: true,
-    postsPerPage: 15,  // Adjust based load times
+    postsPerPage: 10,  // Adjust based load times
     maxAgeDays: 30     // Show posts from last 30 days
   });
 
+  // For testing
+  debugFeedCache();
 
   const renderItem = ({ item }: { item: FeedItem }) => {
     if (item.type === 'post') {

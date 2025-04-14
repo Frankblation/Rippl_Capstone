@@ -25,6 +25,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { createUserInterest, updateUser, getAllInterests, deleteUserInterest } from '~/utils/data';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { invalidateAllFeedCaches } from '~/hooks/useFeed';
 const SupabaseImageUploader = React.lazy(() => import('~/components/SupabaseImageUploader'));
 
 interface Interest {
@@ -152,7 +153,7 @@ export default function EditProfileScreen() {
       if (refreshUser) {
         await refreshUser();
       }
-
+      invalidateAllFeedCaches();
       Alert.alert('Success', 'Profile updated successfully!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -300,6 +301,7 @@ export default function EditProfileScreen() {
                       </View>
                     )}
                   </View>
+
                 </View>
               </Modal>
             </View>

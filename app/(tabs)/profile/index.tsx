@@ -42,8 +42,6 @@ const CurrentUser: React.FC = () => {
     selectedCommentsCount,
     openComments,
     addComment,
-    // Keeping invalidateCache for manual refreshes, but we don't need it for auto-refresh
-    invalidateCache,
   } = useFeed('profile', authUser?.id || null);
 
   // Combine header with feed items
@@ -178,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 10,
     paddingRight: 20,
-    paddingTop: Platform.OS === 'android' ? 20 : 0,
+    paddingTop: Platform.OS === 'android' ? 30 : 0,
   },
 });
 
