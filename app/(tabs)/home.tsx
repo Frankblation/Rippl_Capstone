@@ -21,17 +21,12 @@ const CommentsBottomSheet = React.lazy(() => import('../../components/CommentsBo
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
-
   // Use our new hook for all feed functionality
   const {
     feed,
     loading,
     isLoadingMore,
-    hasMoreContent,
-    error,
 
-    // Add the invalidateCache function to your destructuring
-    invalidateCache,
     // Like functionality
     handleLikePost,
 
@@ -39,7 +34,6 @@ const HomeScreen = () => {
     commentsSheetRef,
     selectedComments,
     selectedCommentsCount,
-    isLoadingComments,
     openComments,
     addComment,
 
@@ -48,7 +42,7 @@ const HomeScreen = () => {
     refresh
   } = useFeed('home', authUser?.id || null, {
     includeCarousel: true,
-    postsPerPage: 15,  // Adjust based load times
+    postsPerPage: 10,  // Adjust based load times
     maxAgeDays: 30     // Show posts from last 30 days
   });
 

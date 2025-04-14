@@ -658,8 +658,8 @@ const AddPostForm = () => {
         postData: {
           ...postData,
           image: postData.image ?? '',
-          interest_id: postData.interest_id ?? '',
-          event_date: postData.event_date ?? undefined,
+          interest_id: postData.interest_id || null,
+          event_date: postData.event_date || null,
           created_at: postData.created_at ?? new Date().toISOString(),
         },
         initializePopularity: true,

@@ -50,9 +50,9 @@ export interface PostsTable {
     image: string;
     user_id: string;
     created_at: string;
-    interest_id: string;
+    interest_id: string | null;
     attendees?: AttendeesTable;
-    event_date?: ISOStringFormat;
+    event_date?: ISOStringFormat | null;
 }
 
 // Messages Data Type
