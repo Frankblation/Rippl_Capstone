@@ -95,7 +95,6 @@ const globalState = {
   // Helper to notify subscribers of changes
   notifySubscribers(feedType: FeedType) {
     debugCounter++;
-    console.log(`[${debugCounter}] Notifying ${feedType} subscribers`);
 
     // Create a copy to avoid issues with subscribers removing themselves during iteration
     const subscribers = feedType === 'home' ? [...this.subscribers.home] :
@@ -114,7 +113,6 @@ const globalState = {
 
 // For forcefully resetting stuck loading state
 export function resetAllFeedLoadingStates() {
-  console.log('Manually resetting all feed loading states');
 
   // Reset all feeds to not loading
   globalState.homeFeed.isLoading = false;
@@ -219,8 +217,6 @@ export function useFeed(
     // Skip if user ID hasn't actually changed
     if (globalState.otherUserFeed.userId === profileUserId) return;
 
-    console.log(`Switching otherProfile feed to user: ${profileUserId}`);
-
     // Reset the other user feed when viewing a different user
     globalState.otherUserFeed = {
       ...globalState.otherUserFeed,
@@ -258,7 +254,6 @@ export function useFeed(
     });
 
     if (!hasChanged) {
-      console.log(`${feedType} feed update skipped - no changes`);
       return;
     }
 
@@ -275,7 +270,6 @@ export function useFeed(
     }
 
     // Notify subscribers
-    console.log(`${feedType} feed updated, notifying subscribers`);
     globalState.notifySubscribers(feedType);
   }, [feedType, getFeedState]);
 
@@ -335,7 +329,6 @@ export function useFeed(
     }));
 
     try {
-      console.log(`${feedType} feed: Starting data fetch...`);
       const currentData = getFeedState();
       const currentPage = loadMore ? currentData.page + 1 : 1;
       let posts: PostsTable[] = [];
@@ -346,7 +339,6 @@ export function useFeed(
       if (feedType === 'home') {
         // HOME FEED LOGIC
         if (user?.id) {
-          console.log('Fetching home feed data');
 
           // 1. Get recommended posts
           const recommendedPosts = await getRecommendedPostsForUser(user.id, Math.floor(postsPerPage / 2));
@@ -401,8 +393,6 @@ export function useFeed(
           });
         }
       }
-
-      console.log(`${feedType} feed: Fetched ${posts.length} posts`);
 
       // Remove duplicates
       const uniquePosts = Array.from(
@@ -467,7 +457,6 @@ export function useFeed(
         });
       } else {
         // No posts found
-        console.log(`${feedType} feed: No posts found`);
         updateFeedData(data => {
           const result: FeedState = {
             ...data,
@@ -515,7 +504,6 @@ export function useFeed(
     let timeout: NodeJS.Timeout | null = null;
 
     if (getFeedState().isLoading) {
-      console.log(`${feedType} feed is already loading, checking for stuck state...`);
 
       // If the feed has been in loading state for more than 5 seconds, force a refresh
       const loadingTimestamp = getFeedState().timestamp;
@@ -523,7 +511,6 @@ export function useFeed(
       const loadingDuration = currentTime - loadingTimestamp;
 
       if (loadingTimestamp === 0 || loadingDuration > 5000) {
-        console.log(`${feedType} feed appears stuck in loading state, forcing refresh`);
         timeout = setTimeout(() => fetchFeedData(false, true), 100);
         return () => {
           if (timeout) clearTimeout(timeout);
@@ -558,7 +545,6 @@ export function useFeed(
         currentData.userId !== profileUserId;
 
       if (isCacheStale || userChanged) {
-        console.log(`${feedType} feed needs refresh, fetching data`);
         timeout = setTimeout(() => fetchFeedData(false), 0);
       }
     }
@@ -803,8 +789,6 @@ export async function addPostToFeeds(newPost: UIPost) {
     return;
   }
 
-  console.log('Adding new post to feeds:', newPost.id);
-
   try {
     // No need to format again - post is already formatted
     if (!newPost) {
@@ -844,7 +828,6 @@ export async function addPostToFeeds(newPost: UIPost) {
         globalState.notifySubscribers('home');
         globalState.notifySubscribers('profile');
 
-        console.log('New post added successfully to feeds');
       } catch (error) {
         console.error('Error in feed update:', error);
       }
@@ -928,7 +911,6 @@ function updatePostInAllFeeds(postId: string, updater: (post: UIPost) => UIPost)
 
 // Invalidate all feed caches
 export function invalidateAllFeedCaches() {
-  console.log('Invalidating all feed caches...');
 
   // Reset home feed
   globalState.homeFeed = {
@@ -959,7 +941,6 @@ export function invalidateAllFeedCaches() {
   globalState.notifySubscribers('profile');
   globalState.notifySubscribers('otherProfile');
 
-  console.log('All feed subscribers notified of invalidation');
 }
 
 // Debug helper

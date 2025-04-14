@@ -11,7 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '~/components/providers/AuthProvider';
 // Import our new hook
-import { useFeed, FeedItem, debugFeedCache } from '~/hooks/useFeed';
+import { useFeed, FeedItem } from '~/hooks/useFeed';
 import EventCard from '../../components/EventCard';
 import PostCard from '../../components/PostCard';
 import EventCarousel from '../../components/UpcomingEventsCarousel';
@@ -47,8 +47,6 @@ const HomeScreen = () => {
     maxAgeDays: 30     // Show posts from last 30 days
   });
 
-  // For testing
-  debugFeedCache();
 
   const renderItem = ({ item }: { item: FeedItem }) => {
     if (item.type === 'post') {
