@@ -62,6 +62,12 @@ function RootLayoutNav() {
             headerBackVisible: false,
           }}
         />
+        <Stack.Screen
+          name="(chat)"
+          options={{
+            headerShown: false,
+          }}
+        />
         <Stack.Screen name="+not-found" />
       </Stack>
     </ThemeProvider>

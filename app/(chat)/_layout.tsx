@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack } from 'expo-router';
-import { Chat } from 'stream-chat-expo';
+import { Chat, OverlayProvider } from 'stream-chat-expo';
 import { StreamChat } from 'stream-chat';
 import { useAuth } from '~/components/providers/AuthProvider'; // Update path if needed
+import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 // Define the Stream Chat client type
 type StreamChatType = StreamChat;
@@ -13,6 +15,8 @@ export default function ChatLayout() {
   const { user, chatToken, getChatToken } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [chatClient, setChatClient] = useState<StreamChat | null>(null);
+  const { bottom } = useSafeAreaInsets();
+  const router = useRouter();
 
   // Stream Chat configuration
   const chatApiKey = '9wbpcdvydjaw'; // Your Stream publishable key
@@ -86,7 +90,7 @@ export default function ChatLayout() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#00AF9F" />
         <Text style={{ marginTop: 10 }}>Loading chat...</Text>
       </View>
     );
@@ -104,12 +108,38 @@ export default function ChatLayout() {
   }
 
   return (
-    <Chat client={chatClient}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      />
-    </Chat>
+    <SafeAreaProvider style={{ flex: 1 }}>
+      <OverlayProvider bottomInset={bottom}>
+        <Chat client={chatClient}>
+          <Stack>
+            <Stack.Screen
+              name="chat-list"
+              options={({ navigation }) => ({
+                title: 'Chat List',
+                headerShown: true,
+                headerBackVisible: false,
+                headerLeft: () => (
+                  <TouchableOpacity onPress={() => router.push('/(tabs)/matching')}>
+                    <Text style={{ fontSize: 18, paddingHorizontal: 10, color: '#007AFF' }}>
+                      Back
+                    </Text>
+                  </TouchableOpacity>
+                ),
+              })}
+            />
+
+            <Stack.Screen
+              name="[id]"
+              options={({ route }) => ({
+                title: '', // Keep the title empty as you had it
+                headerShown: true,
+                headerBackVisible: true,
+                headerBackTitle: 'Chat List', // This sets the back button text to "Chat List" when on the [id] screen
+              })}
+            />
+          </Stack>
+        </Chat>
+      </OverlayProvider>
+    </SafeAreaProvider>
   );
 }

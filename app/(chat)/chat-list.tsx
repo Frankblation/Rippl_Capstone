@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { Channel } from 'stream-chat';
 import Feather from '@expo/vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
 
 import { getUserById, searchUsers } from '~/utils/data';
 
@@ -105,7 +106,7 @@ export default function ChatListScreen() {
 
       // Don't set a fixed channel name - we'll use the dynamic display logic instead
       // to ensure each user sees the other person's name
-      
+
       // Create channel with current user and the matched user
       const channel = chatClient.channel('messaging', channelId, {
         // No fixed name - will be dynamically generated for each user
@@ -224,7 +225,7 @@ export default function ChatListScreen() {
       // Skip the channel name to ensure each user sees the other's name
       // We'll only use the provided name if explicitly entered
       const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
-      
+
       const channelData: any = {
         members: [user.id, selectedUser.id],
         created_by_id: user.id,
@@ -236,7 +237,7 @@ export default function ChatListScreen() {
           },
         },
       };
-      
+
       // Only set a specific channel name if provided by user
       if (channelName.trim()) {
         channelData.name = channelName.trim();
@@ -437,7 +438,7 @@ export default function ChatListScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#FCFCFC' }}>
       {/* New Chat Creation */}
       <View style={styles.createSection}>
         <Text style={styles.sectionTitle}>Start a New Chat</Text>
@@ -571,7 +572,7 @@ export default function ChatListScreen() {
           </View>
         )}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

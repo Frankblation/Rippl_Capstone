@@ -245,7 +245,7 @@ export default function Swipe() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#00AF9F" />
+        <Text style={styles.noUsersText}></Text>
       </View>
     );
   }
