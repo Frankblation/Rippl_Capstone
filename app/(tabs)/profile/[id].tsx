@@ -15,6 +15,7 @@ import InterestGrid from '~/components/profile/InterestMasonary';
 import { useUser } from '~/hooks/useUser';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { AddUserButton } from '~/components/profile/AddUserButton';
+import { useRouter } from 'expo-router';
 
 // Import our feed hook
 import { useFeed, type FeedItem } from '~/hooks/useFeed';
@@ -27,11 +28,17 @@ function Profile() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
+  const router = useRouter();
+
+  if ( id === authUser?.id ) {
+    // If it is current user then route to profile page
+    router.push('/(tabs)/profile/index');
+  }
 
   // Fetch the profile user's data
   const { user } = useUser(id || null);
 
-  // Use the feed hook with profileUserId option
+  // Use the feed hook with otherProfile type instead of profile
   const {
     feed: rawFeed,
     loading,
@@ -42,7 +49,7 @@ function Profile() {
     selectedCommentsCount,
     openComments,
     addComment,
-  } = useFeed('profile', authUser?.id || null, {
+  } = useFeed('otherProfile', authUser?.id || null, {
     profileUserId: id || undefined,
   });
 
