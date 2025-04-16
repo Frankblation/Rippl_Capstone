@@ -90,7 +90,7 @@ export default function Swipe() {
         <View style={[StyleSheet.absoluteFillObject, styles.animationContainer]}>
           <LottieView
             ref={animationRef}
-            source={require('../assets/animations/Splash Transition.json')}
+            source={require('../assets/animations/Splash-Transition.json')}
             style={styles.animation}
             autoPlay
             loop={false}
