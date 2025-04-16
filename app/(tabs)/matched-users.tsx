@@ -1,10 +1,14 @@
 'use client';
-
+import React, { Suspense } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
-import MatchedScreen from '../../components/MatchedScreen';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const MatchedScreen = React.lazy(() => import('~/components/MatchedScreen'));
 
 type User = {
+  id: string;
   name: string;
   interests: string[];
   bio?: string;
@@ -31,18 +35,38 @@ const MatchScreen = () => {
   const parsedMatchedUser = JSON.parse(matchedUser as string) as User;
   const parsedCurrentUser = JSON.parse(currentUser as string) as User;
 
+  const handleStartChat = async () => {
+    try {
+      // Save the matched user information to AsyncStorage or app state
+      // This information will be used by the chat list screen to create a chat
+      const matchData = {
+        matchedUserId: parsedMatchedUser.id,
+        matchedUserName: parsedMatchedUser.name,
+        currentUserName: parsedCurrentUser.name,
+        timestamp: new Date().toISOString(),
+        createChat: true // Flag to indicate a chat should be created
+      };
+      
+      await AsyncStorage.setItem('pendingMatchChat', JSON.stringify(matchData));
+      
+      console.log('Match data saved, navigating to chat list');
+      
+      // Navigate to the chat list screen where the chat will be created
+      router.push('/(chat)/chat-list');
+    } catch (error) {
+      console.error('Error preparing match chat:', error);
+    }
+  };
+
   return (
-    <MatchedScreen
-      matchedUser={parsedMatchedUser}
-      currentUser={parsedCurrentUser}
-      onClose={() => router.back()}
-      onStartChat={() => {
-        console.log('Start chat with', parsedMatchedUser.name);
-        router.push({
-          pathname: '/(tabs)/matching',
-        });
-      }}
-    />
+    <Suspense fallback={<Text style={{ padding: 20 }}>Loading match...</Text>}>
+      <MatchedScreen
+        matchedUser={parsedMatchedUser}
+        currentUser={parsedCurrentUser}
+        onClose={() => router.back()}
+        onStartChat={handleStartChat}
+      />
+    </Suspense>
   );
 };
 

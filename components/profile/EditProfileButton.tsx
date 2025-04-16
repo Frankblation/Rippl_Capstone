@@ -1,13 +1,23 @@
-import { Pressable } from 'react-native';
+'use client';
+
+import { Pressable, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import Feather from '@expo/vector-icons/Feather';
 
-export function EditProfileButton() {
+type Props = {
+  style?: StyleProp<ViewStyle>;
+};
+
+export function EditProfileButton({ style }: Props) {
   const router = useRouter();
 
+  function edit() {
+    router.push('/(tabs)/profile/edit');
+  }
+
   return (
-    <Pressable onPress={() => router.push('/(tabs)/profile/edit')}>
-      <Feather name="settings" size={24} color="black" style={{ marginRight: 16 }} />
+    <Pressable onPress={edit} style={[style]}>
+      <Feather name="settings" size={24} color="#00AF9F" style={{ marginRight: 16 }} />
     </Pressable>
   );
 }

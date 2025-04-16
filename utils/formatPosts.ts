@@ -1,14 +1,6 @@
-import {
-  getUserById,
-  getInterestById,
-  getCommentsByPost,
-  getAttendeesByPost
-} from './data';
+import { getUserById, getInterestById, getCommentsByPost, getAttendeesByPost } from './data';
 
-import {
-  PostsTable,
-  PostType
-} from './db';
+import { PostsTable, PostType } from './db';
 
 import { format, parseISO } from 'date-fns';
 
@@ -34,6 +26,7 @@ export interface NotePost {
   likesCount: number;
   commentsCount: number;
   comments: PostComment[];
+  isLiked?: boolean;
   type: 'post';
 }
 
@@ -53,6 +46,7 @@ export interface EventPost {
   time: string;
   location: string;
   likesCount: number;
+  isLiked?: boolean;
   commentsCount: number;
   comments: PostComment[];
   attendeeAvatars: { uri: string }[];
@@ -65,25 +59,67 @@ export type UIPost = NotePost | EventPost;
 
 /**
  * Helper function to calculate relative time
+ * - Shows minutes for less than an hour
+ * - Shows hours for less than a day
+ * - Shows days up to 30 days
+ * - Shows actual date for anything older than 30 days
  */
 export function getTimeAgo(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.round(diffMs / 1000);
-  const diffMins = Math.round(diffSecs / 60);
-  const diffHours = Math.round(diffMins / 60);
-  const diffDays = Math.round(diffHours / 24);
 
-  if (diffSecs < 60) return `${diffSecs} seconds ago`;
-  if (diffMins < 60) return `${diffMins} minutes ago`;
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  return `${diffDays} days ago`;
+  if (diffMs < 0 || isNaN(diffMs)) {
+    return 'just now';
+  }
+
+  const diffSecs = Math.round(diffMs / 1000);
+
+  // Less than a minute
+  if (diffSecs < 60) {
+    return 'just now';
+  }
+
+  const diffMins = Math.floor(diffSecs / 60);
+
+  // Less than an hour - show in minutes
+  if (diffMins < 60) {
+    if (diffMins < 5) {
+      return 'just now';
+    } else if (diffMins <= 10) {
+      return '5 minutes ago';
+    } else if (diffMins <= 20) {
+      return '10 minutes ago';
+    } else if (diffMins <= 40) {
+      return '30 minutes ago';
+    } else {
+      return '45 minutes ago';
+    }
+  }
+
+  const diffHours = Math.floor(diffMins / 60);
+
+  // Less than a day - show in hours
+  if (diffHours < 24) {
+    return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+
+  // Less than 30 days - show in days
+  if (diffDays < 30) {
+    return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+  }
+
+  // More than 30 days - show the actual date
+  return format(date, 'MMM d, yyyy');
 }
 
 /**
  * Determines event status based on date
  */
-function determineEventStatus(eventDate: string | null | undefined): 'upcoming' | 'in-progress' | 'completed' | 'cancelled' {
+function determineEventStatus(
+  eventDate: string | null | undefined
+): 'upcoming' | 'in-progress' | 'completed' | 'cancelled' {
   if (!eventDate) return 'upcoming';
 
   const now = new Date();
@@ -108,7 +144,7 @@ function formatEventDateTime(eventDate: string | null | undefined): { date: stri
   if (!eventDate) {
     return {
       date: 'Date to be announced',
-      time: 'Time to be announced'
+      time: 'Time to be announced',
     };
   }
 
@@ -124,13 +160,13 @@ function formatEventDateTime(eventDate: string | null | undefined): { date: stri
 
     return {
       date: formattedDate,
-      time: formattedTime
+      time: formattedTime,
     };
   } catch (error) {
     console.error('Error formatting date/time:', error);
     return {
       date: 'Invalid date',
-      time: 'Invalid time'
+      time: 'Invalid time',
     };
   }
 }
@@ -160,14 +196,14 @@ export async function formatPostForUI(
       const comments = await getCommentsByPost(post.id);
       commentsCount = comments.length;
 
-      commentsData = comments.map(comment => ({
+      commentsData = comments.map((comment) => ({
         id: comment.id,
         username: comment.user?.name || 'Unknown User',
         userAvatar: {
-          uri: comment.user?.image || 'https://randomuser.me/api/portraits/women/44.jpg'
+          uri: comment.user?.image || 'https://randomuser.me/api/portraits/women/44.jpg',
         },
         text: comment.content,
-        timePosted: getTimeAgo(new Date(comment.sent_at))
+        timePosted: getTimeAgo(new Date(comment.sent_at)),
       }));
     }
 
@@ -187,7 +223,7 @@ export async function formatPostForUI(
         interest: interest?.name || 'General',
         username: postAuthor?.name || 'Unknown User',
         userAvatar: {
-          uri: postAuthor?.image || 'https://randomuser.me/api/portraits/women/44.jpg'
+          uri: postAuthor?.image || 'https://randomuser.me/api/portraits/women/44.jpg',
         },
         timePosted,
         title: post.title || 'Untitled Event',
@@ -195,7 +231,9 @@ export async function formatPostForUI(
         postText: post.description, // For backward compatibility
         // Make sure image is provided for both properties
         image: {
-          uri: post.image || 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=3269&auto=format&fit=crop'
+          uri:
+            post.image ||
+            'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=3269&auto=format&fit=crop',
         },
         postImage: post.image ? { uri: post.image } : undefined,
         date,
@@ -204,12 +242,12 @@ export async function formatPostForUI(
         likesCount: 0, // You'll need to implement likes functionality
         commentsCount,
         comments: commentsData,
-        attendeeAvatars: attendees.slice(0, 10).map(a => ({
-          uri: a.image || 'https://randomuser.me/api/portraits/women/44.jpg'
+        attendeeAvatars: attendees.slice(0, 10).map((a) => ({
+          uri: a.image || 'https://randomuser.me/api/portraits/women/44.jpg',
         })),
         totalAttendees: attendees.length,
         status: determineEventStatus(post.event_date),
-        type: 'event'
+        type: 'event',
       };
 
       return eventPost;
@@ -221,7 +259,7 @@ export async function formatPostForUI(
         interest: interest?.name || 'General',
         username: postAuthor?.name || 'Unknown User',
         userAvatar: {
-          uri: postAuthor?.image || 'https://randomuser.me/api/portraits/women/44.jpg'
+          uri: postAuthor?.image || 'https://randomuser.me/api/portraits/women/44.jpg',
         },
         timePosted,
         title: post.title || undefined,
@@ -230,7 +268,7 @@ export async function formatPostForUI(
         likesCount: 0, // You'll need to implement likes functionality
         commentsCount,
         comments: commentsData,
-        type: 'post'
+        type: 'post',
       };
 
       return notePost;
@@ -252,9 +290,7 @@ export async function formatPostsForUI(
   includeComments: boolean = true
 ): Promise<UIPost[]> {
   try {
-    const formattedPostsPromises = posts.map(post =>
-      formatPostForUI(post, includeComments)
-    );
+    const formattedPostsPromises = posts.map((post) => formatPostForUI(post, includeComments));
 
     const formattedPosts = await Promise.all(formattedPostsPromises);
 
@@ -263,7 +299,7 @@ export async function formatPostsForUI(
       return b.timePosted.localeCompare(a.timePosted);
     });
   } catch (error) {
-    console.error("Error formatting posts batch:", error);
+    console.error('Error formatting posts batch:', error);
     throw new Error(`Failed to format posts batch: ${error}`);
   }
 }

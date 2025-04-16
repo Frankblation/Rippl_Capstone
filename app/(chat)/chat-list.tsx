@@ -1,14 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  FlatList,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import {
   ChannelList,
   useChatContext,
@@ -18,6 +12,8 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { Channel } from 'stream-chat';
+import Feather from '@expo/vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
 
 import { getUserById, searchUsers } from '~/utils/data';
 
@@ -26,6 +22,15 @@ type UserSearchResult = {
   id: string;
   name: string;
   // Add other properties you might want to display (avatar, etc.)
+};
+
+// Type for the pending match chat data
+type PendingMatchChat = {
+  matchedUserId: string;
+  matchedUserName: string;
+  currentUserName: string;
+  timestamp: string;
+  createChat: boolean;
 };
 
 export default function ChatListScreen() {
@@ -57,6 +62,77 @@ export default function ChatListScreen() {
       [user.id]: user.id, // Initialize with ID, will be updated when we get profile data
     }));
   }, [user]);
+
+  // Check for pending match chat on mount
+  useEffect(() => {
+    const checkPendingMatchChat = async () => {
+      if (!user || !chatClient) return;
+
+      try {
+        const pendingMatchChatData = await AsyncStorage.getItem('pendingMatchChat');
+
+        if (pendingMatchChatData) {
+          const matchData: PendingMatchChat = JSON.parse(pendingMatchChatData);
+
+          // Only proceed if the createChat flag is true
+          if (matchData.createChat && matchData.matchedUserId) {
+            console.log('Creating chat for recent match with:', matchData.matchedUserName);
+
+            // Clear the stored data first to prevent duplicate creation
+            await AsyncStorage.removeItem('pendingMatchChat');
+
+            // Create the chat channel
+            await createMatchChat(matchData);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for pending match chat:', error);
+      }
+    };
+
+    checkPendingMatchChat();
+  }, [user, chatClient]);
+
+  // Function to create a chat from match data
+  const createMatchChat = async (matchData: PendingMatchChat) => {
+    if (!chatClient || !user) {
+      Alert.alert('Error', 'Chat service not available. Please try again later.');
+      return;
+    }
+
+    try {
+      // Generate a unique channel ID
+      const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
+
+      // Don't set a fixed channel name - we'll use the dynamic display logic instead
+      // to ensure each user sees the other person's name
+
+      // Create channel with current user and the matched user
+      const channel = chatClient.channel('messaging', channelId, {
+        // No fixed name - will be dynamically generated for each user
+        members: [user.id, matchData.matchedUserId],
+        created_by_id: user.id,
+        // Add custom data for displaying user names
+        customData: {
+          memberNames: {
+            [user.id]: matchData.currentUserName,
+            [matchData.matchedUserId]: matchData.matchedUserName,
+          },
+          matchCreated: true,
+        },
+      });
+
+      // Create the channel on the Stream server
+      await channel.create();
+      console.log('Match chat created successfully:', channelId);
+
+      // Navigate directly to the chat screen with this specific channel
+      router.push(`/(chat)/${channel.id}`);
+    } catch (error) {
+      console.error('Error creating match chat:', error);
+      Alert.alert('Error', 'Failed to create chat. Please try again.');
+    }
+  };
 
   // Function to fetch user name and update profiles state
   const fetchUserName = async (userId: string) => {
@@ -146,13 +222,11 @@ export default function ChatListScreen() {
     }
 
     try {
-      // Use provided channel name or generate a default one
-      const channelNameToUse = channelName.trim() || `Chat ${new Date().toLocaleDateString()}`;
+      // Skip the channel name to ensure each user sees the other's name
+      // We'll only use the provided name if explicitly entered
       const channelId = `messaging-${Math.random().toString(36).substring(7)}`;
 
-      // Create channel with current user and the selected user
-      const channel = chatClient.channel('messaging', channelId, {
-        name: channelNameToUse,
+      const channelData: any = {
         members: [user.id, selectedUser.id],
         created_by_id: user.id,
         // Add custom data for displaying user names
@@ -162,7 +236,15 @@ export default function ChatListScreen() {
             [selectedUser.id]: selectedUser.name,
           },
         },
-      });
+      };
+
+      // Only set a specific channel name if provided by user
+      if (channelName.trim()) {
+        channelData.name = channelName.trim();
+      }
+
+      // Create channel with current user and the selected user
+      const channel = chatClient.channel('messaging', channelId, channelData);
 
       await channel.create();
       console.log('Channel created successfully:', channelId);
@@ -282,12 +364,8 @@ export default function ChatListScreen() {
 
   // Function to get display name for the channel (shows other user's name)
   const getChannelDisplayName = (channel: Channel<DefaultStreamChatGenerics>) => {
-    // If there's a custom channel name set by the user, use that
-    if (
-      channel.data?.name &&
-      typeof channel.data.created_at === 'string' &&
-      channel.data.name !== `Chat ${new Date(channel.data.created_at).toLocaleDateString()}`
-    ) {
+    // If there's a custom channel name explicitly set by the user, use that
+    if (channel.data?.name) {
       return channel.data.name;
     }
 
@@ -360,7 +438,7 @@ export default function ChatListScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#FCFCFC' }}>
       {/* New Chat Creation */}
       <View style={styles.createSection}>
         <Text style={styles.sectionTitle}>Start a New Chat</Text>
@@ -444,18 +522,22 @@ export default function ChatListScreen() {
               </TouchableOpacity>
 
               <View style={styles.buttonContainer}>
-                {/* Delete Button */}
-                <TouchableOpacity
-                  style={[styles.actionIconButton, styles.deleteButton]}
-                  onPress={() => deleteChannel(previewProps.channel)}>
-                  <Text style={styles.actionIconText}>🗑️</Text>
-                </TouchableOpacity>
-
                 {/* Add User Button */}
                 <TouchableOpacity
                   style={styles.actionIconButton}
                   onPress={() => toggleAddUserInterface(previewProps.channel)}>
-                  <Text style={styles.actionIconText}>+</Text>
+                  <Text style={styles.actionIconText}>
+                    <Feather name="plus" size={18} color="white" />
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Delete Button */}
+                <TouchableOpacity
+                  style={[styles.actionIconButton, styles.deleteButton]}
+                  onPress={() => deleteChannel(previewProps.channel)}>
+                  <Text style={styles.actionIconText}>
+                    <Feather name="trash" size={18} color="white" />
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -490,7 +572,7 @@ export default function ChatListScreen() {
           </View>
         )}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -559,13 +641,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00AF9F',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
   },
   deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#F39237',
   },
   actionIconText: {
     color: 'white',

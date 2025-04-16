@@ -11,14 +11,35 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import ForgotPasswordModal from '~/components/ForgotPasswordModal';
+import { invalidateAllFeedCaches, resetAllFeedLoadingStates } from '~/hooks/useFeed';
+import { supabase } from '~/utils/supabase';
+
 
 export default function LoginScreen() {
   const router = useRouter();
   const { email, setEmail, password, setPassword, authLoading, signInWithEmail } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotPasswordModalVisible, setForgotPasswordModalVisible] = useState(false);
+
+  useEffect(() => {
+    // When login screen mounts, ensure we're in a clean state
+    const cleanupPreviousSession = async () => {
+      invalidateAllFeedCaches();
+      resetAllFeedLoadingStates();
+
+      // Check if we have an active session that should be cleared
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        console.log('Found active session, signing out');
+        await supabase.auth.signOut();
+      }
+    };
+
+    cleanupPreviousSession();
+  }, []);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -32,12 +53,15 @@ export default function LoginScreen() {
 
     const { error } = await signInWithEmail();
 
+    const { notificationAsync, NotificationFeedbackType } = await import('expo-haptics');
+
     if (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await notificationAsync(NotificationFeedbackType.Error);
       Alert.alert('Error', error.message);
     } else {
-      // Will automatically redirect based on auth state in layout
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEmail('');
+      setPassword('');
+      await notificationAsync(NotificationFeedbackType.Success);
       router.replace('/(tabs)/home');
     }
   };
@@ -109,7 +133,18 @@ export default function LoginScreen() {
             <Text className="font-medium text-[#00AF9F]">Create an account</Text>
           </TouchableOpacity>
         </View>
+        <View className="mt-2 flex-row justify-center">
+          <Text className="text-gray-600">Forgot password? </Text>
+          <TouchableOpacity onPress={() => setForgotPasswordModalVisible(true)}>
+            <Text className="font-medium text-[#00AF9F]">Reset password</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <ForgotPasswordModal
+        visible={forgotPasswordModalVisible}
+        onClose={() => setForgotPasswordModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }

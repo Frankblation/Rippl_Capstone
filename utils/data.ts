@@ -11,6 +11,7 @@ import { InterestsTable } from './db';
 import { InterestCategoriesTable } from './db';
 import { UserInterestsTable } from './db';
 import { FriendshipsTable } from './db';
+import { UserSwipedYesTable } from './db';
 import { UserMatchesTable } from './db';
 import { PostInterestsTable } from './db';
 import { AttendeesTable } from './db';
@@ -193,7 +194,7 @@ export const createPost = async ({
   postData,
   initializePopularity = true,
 }: {
-  postData: Omit<PostsTable, 'id' | 'created_at'>;
+  postData: Omit<PostsTable, 'id'>;
   initializePopularity?: boolean;
 }) => {
   try {
@@ -243,32 +244,92 @@ export const getAllPosts = async (): Promise<PostsTable[]> => {
 };
 
 /**
- * Fetches all posts created by a specific user
- * @param userId The ID of the user whose posts to fetch
- * @returns Promise with array of the user's posts
+ * Fetches posts by a specific interest with filtering options
+ * @param interestId The ID of the Interest whose posts to fetch
+ * @param options Optional filtering parameters
+ * @returns Promise with array of the posts with that interest
  */
-export const getPostsByUserId = async (userId: string): Promise<PostsTable[]> => {
-  const { data, error } = await supabase
+// In utils/data.ts
+
+export const getPostsByInterestId = async (
+  interestId: string,
+  options?: {
+    limit?: number;
+    maxAgeDays?: number;
+    random?: boolean;
+    page?: number;
+  }
+): Promise<PostsTable[]> => {
+  const page = options?.page || 1;
+  const limit = options?.limit || 10;
+  const offset = (page - 1) * limit;
+
+  let query = supabase
     .from('posts')
     .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false }); // Latest posts first
+    .eq('interest_id', interestId);
+
+  // Filter by age if specified
+  if (options?.maxAgeDays) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - options.maxAgeDays);
+    query = query.gte('created_at', cutoffDate.toISOString());
+  }
+
+  // Add ordering
+  query = query.order('created_at', { ascending: false });
+
+  // Apply pagination
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error } = await query;
 
   if (error) throw error;
+
+  // If random was requested, shuffle the results
+  if (options?.random && data && data.length > 0) {
+    // Fisher-Yates shuffle algorithm
+    for (let i = data.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [data[i], data[j]] = [data[j], data[i]];
+    }
+  }
+
   return data as PostsTable[];
 };
 
-/**
- * Fetches all posts by a specific Interest
- * @param interestId The ID of the Interest whose posts to fetch
- * @returns Promise with array of the posts with that interest
- */
-export const getPostsByInterestId = async (interestId: string): Promise<PostsTable[]> => {
-  const { data, error } = await supabase
+// Similarly, update getPostsByUserId
+export const getPostsByUserId = async (
+  userId: string,
+  options?: {
+    limit?: number;
+    maxAgeDays?: number;
+    page?: number;
+  }
+): Promise<PostsTable[]> => {
+  const page = options?.page || 1;
+  const limit = options?.limit || 10;
+  const offset = (page - 1) * limit;
+
+  let query = supabase
     .from('posts')
     .select('*')
-    .eq('interest_id', interestId)
-    .order('created_at', { ascending: false }); // Latest posts first
+    .eq('user_id', userId);
+
+  // Filter by age if specified
+  if (options?.maxAgeDays) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - options.maxAgeDays);
+    query = query.gte('created_at', cutoffDate.toISOString());
+  }
+
+  // Always order by recency
+  query = query.order('created_at', { ascending: false });
+
+  // Apply pagination
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data as PostsTable[];
@@ -925,7 +986,7 @@ export const getPendingFriendRequests = async (
 export const updateFriendshipStatus = async (
   userId: string,
   friendId: string,
-  status: 'pending' | 'accepted' | 'blocked'
+  status: 'pending' | 'accepted' | 'blocked' | 'rejected'
 ): Promise<(FriendshipsTable & { status: string }) | null> => {
   const { data: friendship, error: selectError } = await supabase
     .from('friendships')
@@ -982,6 +1043,289 @@ export const deleteFriendship = async (
   return friendship;
 };
 
+// Add these new functions after your existing friendship functions
+
+/**
+ * Sends a friend request from one user to another
+ * @param userId The ID of the user sending the request
+ * @param friendId The ID of the user receiving the request
+ * @returns Promise with boolean indicating success
+ */
+export const sendFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+
+    // Check if a friendship already exists in either direction
+    const { data: existingFriendship, error: checkError } = await supabase
+      .from('friendships')
+      .select('*')
+      .or(
+        `and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`
+      )
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking for existing friendship:', checkError);
+      return false;
+    }
+
+    // If friendship already exists, don't create a new one
+    if (existingFriendship) {
+      return false;
+    }
+
+    // Create a new pending friendship
+    await createFriendship({
+      user_id: userId,
+      friend_id: friendId,
+      status: 'pending'
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error sending friend request:', error);
+    return false;
+  }
+};
+
+
+/**
+ * Cancels a friend request that was sent
+ * @param userId The ID of the user who sent the request
+ * @param friendId The ID of the user who received the request
+ * @returns Promise with boolean indicating success
+ */
+export const cancelFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+
+    const result = await deleteFriendship(userId, friendId);
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error cancelling friend request:', error);
+    return false;
+  }
+};
+
+/**
+ * Rejects a friend request
+ * @param userId The ID of the user rejecting the request
+ * @param friendId The ID of the user who sent the request
+ * @returns Promise with boolean indicating success
+ */
+export const rejectFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+
+    const result = await updateFriendshipStatus(userId, friendId, 'rejected');
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error rejecting friend request:', error);
+    return false;
+  }
+};
+
+/**
+ * Removes a friend (deletes an accepted friendship)
+ * @param userId The ID of the user removing the friend
+ * @param friendId The ID of the friend being removed
+ * @returns Promise with boolean indicating success
+ */
+export const removeFriend = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+
+    const result = await deleteFriendship(userId, friendId);
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error removing friend:', error);
+    return false;
+  }
+};
+
+/**
+ * Blocks a user
+ * @param userId The ID of the user doing the blocking
+ * @param blockId The ID of the user being blocked
+ * @returns Promise with boolean indicating success
+ */
+export const blockUser = async (
+  userId: string,
+  blockId: string
+): Promise<boolean> => {
+  try {
+
+    // First remove any existing friendship
+    await deleteFriendship(userId, blockId);
+
+    // Then create a blocked relationship
+    await createFriendship({
+      user_id: userId,
+      friend_id: blockId,
+      status: 'blocked'
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    return false;
+  }
+};
+
+/**
+ * Unblocks a user
+ * @param userId The ID of the user doing the unblocking
+ * @param blockId The ID of the user being unblocked
+ * @returns Promise with boolean indicating success
+ */
+export const unblockUser = async (
+  userId: string,
+  blockId: string
+): Promise<boolean> => {
+  try {
+
+    const result = await deleteFriendship(userId, blockId);
+
+    return result !== null;
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    return false;
+  }
+};
+
+/**
+ * Updates friendship status between two users to 'accepted'
+ * @param userId The ID of the user accepting the request
+ * @param friendId The ID of the user who sent the request
+ * @returns Promise with boolean indicating success
+ */
+export const acceptFriendRequest = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  try {
+    // Find the friendship record
+    const { data: existingFriendship, error: checkError } = await supabase
+      .from('friendships')
+      .select('*')
+      .eq('user_id', friendId)  // The sender is the user_id
+      .eq('friend_id', userId)  // The receiver (you) is the friend_id
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (checkError) {
+      return false;
+    }
+
+    if (!existingFriendship) {
+      return false;
+    }
+
+    // Update the status of the existing friendship to 'accepted'
+    const { error: updateError } = await supabase
+      .from('friendships')
+      .update({ status: 'accepted' })
+      .eq('id', existingFriendship.id);
+
+    if (updateError) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+/* ------ SWIPE YES CRUD ------ */
+
+type SwipeResult = {
+  success: boolean;
+  isMatch: boolean;
+  data?: any;
+  error?: any;
+  matchData?: any;
+};
+
+export async function saveSwipe(userId: string, swipedUserId: string, isLiked: boolean): Promise<SwipeResult> {
+  try {
+    // Insert the swipe record
+    const { data, error, status } = await supabase
+      .from('user_swiped_yes')
+      .insert({
+        user_id: userId,
+        swiped_user_id: swipedUserId,
+        swipe_yes: isLiked
+      });
+
+    if (error) {
+      console.error('Error saving swipe:', error);
+      return { success: false, error, isMatch: false };
+    }
+
+    // If this was a "like" swipe, check for a match
+    if (isLiked) {
+      // Check if the other user has swiped right on this user
+      const { data: matchData, error: matchError } = await supabase
+        .from('user_swiped_yes')
+        .select('*')
+        .eq('user_id', swipedUserId)
+        .eq('swiped_user_id', userId)
+        .eq('swipe_yes', true)
+        .gt('swiped_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .maybeSingle();
+
+      if (matchError) {
+        console.error('Error checking for match:', matchError);
+        return { success: false, error: matchError, isMatch: false };
+      }
+
+      // If a match is found, create a record in user_matches
+      if (matchData) {
+        console.log('Match found! Creating match record...');
+
+        try {
+          // Create a match record
+          const newMatch = await createUserMatch({
+            user_id: userId,
+            matched_user_id: swipedUserId
+          });
+
+          return {
+            success: true,
+            isMatch: true,
+            matchData: newMatch
+          };
+        } catch (createError) {
+          console.error('Error creating match record:', createError);
+          // Still return isMatch true so the animation shows
+          return { success: true, isMatch: true, error: createError };
+        }
+      }
+
+      console.log('User swiped right, but no match yet');
+      return { success: true, isMatch: false, data };
+    }
+
+    return { success: true, data, isMatch: false };
+  } catch (err) {
+    console.error('Exception in saveSwipe:', err);
+    return { success: false, error: err, isMatch: false };
+  }
+}
+
+
 /* ------ USER MATCHES CRUD ------ */
 
 // CREATE
@@ -1037,24 +1381,38 @@ export const getUserMatches = async (
  * @param userId2 The ID of the second user
  * @returns Promise with a boolean indicating if the match exists
  */
-export const matchExists = async (userId1: string, userId2: string): Promise<boolean> => {
-  // Ensure user_id < matched_user_id to match the stored order
-  let userId = userId1;
-  let matchedUserId = userId2;
+export const matchExists = async (userId1: string, userId2: string): Promise<SwipeResult> => {
+  try {
+    // Ensure user_id < matched_user_id to match the stored order
+    let userId = userId1;
+    let matchedUserId = userId2;
 
-  if (userId > matchedUserId) {
-    [userId, matchedUserId] = [matchedUserId, userId];
+    if (userId > matchedUserId) {
+      [userId, matchedUserId] = [matchedUserId, userId];
+    }
+
+    const { data, error } = await supabase
+      .from('user_matches')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('matched_user_id', matchedUserId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking if match exists:', error);
+      return { success: false, isMatch: false, error };
+    }
+
+    // Return a properly formatted SwipeResult
+    return {
+      success: true,
+      isMatch: data !== null,
+      matchData: data
+    };
+  } catch (err) {
+    console.error('Exception checking if match exists:', err);
+    return { success: false, isMatch: false, error: err };
   }
-
-  const { data, error } = await supabase
-    .from('user_matches')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('matched_user_id', matchedUserId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data !== null;
 };
 
 // DELETE
@@ -1254,28 +1612,88 @@ export const deleteAttendee = async (
 
 //CREATE
 /**
- * Creates a new comment
+ * Creates a new comment and tracks user engagement
  * @param comment The comment data to create
  * @returns Promise with the created comment
  */
 export const createComment = async (
   comment: Omit<CommentsTable, 'id' | 'likes' | 'replies' | 'sent_at'>
 ): Promise<CommentsTable> => {
-  const id = crypto.randomUUID();
-  const newComment: CommentsTable = {
-    id,
-    post_id: comment.post_id,
-    user_id: comment.user_id,
-    content: comment.content,
-    likes: 0,
-    replies: 0,
-    sent_at: new Date().toISOString(),
-  };
+  try {
+    const newComment = {
+      post_id: comment.post_id,
+      user_id: comment.user_id,
+      content: comment.content,
+      likes: 0,
+      replies: 0,
+      sent_at: new Date().toISOString(),
+    };
 
-  const { error } = await supabase.from('comments').insert(newComment);
-  if (error) throw error;
+    // First, create the comment
+    const { data, error } = await supabase
+      .from('comments')
+      .insert(newComment)
+      .select()
+      .single();
 
-  return newComment;
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error('Failed to create comment - no data returned');
+    }
+
+    // Next, update the user_post_engagement table
+    const { data: existingEngagement, error: getEngagementError } = await supabase
+      .from('user_post_engagement')
+      .select('*')
+      .eq('user_id', comment.user_id)
+      .eq('post_id', comment.post_id)
+      .single();
+
+    if (getEngagementError && getEngagementError.code !== 'PGRST116') {
+      console.error('Error checking existing engagement:', getEngagementError);
+    }
+
+    if (existingEngagement) {
+      // Update existing engagement record
+      await supabase
+        .from('user_post_engagement')
+        .update({
+          comment_count: existingEngagement.comment_count + 1
+        })
+        .eq('id', existingEngagement.id);
+    } else {
+      // Create new engagement record
+      await supabase
+        .from('user_post_engagement')
+        .insert([
+          {
+            user_id: comment.user_id,
+            post_id: comment.post_id,
+            has_liked: false,
+            has_reposted: false,
+            comment_count: 1
+          }
+        ]);
+    }
+
+    // Update the post popularity (if you have this table)
+    try {
+      await supabase
+        .from('post_popularity')
+        .update({ comments: supabase.rpc('increment', { row_id: comment.post_id }) })
+        .eq('post_id', comment.post_id);
+    } catch (popError) {
+      console.error('Error updating post popularity:', popError);
+      // Non-critical error, don't throw
+    }
+
+    // Return the properly typed object with all fields
+    return data as CommentsTable;
+  } catch (error) {
+    console.error('Error creating comment:', error);
+    throw error;
+  }
 };
 
 // READ
@@ -1355,7 +1773,6 @@ export const uploadImage = async (
 
     if (!publicUrlData?.publicUrl) throw new Error('Could not retrieve public URL');
 
-    console.log('Uploaded to:', publicUrlData.publicUrl);
     return publicUrlData.publicUrl;
   } catch (error) {
     console.error('Upload error:', error);
@@ -1379,5 +1796,291 @@ export const deleteImage = async (imageUrl: string, bucket: string, folder?: str
     }
   } catch (err) {
     console.error('Error while deleting image:', err);
+  }
+};
+
+type RecommendedUser = {
+  recommended_user_id: string;
+  users: {
+    id: string;
+    name: string;
+    description: string | null;
+    image: string | null;
+  };
+};
+
+// ML CRUD
+
+export const getRecommendedUsers = async (userId: string) => {
+  try {
+    // First, fetch all users this user has already swiped on
+    const { data: swipedData, error: swipedError } = await supabase
+      .from('user_swiped_yes')
+      .select('swiped_user_id')
+      .eq('user_id', userId);
+
+    if (swipedError) {
+      console.error('Error fetching swiped users:', swipedError);
+      return { data: null, error: swipedError };
+    }
+
+    const swipedUserIds = swipedData?.map(entry => entry.swiped_user_id) || [];
+
+    // Get the recommended users with their basic info, excluding already swiped ones
+    const { data: recommendationsData, error: recommendationsError } = await supabase
+      .from('user_user_recommendations')
+      .select(`
+        recommended_user_id,
+        users:recommended_user_id(
+          id,
+          name,
+          description,
+          image
+        )
+      `)
+      .eq('user_id', userId)
+      .not('recommended_user_id', 'in', `(${swipedUserIds.join(',')})`);
+
+    if (recommendationsError) {
+      console.error('Error fetching recommended users:', recommendationsError);
+      return { data: null, error: recommendationsError };
+    }
+
+    const recommendedUsers = await Promise.all(
+      recommendationsData.map(async (item) => {
+        const { data: interestsData, error: interestsError } = await supabase
+          .from('user_interests')
+          .select(`
+            interests(
+              id,
+              name
+            )
+          `)
+          .eq('user_id', item.recommended_user_id);
+
+        if (interestsError) {
+          console.error(`Error fetching interests for user ${item.recommended_user_id}:`, interestsError);
+        }
+
+        const interests = interestsData
+          ? interestsData.map(interest => interest.interests?.name).filter(Boolean)
+          : [];
+
+        return {
+          id: item.users.id,
+          name: item.users.name,
+          bio: item.users.description === "NULL" ? "" : item.users.description || "",
+          picture: item.users.image,
+          interests: interests,
+        };
+      })
+    );
+
+    return { data: recommendedUsers, error: null };
+  } catch (err) {
+    console.error('Exception fetching recommended users:', err);
+    return { data: null, error: err };
+  }
+};
+
+
+// RECOMMENDER STUFF
+/**
+ * Fetches recommended posts for a specific user
+ * @param userId The ID of the user
+ * @param limit Optional limit on number of posts to return
+ * @returns Promise with array of recommended posts
+ */
+export const getRecommendedPostsForUser = async (
+  userId: string,
+  limit?: number
+): Promise<PostsTable[]> => {
+  try {
+    // First get the recommendation IDs
+    let query = supabase
+      .from('user_post_recommendations')
+      .select('recommended_post_id')
+      .eq('user_id', userId);
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data: recommendations, error: recError } = await query;
+
+    if (recError) throw recError;
+
+    // If no recommendations, return empty array
+    if (!recommendations || recommendations.length === 0) {
+      return [];
+    }
+
+    // Get the actual post data for all recommendations
+    const recommendedPostIds = recommendations.map(rec => rec.recommended_post_id);
+
+    const { data: posts, error: postsError } = await supabase
+      .from('posts')
+      .select('*')
+      .in('id', recommendedPostIds);
+
+    if (postsError) throw postsError;
+
+    return posts as PostsTable[];
+  } catch (error) {
+    console.error('Error fetching recommended posts:', error);
+    return [];
+  }
+};
+
+// HANDLE LIKE / LIKES
+/**
+ * Likes a post and updates user engagement
+ * @param userId The ID of the user liking the post
+ * @param postId The ID of the post being liked
+ * @returns Promise indicating if the operation was successful
+ */
+export const likePost = async (userId: string, postId: string): Promise<boolean> => {
+  try {
+    // Check if the user already has engagement with this post
+    const { data: existingEngagement, error: getEngagementError } = await supabase
+      .from('user_post_engagement')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('post_id', postId)
+      .single();
+
+    if (getEngagementError && getEngagementError.code !== 'PGRST116') {
+      console.error('Error checking existing engagement:', getEngagementError);
+      throw getEngagementError;
+    }
+
+    if (existingEngagement) {
+      // If already liked, do nothing (or could toggle if you want)
+      if (existingEngagement.has_liked) {
+        return true;
+      }
+
+      // Update the existing record
+      const { error } = await supabase
+        .from('user_post_engagement')
+        .update({ has_liked: true })
+        .eq('id', existingEngagement.id);
+
+      if (error) throw error;
+    } else {
+      // Create a new engagement record
+      const { error } = await supabase
+        .from('user_post_engagement')
+        .insert([
+          {
+            user_id: userId,
+            post_id: postId,
+            has_liked: true,
+            has_reposted: false,
+            comment_count: 0
+          }
+        ]);
+
+      if (error) throw error;
+    }
+
+    // Update post popularity (if available)
+    try {
+      await supabase
+        .from('post_popularity')
+        .update({ likes: supabase.rpc('increment', { row_id: postId }) })
+        .eq('post_id', postId);
+    } catch (popError) {
+      console.error('Error updating post popularity:', popError);
+      // Non-critical error, don't throw
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error liking post:', error);
+    return false;
+  }
+};
+
+/**
+ * Unlikes a post and updates user engagement
+ * @param userId The ID of the user unliking the post
+ * @param postId The ID of the post being unliked
+ * @returns Promise indicating if the operation was successful
+ */
+export const unlikePost = async (userId: string, postId: string): Promise<boolean> => {
+  try {
+    // Find the existing engagement
+    const { data: existingEngagement, error: getEngagementError } = await supabase
+      .from('user_post_engagement')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('post_id', postId)
+      .single();
+
+    if (getEngagementError) {
+      if (getEngagementError.code === 'PGRST116') {
+        // No engagement record exists, so post wasn't liked anyway
+        return true;
+      }
+      throw getEngagementError;
+    }
+
+    // If not liked, do nothing
+    if (!existingEngagement.has_liked) {
+      return true;
+    }
+
+    // Update the engagement record
+    const { error } = await supabase
+      .from('user_post_engagement')
+      .update({ has_liked: false })
+      .eq('id', existingEngagement.id);
+
+    if (error) throw error;
+
+    // Update post popularity (if available)
+    try {
+      await supabase
+        .from('post_popularity')
+        .update({ likes: supabase.rpc('decrement', { row_id: postId }) })
+        .eq('post_id', postId);
+    } catch (popError) {
+      console.error('Error updating post popularity:', popError);
+      // Non-critical error, don't throw
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error unliking post:', error);
+    return false;
+  }
+};
+
+/**
+ * Checks if a user has liked a post
+ * @param userId The ID of the user
+ * @param postId The ID of the post
+ * @returns Promise with boolean indicating if post is liked
+ */
+export const checkIfPostLiked = async (userId: string, postId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('user_post_engagement')
+      .select('has_liked')
+      .eq('user_id', userId)
+      .eq('post_id', postId)
+      .single();
+
+    if (error) {
+      // If no record exists, the post is not liked
+      if (error.code === 'PGRST116') return false;
+      throw error;
+    }
+
+    return data?.has_liked || false;
+  } catch (error) {
+    console.error('Error checking if post is liked:', error);
+    return false;
   }
 };

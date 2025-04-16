@@ -11,12 +11,6 @@ import { easeGradient } from 'react-native-easing-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, {
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
 
 type UserCardProps = {
   user: {
@@ -30,8 +24,6 @@ type UserCardProps = {
 const { width } = Dimensions.get('window');
 
 export default function UserSwipingCard({ user }: UserCardProps) {
-  const initialLocations: [number, number] = [0, 1]; // Ensure it's a tuple
-  const initialColors: [string, string] = ['#000000', '#FFFFFF']; // Ensure it's a tuple
   const { width, height } = useWindowDimensions();
 
   // LINEAR GRADIENT
@@ -44,7 +36,11 @@ export default function UserSwipingCard({ user }: UserCardProps) {
   }) as { colors: [string, string, ...string[]]; locations: [number, number, ...number[]] };
   return (
     <View style={styles.container}>
-      <Image source={user.picture} resizeMode="cover" style={styles.image} />
+      <Image
+        source={typeof user.picture === 'string' ? { uri: user.picture } : user.picture}
+        resizeMode="cover"
+        style={styles.image}
+      />
       <View style={[styles.blurContainer, { width, height: height / 2 }]}>
         <MaskedView
           maskElement={
@@ -88,7 +84,8 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     overflow: 'hidden',
     position: 'relative',
-    bottom: 50,
+    alignSelf: 'center',
+    marginTop: 0,
   },
   image: {
     width: '100%',
@@ -108,6 +105,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     padding: 20,
+    paddingRight: 20,
+    width: '100%',
   },
   text: {
     color: 'white',
@@ -126,10 +125,11 @@ const styles = StyleSheet.create({
   bio: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
-
     fontFamily: 'geistMedium',
     marginBottom: 20,
-    marginHorizontal: 10,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    paddingRight: 30,
   },
   interestsContainer: {},
   interestsTitle: {

@@ -1,13 +1,16 @@
 'use client';
 
 import type React from 'react';
-import { useTabsReload } from '~/app/(tabs)/_layout';
 import { format, type ISOStringFormat } from 'date-fns';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { Calendar, CalendarList, Agenda } from 'react-native-calendars';
+import { addPostToFeeds } from '~/hooks/useFeed';
+import * as ExpoCalendar from 'expo-calendar';
+import { formatPostsForUI } from '~/utils/formatPosts';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,7 +23,7 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Image,
   Platform,
@@ -29,6 +32,7 @@ import {
   Alert,
   Switch,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '~/components/providers/AuthProvider';
@@ -105,7 +109,7 @@ const AccordionSection = ({
 
   return (
     <View style={styles.accordionSection}>
-      <TouchableOpacity style={styles.accordionHeader} onPress={onToggle} activeOpacity={0.7}>
+      <Pressable style={styles.accordionHeader} onPress={onToggle}>
         <View style={styles.accordionTitleContainer}>
           {icon && (
             <Ionicons
@@ -121,7 +125,7 @@ const AccordionSection = ({
         <Animated.View style={iconStyle}>
           <Ionicons name="chevron-down" size={18} color="#F39237" />
         </Animated.View>
-      </TouchableOpacity>
+      </Pressable>
 
       <Animated.View style={contentStyle}>
         <View style={styles.accordionContent}>{children}</View>
@@ -134,13 +138,17 @@ const AddPostForm = () => {
   const [postType, setPostType] = useState<PostType | null>(null);
   const [dateType, setDateType] = useState<DateTimeType>('single');
   const [timeType, setTimeType] = useState<DateTimeType>('single');
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [isStartTimePickerVisible, setStartTimePickerVisible] = useState(false);
+  const [isEndTimePickerVisible, setEndTimePickerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { triggerReload } = useTabsReload();
+  const descriptionRef = useRef<TextInput>(null);
 
+  // Add this state for calendar error handling
+  const [calendarError, setCalendarError] = useState(false);
+  const [hasCalendarPermission, setHasCalendarPermission] = useState(false);
+
+  // Calendar marked dates state
+  const [markedDates, setMarkedDates] = useState<any>({});
 
   // State for user interests from database
   const [interests, setInterests] = useState<{ id: string; name: string }[]>([]);
@@ -159,6 +167,143 @@ const AddPostForm = () => {
     interest: false,
     image: false,
   });
+
+  // Add this function to request calendar permissions
+  const requestCalendarPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const { status } = await ExpoCalendar.requestCalendarPermissionsAsync();
+        setHasCalendarPermission(status === 'granted');
+
+        if (status === 'granted') {
+          // Check if there are any calendars available
+          const calendars = await ExpoCalendar.getCalendarsAsync(ExpoCalendar.EntityTypes.EVENT);
+          if (calendars.length === 0) {
+            setCalendarError(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error requesting calendar permissions:', error);
+        setCalendarError(true);
+      }
+    }
+  };
+
+  // Call the permission request on component mount
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      requestCalendarPermissions();
+    }
+  }, []);
+
+  const handleManualDateSelection = (date: Date) => {
+    if (dateType === 'single') {
+      setValue('startDate', date);
+      setValue('endDate', date);
+    } else {
+      // Range selection logic
+      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+        setValue('startDate', date);
+        setValue('endDate', undefined);
+      } else if (selectedStartDate && !selectedEndDate) {
+        if (date < selectedStartDate) {
+          setValue('endDate', selectedStartDate);
+          setValue('startDate', date);
+        } else {
+          setValue('endDate', date);
+        }
+      }
+    }
+  };
+
+  // Create a function to render the calendar or fallback
+  const renderCalendar = () => {
+    if (Platform.OS === 'android' && calendarError) {
+      // Fallback UI for Android when calendar fails
+      const today = new Date();
+      const nextMonth = new Date();
+      nextMonth.setMonth(today.getMonth() + 1);
+
+      // Generate dates for the current month
+      const dates = [];
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+
+      for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(currentMonth);
+        date.setDate(i);
+        dates.push(date);
+      }
+
+      return (
+        <View style={styles.calendarFallback}>
+          <Text style={styles.calendarFallbackTitle}>Select a date for your event:</Text>
+          <Text style={styles.calendarFallbackMonth}>{format(today, 'MMMM yyyy')}</Text>
+          <View style={styles.calendarFallbackGrid}>
+            {dates.map((date, index) => {
+              const dateStr = date.toISOString().split('T')[0];
+              const isSelected = markedDates[dateStr];
+              const isPastDate = date < new Date(new Date().setHours(0, 0, 0, 0));
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.calendarFallbackDay,
+                    isSelected && styles.calendarFallbackDaySelected,
+                    isPastDate && styles.calendarFallbackDayDisabled,
+                  ]}
+                  onPress={() => !isPastDate && handleManualDateSelection(date)}
+                  disabled={isPastDate}>
+                  <Text
+                    style={[
+                      styles.calendarFallbackDayText,
+                      isSelected && styles.calendarFallbackDayTextSelected,
+                      isPastDate && styles.calendarFallbackDayTextDisabled,
+                    ]}>
+                    {date.getDate()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      );
+    }
+
+    // Default calendar UI
+    try {
+      return (
+        <Calendar
+          onDayPress={handleDateSelect}
+          markedDates={markedDates}
+          minDate={new Date().toISOString().split('T')[0]}
+          markingType={dateType === 'range' ? 'period' : 'custom'}
+          theme={{
+            todayTextColor: '#00AF9F',
+            selectedDayBackgroundColor: '#00AF9F',
+            selectedDayTextColor: '#ffffff',
+            arrowColor: '#00AF9F',
+          }}
+          // Add these props to prevent system calendar access issues on Android
+          disableAllTouchEventsForDisabledDays={true}
+          disableAllTouchEventsForInactiveDays={true}
+          enableSwipeMonths={true}
+        />
+      );
+    } catch (error) {
+      console.error('Calendar render error:', error);
+      setCalendarError(true);
+      // Return the fallback UI if there's an error
+      return (
+        <View style={styles.calendarError}>
+          <Text style={styles.calendarErrorText}>
+            Calendar could not be loaded. Please try again or select dates manually.
+          </Text>
+        </View>
+      );
+    }
+  };
 
   interface OpenSections {
     [key: string]: boolean;
@@ -235,6 +380,52 @@ const AddPostForm = () => {
   const selectedEndTime = watch('endTime');
   const selectedInterestGroup = watch('interestGroup');
   const imageUri = watch('image');
+
+  // Update marked dates when start or end date changes
+  useEffect(() => {
+    const newMarkedDates: any = {};
+
+    if (selectedStartDate) {
+      const startDateStr = selectedStartDate.toISOString().split('T')[0];
+
+      if (dateType === 'single') {
+        newMarkedDates[startDateStr] = { selected: true, selectedColor: '#00AF9F' };
+      } else if (dateType === 'range') {
+        newMarkedDates[startDateStr] = {
+          selected: true,
+          startingDay: true,
+          color: '#00AF9F',
+        };
+
+        if (selectedEndDate) {
+          const endDateStr = selectedEndDate.toISOString().split('T')[0];
+          newMarkedDates[endDateStr] = {
+            selected: true,
+            endingDay: true,
+            color: '#00AF9F',
+          };
+
+          // Fill in dates between start and end
+          const start = new Date(selectedStartDate);
+          const end = new Date(selectedEndDate);
+
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+
+            if (dateStr !== startDateStr && dateStr !== endDateStr) {
+              newMarkedDates[dateStr] = {
+                selected: true,
+                color: '#00AF9F',
+                textColor: 'white',
+              };
+            }
+          }
+        }
+      }
+    }
+
+    setMarkedDates(newMarkedDates);
+  }, [selectedStartDate, selectedEndDate, dateType]);
 
   // Auto-progress through sections when fields are filled
   useEffect(() => {
@@ -340,7 +531,66 @@ const AddPostForm = () => {
     }
   };
 
-  // FORM SUBMISSION - FIXED JSON FORMAT ISSUES
+  // Calendar date selection handler
+  const handleDateSelect = (day: any) => {
+    const selectedDate = new Date(day.dateString);
+
+    if (dateType === 'single') {
+      setValue('startDate', selectedDate);
+      setValue('endDate', selectedDate); // For single date, end date is same as start date
+    } else {
+      // Range selection logic
+      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+        // If no dates selected or both dates already selected, set as new start date
+        setValue('startDate', selectedDate);
+        setValue('endDate', undefined);
+      } else if (selectedStartDate && !selectedEndDate) {
+        // If only start date is selected
+        if (selectedDate < selectedStartDate) {
+          // If selected date is before start date, swap them
+          setValue('endDate', selectedStartDate);
+          setValue('startDate', selectedDate);
+        } else {
+          // Normal case: set end date
+          setValue('endDate', selectedDate);
+        }
+      }
+    }
+  };
+
+  // Time picker handlers
+  const showStartTimePicker = () => {
+    setStartTimePickerVisible(true);
+  };
+
+  const hideStartTimePicker = () => {
+    setStartTimePickerVisible(false);
+  };
+
+  const handleStartTimeConfirm = (time: Date) => {
+    setValue('startTime', time);
+    hideStartTimePicker();
+
+    // If end time is before start time, update end time
+    if (selectedEndTime && time.getHours() > selectedEndTime.getHours()) {
+      setValue('endTime', time);
+    }
+  };
+
+  const showEndTimePicker = () => {
+    setEndTimePickerVisible(true);
+  };
+
+  const hideEndTimePicker = () => {
+    setEndTimePickerVisible(false);
+  };
+
+  const handleEndTimeConfirm = (time: Date) => {
+    setValue('endTime', time);
+    hideEndTimePicker();
+  };
+
+  // FORM SUBMISSION
   const onSubmit = async (data: FormData) => {
     // Validate that a post type is selected
     if (!data.type) {
@@ -373,6 +623,7 @@ const AddPostForm = () => {
         interest_id: string | null;
         location?: string;
         event_date?: ISOStringFormat | null;
+        created_at?: string;
       } = {
         user_id: authUser.id,
         title: data.title,
@@ -380,6 +631,7 @@ const AddPostForm = () => {
         image: data.image || '', // Ensure image is always a string
         post_type: data.type,
         interest_id: data.interestGroup || null,
+        created_at: new Date().toISOString(),
       };
 
       // Only add location and date for events
@@ -406,13 +658,19 @@ const AddPostForm = () => {
         postData: {
           ...postData,
           image: postData.image ?? '',
-          interest_id: postData.interest_id ?? '',
-          event_date: postData.event_date ?? undefined,
+          interest_id: postData.interest_id || null,
+          event_date: postData.event_date || null,
+          created_at: postData.created_at ?? new Date().toISOString(),
         },
         initializePopularity: true,
       });
 
-      console.log('Post created successfully:', createdPost);
+      // Format the post for UI and add it to feeds
+      const formattedPosts = await formatPostsForUI([createdPost]);
+      if (formattedPosts.length > 0) {
+        // Add the post to the top of relevant feeds
+        addPostToFeeds(formattedPosts[0]);
+      }
 
       // Reset form and state
       reset();
@@ -435,7 +693,6 @@ const AddPostForm = () => {
         `Your ${data.type === PostType.NOTE ? 'post' : 'event'} has been created successfully!`,
         [{ text: 'OK', onPress: () => router.push('/(tabs)/home') }]
       );
-      triggerReload();
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post. Please try again.');
@@ -446,6 +703,33 @@ const AddPostForm = () => {
 
   // Determine if image is required based on post type
   const isImageRequired = postType === PostType.EVENT;
+
+  // Check if form is valid for submission
+  const isFormValid = () => {
+    // Basic validation - must have type, title, description, and interest
+    if (
+      !postType ||
+      !title ||
+      title.length < 1 ||
+      !description ||
+      description.length < 1 ||
+      !selectedInterestGroup
+    ) {
+      return false;
+    }
+
+    // Additional validation for events
+    if (postType === PostType.EVENT) {
+      if (!location) return false;
+      if (!selectedStartDate) return false;
+      if (dateType === 'range' && !selectedEndDate) return false;
+      if (!selectedStartTime) return false;
+      if (timeType === 'range' && !selectedEndTime) return false;
+      if (isImageRequired && !imageUri) return false;
+    }
+
+    return true;
+  };
 
   return (
     <KeyboardAvoidingView
@@ -464,7 +748,7 @@ const AddPostForm = () => {
             isOpen={openSections.type}
             onToggle={() => toggleSection('type')}>
             <View style={styles.radioGroup}>
-              <TouchableOpacity
+              <Pressable
                 style={[
                   styles.radioButton,
                   postType === PostType.NOTE && styles.radioButtonSelected,
@@ -480,9 +764,9 @@ const AddPostForm = () => {
                   ]}>
                   Post
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
+              <Pressable
                 style={[
                   styles.radioButton,
                   postType === PostType.EVENT && styles.radioButtonSelected,
@@ -498,7 +782,7 @@ const AddPostForm = () => {
                   ]}>
                   Event
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </AccordionSection>
 
@@ -513,14 +797,23 @@ const AddPostForm = () => {
               <Text style={styles.label}>Title</Text>
               <Controller
                 control={control}
-                rules={{ required: 'Title is required' }}
+                rules={{
+                  required: 'Title is required',
+                  minLength: { value: 1, message: 'Title must be at least 1 character' },
+                }}
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    style={styles.input}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
                     value={value}
+                    keyboardType="default"
+                    autoCapitalize="words"
+                    autoFocus={true}
+                    style={styles.input}
+                    onChangeText={onChange}
+                    returnKeyType="next"
+                    onBlur={onBlur}
                     placeholder="Enter a title"
+                    autoCorrect
+                    onSubmitEditing={() => descriptionRef.current?.focus()}
                   />
                 )}
                 name="title"
@@ -532,16 +825,22 @@ const AddPostForm = () => {
               <Text style={styles.label}>Description</Text>
               <Controller
                 control={control}
-                rules={{ required: 'Description is required' }}
+                rules={{
+                  required: 'Description is required',
+                  minLength: { value: 1, message: 'Description must be at least 1 character' },
+                }}
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
                     style={[styles.input, styles.textArea]}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
+                    ref={descriptionRef}
                     placeholder="Write your content here..."
                     multiline
-                    numberOfLines={4}
+                    autoCapitalize="sentences"
+                    autoCorrect
+                    maxLength={255}
                   />
                 )}
                 name="description"
@@ -594,70 +893,35 @@ const AddPostForm = () => {
                       const newDateType = value ? 'range' : 'single';
                       setDateType(newDateType);
                       setValue('dateType', newDateType);
+
+                      if (!value && selectedEndDate) {
+                        setValue('endDate', selectedStartDate);
+                      }
                     }}
                     trackColor={{ false: '#ddd', true: '#14b8a6' }}
                     thumbColor={'white'}
                   />
                 </View>
 
-                {/* START DATE PICKER */}
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowStartDatePicker(true)}>
-                  <Text style={styles.datePickerButtonText}>
-                    {selectedStartDate
-                      ? format(selectedStartDate, 'MMMM d, yyyy')
-                      : dateType === 'single'
-                        ? 'Select a date'
-                        : 'Select start date'}
-                  </Text>
-                </TouchableOpacity>
-                {showStartDatePicker && (
-                  <DateTimePicker
-                    value={selectedStartDate || new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(event, selectedDate) => {
-                      setShowStartDatePicker(Platform.OS === 'ios');
-                      if (selectedDate) {
-                        setValue('startDate', selectedDate);
-                        // If end date is before start date, update end date
-                        if (selectedEndDate && selectedDate > selectedEndDate) {
-                          setValue('endDate', selectedDate);
-                        }
-                      }
-                    }}
-                  />
-                )}
+                {/* Calendar */}
+                <View style={styles.calendarContainer}>{renderCalendar()}</View>
 
-                {/* END DATE PICKER (ONLY SHOWN FOR RANGE) */}
-                {dateType === 'range' && (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.datePickerButton, { marginTop: 8 }]}
-                      onPress={() => setShowEndDatePicker(true)}>
-                      <Text style={styles.datePickerButtonText}>
-                        {selectedEndDate
-                          ? format(selectedEndDate, 'MMMM d, yyyy')
-                          : 'Select end date'}
-                      </Text>
-                    </TouchableOpacity>
-                    {showEndDatePicker && (
-                      <DateTimePicker
-                        value={selectedEndDate || selectedStartDate || new Date()}
-                        mode="date"
-                        display="default"
-                        minimumDate={selectedStartDate}
-                        onChange={(event, selectedDate) => {
-                          setShowEndDatePicker(Platform.OS === 'ios');
-                          if (selectedDate) {
-                            setValue('endDate', selectedDate);
-                          }
-                        }}
-                      />
-                    )}
-                  </>
-                )}
+                {/* Display selected dates */}
+                <View style={styles.selectedDatesContainer}>
+                  {selectedStartDate && (
+                    <Text style={styles.selectedDateText}>
+                      {dateType === 'single'
+                        ? `Selected date: ${format(selectedStartDate, 'MMMM d, yyyy')}`
+                        : `Start date: ${format(selectedStartDate, 'MMMM d, yyyy')}`}
+                    </Text>
+                  )}
+                  {dateType === 'range' && selectedEndDate && (
+                    <Text style={styles.selectedDateText}>
+                      End date: {format(selectedEndDate, 'MMMM d, yyyy')}
+                    </Text>
+                  )}
+                </View>
+
                 {errors.startDate && (
                   <Text style={styles.errorText}>{errors.startDate.message}</Text>
                 )}
@@ -685,64 +949,66 @@ const AddPostForm = () => {
                   />
                 </View>
 
-                {/* START TIME PICKER */}
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowStartTimePicker(true)}>
-                  <Text style={styles.datePickerButtonText}>
+                {/* START TIME PICKER - Improved styling */}
+                <Pressable
+                  style={[styles.datePickerButton, selectedStartTime && styles.datePickerButton]}
+                  onPress={showStartTimePicker}>
+                  <Text
+                    style={[
+                      styles.datePickerButtonText,
+                      selectedStartTime && styles.datePickerButtonText,
+                    ]}>
                     {selectedStartTime
                       ? format(selectedStartTime, 'h:mm a')
                       : timeType === 'single'
                         ? 'Select a time'
                         : 'Select start time'}
                   </Text>
-                </TouchableOpacity>
-                {showStartTimePicker && (
-                  <DateTimePicker
-                    value={selectedStartTime || new Date()}
-                    mode="time"
-                    display="default"
-                    onChange={(event, selectedTime) => {
-                      setShowStartTimePicker(Platform.OS === 'ios');
-                      if (selectedTime) {
-                        setValue('startTime', selectedTime);
-                        // If end time is before start time, update end time
-                        if (
-                          selectedEndTime &&
-                          selectedTime.getHours() > selectedEndTime.getHours()
-                        ) {
-                          setValue('endTime', selectedTime);
-                        }
-                      }
-                    }}
-                  />
-                )}
+                </Pressable>
 
-                {/* END TIME PICKER (ONLY SHOWN FOR RANGE) */}
+                <DateTimePickerModal
+                  isVisible={isStartTimePickerVisible}
+                  mode="time"
+                  onConfirm={handleStartTimeConfirm}
+                  onCancel={hideStartTimePicker}
+                  date={selectedStartTime || new Date()}
+                  // Add theme properties for better visibility
+                  themeVariant="light"
+                  isDarkModeEnabled={false}
+                />
+
+                {/* END TIME PICKER (ONLY SHOWN FOR RANGE) - Improved styling */}
                 {timeType === 'range' && (
                   <>
-                    <TouchableOpacity
-                      style={[styles.datePickerButton, { marginTop: 8 }]}
-                      onPress={() => setShowEndTimePicker(true)}>
-                      <Text style={styles.datePickerButtonText}>
+                    <Pressable
+                      style={[
+                        styles.datePickerButton,
+                        { marginTop: 8 },
+                        selectedEndTime && styles.datePickerButton,
+                      ]}
+                      onPress={showEndTimePicker}>
+                      <Text
+                        style={[
+                          styles.datePickerButtonText,
+                          selectedEndTime && styles.datePickerButtonText,
+                        ]}>
                         {selectedEndTime ? format(selectedEndTime, 'h:mm a') : 'Select end time'}
                       </Text>
-                    </TouchableOpacity>
-                    {showEndTimePicker && (
-                      <DateTimePicker
-                        value={selectedEndTime || selectedStartTime || new Date()}
-                        mode="time"
-                        display="default"
-                        onChange={(event, selectedTime) => {
-                          setShowEndTimePicker(Platform.OS === 'ios');
-                          if (selectedTime) {
-                            setValue('endTime', selectedTime);
-                          }
-                        }}
-                      />
-                    )}
+                    </Pressable>
+
+                    <DateTimePickerModal
+                      isVisible={isEndTimePickerVisible}
+                      mode="time"
+                      onConfirm={handleEndTimeConfirm}
+                      onCancel={hideEndTimePicker}
+                      date={selectedEndTime || selectedStartTime || new Date()}
+                      // Add theme properties for better visibility
+                      themeVariant="light"
+                      isDarkModeEnabled={false}
+                    />
                   </>
                 )}
+
                 {errors.startTime && (
                   <Text style={styles.errorText}>{errors.startTime.message}</Text>
                 )}
@@ -751,7 +1017,7 @@ const AddPostForm = () => {
             </>
           )}
 
-          {/* INTEREST SECTION - UPDATED TO USE DATABASE INTERESTS */}
+          {/* INTEREST SECTION */}
           <AccordionSection
             title="Interest Group"
             icon="people-outline"
@@ -766,7 +1032,7 @@ const AddPostForm = () => {
             ) : interests.length > 0 ? (
               <View style={styles.interestContainer}>
                 {interests.map((interest) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={interest.id}
                     style={[
                       styles.interestToggle,
@@ -782,7 +1048,7 @@ const AddPostForm = () => {
                       ]}>
                       {interest.name}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             ) : (
@@ -814,13 +1080,14 @@ const AddPostForm = () => {
                 userId={authUser.id}
                 onUploadComplete={(imageUrl) => {
                   setValue('image', imageUrl);
-                  trigger('image'); // Trigger validation after setting the image
+                  trigger('image');
                 }}
                 existingImageUrl={imageUri}
                 placeholderLabel="Choose an image"
-                imageSize={200} 
+                imageSize={200}
                 aspectRatio={[4, 3]}
-                folder={"posts"}
+                folder={'posts'}
+                updateUserProfile={false} // Add this property to explicitly prevent user profile updates
               />
             ) : (
               <Text style={styles.errorText}>You must be logged in to upload images</Text>
@@ -833,14 +1100,13 @@ const AddPostForm = () => {
 
           {/* FORM ACTIONS */}
           <View style={styles.formActions}>
-            <TouchableOpacity
+            <Pressable
               style={styles.cancelButton}
               onPress={() => {
                 reset();
                 setPostType(null);
                 setDateType('single');
                 setTimeType('single');
-                // Reset open sections to initial state
                 setOpenSections({
                   type: true,
                   basicInfo: false,
@@ -852,12 +1118,12 @@ const AddPostForm = () => {
                 });
               }}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              style={styles.submitButton}
+            <Pressable
+              style={[styles.submitButton, !isFormValid() && styles.submitButtonDisabled]}
               onPress={handleSubmit(onSubmit)}
-              disabled={isSubmitting}>
+              disabled={isSubmitting || !isFormValid()}>
               {isSubmitting ? (
                 <ActivityIndicator color="white" size="small" />
               ) : (
@@ -869,10 +1135,9 @@ const AddPostForm = () => {
                     : 'Create'}
                 </Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
-        {/* Add some bottom padding to ensure the submit button is visible */}
         <View style={{ height: 50 }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -886,21 +1151,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: Platform.OS === 'ios' ? 10 : 8,
   },
   contentContainer: {
-    paddingBottom: Platform.OS === 'ios' ? 80 : 100, // More padding for Android
+    paddingBottom: Platform.OS === 'ios' ? 80 : 100,
   },
   card: {
     width: '100%',
-    borderRadius: Platform.OS === 'ios' ? 50 : 25, // Less extreme radius for Android
+    borderRadius: Platform.OS === 'ios' ? 12 : 8,
     marginBottom: 20,
+    // Shadow for iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    // Elevation for Android
+    elevation: Platform.OS === 'android' ? 2 : 0,
+  },
+  calendarContainer: {
+    marginVertical: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  selectedDatesContainer: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  selectedDateText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 4,
   },
   // Rest of your styles...
-
-  // New styles
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -919,28 +1202,28 @@ const styles = StyleSheet.create({
     padding: 10,
   },
 
-  // Keep all your existing styles
   cardTitle: {
     fontSize: 22,
     fontFamily: 'SFProDisplayBold',
     marginBottom: 20,
     color: '#333',
   },
-  // Accordion styles
+  // Update accordion section styling
   accordionSection: {
-    marginBottom: 12,
+    marginBottom: Platform.OS === 'ios' ? 12 : 8,
     borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
+    borderColor: Platform.OS === 'ios' ? '#eee' : '#e0e0e0',
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     overflow: 'hidden',
     width: '100%',
+    backgroundColor: 'white',
   },
   accordionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#fdfdfd ',
+    padding: Platform.OS === 'ios' ? 12 : 16,
+    backgroundColor: Platform.OS === 'ios' ? '#fdfdfd' : 'white',
   },
   accordionTitleContainer: {
     flexDirection: 'row',
@@ -960,7 +1243,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   accordionContent: {
-    padding: 12,
+    padding: Platform.OS === 'ios' ? 12 : 16,
     backgroundColor: 'white',
   },
   // Original styles
@@ -976,15 +1259,19 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     padding: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 16,
     backgroundColor: 'white',
+    // Add this for Android text inputs
+    ...(Platform.OS === 'android' && {
+      paddingVertical: 8,
+    }),
   },
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
-    paddingTop: Platform.OS === 'android' ? 10 : 12, // Fix Android text alignment
+    paddingTop: Platform.OS === 'android' ? 8 : 12,
   },
   radioGroup: {
     flexDirection: 'row',
@@ -993,8 +1280,8 @@ const styles = StyleSheet.create({
   radioButton: {
     borderWidth: 1,
     borderColor: '#00AF9F',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: Platform.OS === 'ios' ? 10 : 4,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     paddingHorizontal: 20,
     marginRight: 10,
     backgroundColor: 'white',
@@ -1076,11 +1363,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 16,
+    marginBottom: Platform.OS === 'android' ? 16 : 0,
   },
   cancelButton: {
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
     marginRight: 10,
     borderWidth: 1,
     borderColor: '#ddd',
@@ -1090,11 +1378,15 @@ const styles = StyleSheet.create({
     color: '#666',
     fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
+  submitButtonDisabled: {
+    backgroundColor: '#cccccc',
+    opacity: 0.7,
+  },
   submitButton: {
     backgroundColor: '#00AF9F',
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: Platform.OS === 'ios' ? 8 : 4,
   },
   submitButtonText: {
     fontSize: 16,
@@ -1144,6 +1436,67 @@ const styles = StyleSheet.create({
     color: 'white',
     fontFamily: Platform.OS === 'ios' ? 'SFProTextMedium' : 'sans-serif-medium',
   },
+  calendarFallback: {
+    padding: 10,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  calendarFallbackTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 10,
+    color: '#333',
+  },
+  calendarFallbackMonth: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 10,
+    color: '#00AF9F',
+    textAlign: 'center',
+  },
+  calendarFallbackGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  calendarFallbackDay: {
+    width: '14%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderRadius: 20,
+  },
+  calendarFallbackDaySelected: {
+    backgroundColor: '#00AF9F',
+  },
+  calendarFallbackDayDisabled: {
+    opacity: 0.3,
+  },
+  calendarFallbackDayText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  calendarFallbackDayTextSelected: {
+    color: 'white',
+  },
+  calendarFallbackDayTextDisabled: {
+    color: '#999',
+  },
+  calendarError: {
+    padding: 20,
+    backgroundColor: '#fff8f8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffdddd',
+    alignItems: 'center',
+  },
+  calendarErrorText: {
+    color: '#d32f2f',
+    textAlign: 'center',
+    fontSize: 14,
+  },
 });
-
 export default AddPostForm;
