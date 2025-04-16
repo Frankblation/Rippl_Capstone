@@ -45,7 +45,11 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.frankblation.rippl",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -55,8 +59,12 @@
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.frankblation.rippl"
     },
     "extra": {
       "router": {
@@ -66,6 +74,12 @@
         "projectId": "7d9218d0-652f-4916-8a1e-4b5cdc247314"
       }
     },
-    "owner": "frankblation"
+    "owner": "frankblation",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7d9218d0-652f-4916-8a1e-4b5cdc247314"
+    }
   }
 }
