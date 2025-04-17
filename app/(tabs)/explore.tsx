@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   View,
   Text,
@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   Image,
   TouchableOpacity,
-  Dimensions,
   TextInput,
-  ScrollView,
+  FlatList,
+  Dimensions,
   Platform,
 } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
@@ -23,20 +23,14 @@ import { router } from "expo-router"
 import Feather from "@expo/vector-icons/Feather"
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons"
 import * as Haptics from "expo-haptics"
-import FadeInView from "~/components/FadeInView"
-import ScaleInView from "~/components/ScaleInView"
 import { Colors } from "~/constants/Colors"
 import { useColorScheme } from "~/hooks/useColorScheme"
 
-// Get screen width to calculate grid dimensions
+// Get screen dimensions
 const { width } = Dimensions.get("window")
-const MARGIN = 2
-const DOUBLE_MARGIN = MARGIN * 2
-
-// Calculate sizes for different post types
-const SMALL_SIZE = (width - DOUBLE_MARGIN * 3) / 3
-const MEDIUM_SIZE = (width - DOUBLE_MARGIN * 2) / 2
-const LARGE_SIZE = width - DOUBLE_MARGIN
+const SPACING = 2
+const NUM_COLUMNS = 3
+const ITEM_WIDTH = (width - SPACING * (NUM_COLUMNS + 1)) / NUM_COLUMNS
 
 // Debounce function to prevent excessive API calls
 const debounce = (func, delay) => {
@@ -115,83 +109,62 @@ const InterestCard = ({ id, name, icon, onPress }) => {
   )
 }
 
-// Dynamic Post Grid Item Component
-const PostGridItem = ({ post, size, onPress }) => {
-  // Determine content type and style based on post properties
-  const hasImage = post.image_url && post.image_url.trim() !== ""
-  const hasVideo = post.has_video
-  const hasText = post.content && post.content.trim() !== ""
-  const hasTitle = post.title && post.title.trim() !== ""
+// Post Grid Item Component
+const PostGridItem = ({ post, onPress }) => {
+  const [imageLoading, setImageLoading] = useState(true)
   const [imageError, setImageError] = useState(false)
+  const hasVideo = post.has_video
 
-  // Determine background color based on post type
-  const getBackgroundColor = () => {
-    if (post.interest_id) {
-      // Use different colors based on interest_id
-      const interestColors = [
-        "#00AF9F", // teal
-        "#FF6B6B", // coral
-        "#4E6EF2", // blue
-        "#FFB347", // orange
-        "#9775FA", // purple
-        "#54BAB9", // seafoam
-      ]
-      // Use the interest_id to pick a color (modulo to stay within array bounds)
-      const colorIndex = Number.parseInt(post.interest_id?.replace(/\D/g, "") || "0") % interestColors.length
-      return interestColors[colorIndex] || "#00AF9F"
-    }
-    return "#00AF9F" // default teal
+  // Handle image loading start
+  const handleImageLoadStart = () => {
+    setImageLoading(true)
+  }
+
+  // Handle image loading success
+  const handleImageLoad = () => {
+    setImageLoading(false)
   }
 
   // Handle image loading error
   const handleImageError = () => {
+    console.log("Image failed to load:", post.image_url)
+    setImageLoading(false)
     setImageError(true)
   }
 
-  // Determine if we should show text content
-  const shouldShowTextContent = !hasImage || imageError
+  // Debug log for image URL
+  useEffect(() => {
+    if (post.image_url) {
+      console.log(`Post ${post.id} has image URL: ${post.image_url}`)
+    } else {
+      console.log(`Post ${post.id} has no image URL`)
+    }
+  }, [post.id, post.image_url])
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.gridItem,
-        {
-          width: size.width,
-          height: size.height,
-          margin: MARGIN,
-        },
-      ]}
-      onPress={() => onPress(post)}
-      activeOpacity={0.9}
-    >
-      {hasImage && !imageError ? (
-        // Image post with error handling
-        <Image source={{ uri: post.image_url }} style={styles.gridItemImage} onError={handleImageError} />
-      ) : (
-        // Text-only post or image failed to load
-        <View
-          style={[
-            styles.textPostContainer,
-            {
-              backgroundColor: getBackgroundColor(),
-            },
-          ]}
-        >
-          {hasTitle && (
-            <Text style={styles.postTitle} numberOfLines={2}>
-              {post.title}
-            </Text>
-          )}
-          {hasText && (
-            <Text style={styles.postText} numberOfLines={4}>
-              {post.content}
-            </Text>
-          )}
-          {!hasTitle && !hasText && (
-            <View style={styles.placeholderContainer}>
-              <Feather name="file-text" size={24} color="#fff" />
+    <TouchableOpacity style={styles.gridItem} onPress={() => onPress(post)} activeOpacity={0.9}>
+      {/* Always try to load the image if there's an image_url */}
+      {post.image_url && post.image_url.trim() !== "" ? (
+        <>
+          <Image
+            source={{ uri: post.image_url }}
+            style={styles.gridItemImage}
+            onLoadStart={handleImageLoadStart}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
+
+          {/* Loading indicator */}
+          {imageLoading && (
+            <View style={styles.imageLoadingContainer}>
+              <ActivityIndicator size="small" color="#fff" />
             </View>
           )}
+        </>
+      ) : (
+        // Fallback for posts without image_url
+        <View style={styles.noImageContainer}>
+          <Text style={styles.noImageText}>No Image</Text>
         </View>
       )}
 
@@ -205,75 +178,74 @@ const PostGridItem = ({ post, size, onPress }) => {
   )
 }
 
-// Masonry Layout Component
-const MasonryLayout = ({ posts, onPostPress }) => {
-  // Assign sizes to posts based on various factors
-  const getPostSize = (post, index) => {
-    // Determine size based on post properties and position
-    const hasImage = post.image_url && post.image_url.trim() !== ""
-    const hasVideo = post.has_video
-    const contentLength = (post.content || "").length
-
-    // Create patterns for different sizes
-    if (index % 12 === 0 || index % 12 === 7) {
-      // Large posts (full width)
-      return { width: LARGE_SIZE, height: MEDIUM_SIZE * 1.5 }
-    } else if (index % 12 === 1 || index % 12 === 2 || index % 12 === 8 || index % 12 === 9) {
-      // Medium posts (half width)
-      return { width: MEDIUM_SIZE, height: MEDIUM_SIZE }
-    } else if (hasVideo) {
-      // Video posts (medium size)
-      return { width: MEDIUM_SIZE, height: MEDIUM_SIZE }
-    } else if (contentLength > 200 && !hasImage) {
-      // Long text posts (medium size)
-      return { width: MEDIUM_SIZE, height: MEDIUM_SIZE * 1.2 }
-    } else {
-      // Small posts (third width)
-      return { width: SMALL_SIZE, height: SMALL_SIZE }
-    }
+// Search Results Component
+const SearchResults = ({ loading, query, userResults, interestResults, onUserPress, onInterestPress, insets }) => {
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00AF9F" />
+        <Text style={styles.loadingText}>Searching...</Text>
+      </View>
+    )
   }
 
-  // Memoize the rows to prevent unnecessary re-renders
-  const rows = useMemo(() => {
-    let currentRow = []
-    let currentRowWidth = 0
-    const rowsArray = []
+  if (userResults.length === 0 && interestResults.length === 0 && query.trim() !== "") {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No results found</Text>
+        <Text style={styles.emptySubtext}>Try different keywords or check your spelling</Text>
+      </View>
+    )
+  }
 
-    posts.forEach((post, index) => {
-      const size = getPostSize(post, index)
-
-      // If adding this post would exceed screen width, start a new row
-      if (currentRowWidth + size.width > width && currentRow.length > 0) {
-        rowsArray.push(
-          <View key={`row-${rowsArray.length}`} style={styles.masonryRow}>
-            {currentRow}
-          </View>,
-        )
-        currentRow = []
-        currentRowWidth = 0
-      }
-
-      // Add post to current row
-      currentRow.push(<PostGridItem key={post.id} post={post} size={size} onPress={onPostPress} />)
-      currentRowWidth += size.width + DOUBLE_MARGIN
-    })
-
-    // Add the last row if it has items
-    if (currentRow.length > 0) {
-      rowsArray.push(
-        <View key={`row-${rowsArray.length}`} style={styles.masonryRow}>
-          {currentRow}
-        </View>,
-      )
-    }
-
-    return rowsArray
-  }, [posts]) // Only recalculate when posts change
+  if (query.trim() === "") {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>Search for users and interests</Text>
+        <Text style={styles.emptySubtext}>Enter keywords to find people and topics</Text>
+      </View>
+    )
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.masonryContainer} showsVerticalScrollIndicator={false}>
-      {rows}
-    </ScrollView>
+    <FlatList
+      data={[
+        ...(userResults.length > 0 ? [{ type: "header", id: "users-header", title: "Users" }] : []),
+        ...userResults.map((user) => ({ type: "user", ...user })),
+        ...(interestResults.length > 0 ? [{ type: "header", id: "interests-header", title: "Interests" }] : []),
+        ...interestResults.map((interest) => ({ type: "interest", ...interest })),
+      ]}
+      keyExtractor={(item) => `${item.type}-${item.id}`}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingBottom: 16 + insets.bottom,
+      }}
+      renderItem={({ item }) => {
+        if (item.type === "header") {
+          return <Text style={styles.sectionHeaderText}>{item.title}</Text>
+        } else if (item.type === "user") {
+          return (
+            <UserCard
+              id={item.id}
+              name={item.name}
+              username={item.username}
+              avatar={item.avatar}
+              onPress={() => onUserPress(item.id)}
+            />
+          )
+        } else if (item.type === "interest") {
+          return (
+            <InterestCard
+              id={item.id}
+              name={item.name}
+              icon={item.icon}
+              onPress={() => onInterestPress(item.id, item.name)}
+            />
+          )
+        }
+        return null
+      }}
+    />
   )
 }
 
@@ -289,7 +261,6 @@ export default function ExploreScreen() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [allInterests, setAllInterests] = useState([])
-  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false)
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth()
@@ -297,12 +268,9 @@ export default function ExploreScreen() {
 
   // Load all posts and interests when component mounts
   useEffect(() => {
-    if (!hasInitiallyLoaded) {
-      loadAllPosts()
-      loadAllInterests()
-      setHasInitiallyLoaded(true)
-    }
-  }, [hasInitiallyLoaded])
+    loadAllPosts()
+    loadAllInterests()
+  }, [])
 
   // Load all interests for search functionality
   const loadAllInterests = async () => {
@@ -314,7 +282,7 @@ export default function ExploreScreen() {
     }
   }
 
-  // Load all posts instead of just recommended ones
+  // Load all posts
   const loadAllPosts = async (showRefreshing = false) => {
     if (showRefreshing) {
       setRefreshing(true)
@@ -323,8 +291,20 @@ export default function ExploreScreen() {
     }
 
     try {
-      // Use getAllPosts instead of getRecommendedPostsForUser to show posts from everyone
-      const posts = await getAllPosts(50) // Increased limit for better masonry layout
+      const posts = await getAllPosts(50)
+
+      // Log the first few posts to debug image URLs
+      if (posts.length > 0) {
+        console.log("First few posts:")
+        posts.slice(0, 3).forEach((post, index) => {
+          console.log(`Post ${index + 1}:`, {
+            id: post.id,
+            title: post.title,
+            image_url: post.image_url,
+          })
+        })
+      }
+
       setAllPosts(posts)
     } catch (error) {
       console.error("Error loading posts:", error)
@@ -334,8 +314,8 @@ export default function ExploreScreen() {
     }
   }
 
-  // Handle pull-to-refresh
-  const onRefresh = useCallback(() => {
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
     loadAllPosts(true)
   }, [])
 
@@ -352,7 +332,7 @@ export default function ExploreScreen() {
       setSearchLoading(true)
 
       try {
-        // Search for users using the existing searchUsers function
+        // Search for users
         const users = await searchUsers(query)
 
         // Filter interests based on the query
@@ -429,8 +409,8 @@ export default function ExploreScreen() {
     })
   }, [])
 
+  // Handle post press
   const handlePostPress = useCallback((post) => {
-    // Navigate to post detail
     router.push({
       pathname: `/(tabs)/post/${post.id}`,
       params: {
@@ -463,82 +443,13 @@ export default function ExploreScreen() {
     }
   }, [user?.id])
 
-  // Render search results
-  const renderSearchResults = useCallback(() => {
-    if (searchLoading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#00AF9F" />
-          <Text style={styles.loadingText}>Searching...</Text>
-        </View>
-      )
-    }
-
-    if (userResults.length === 0 && interestResults.length === 0 && searchQuery.trim() !== "") {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No results found</Text>
-          <Text style={styles.emptySubtext}>Try different keywords or check your spelling</Text>
-        </View>
-      )
-    }
-
-    if (searchQuery.trim() === "") {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Search for users and interests</Text>
-          <Text style={styles.emptySubtext}>Enter keywords to find people and topics</Text>
-        </View>
-      )
-    }
-
-    return (
-      <ScrollView
-        style={styles.searchResultsContainer}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: 16 + insets.bottom,
-        }}
-      >
-        {userResults.length > 0 && (
-          <View>
-            <Text style={styles.sectionHeaderText}>Users</Text>
-            {userResults.map((user, index) => (
-              <FadeInView key={`user-${user.id}`} delay={index * 50} duration={300}>
-                <ScaleInView delay={index * 50} duration={300}>
-                  <UserCard
-                    id={user.id}
-                    name={user.name}
-                    username={user.username}
-                    avatar={user.avatar}
-                    onPress={() => handleUserPress(user.id)}
-                  />
-                </ScaleInView>
-              </FadeInView>
-            ))}
-          </View>
-        )}
-
-        {interestResults.length > 0 && (
-          <View style={{ marginTop: userResults.length > 0 ? 20 : 0 }}>
-            <Text style={styles.sectionHeaderText}>Interests</Text>
-            {interestResults.map((interest, index) => (
-              <FadeInView key={`interest-${interest.id}`} delay={index * 50} duration={300}>
-                <ScaleInView delay={index * 50} duration={300}>
-                  <InterestCard
-                    id={interest.id}
-                    name={interest.name}
-                    icon={interest.icon}
-                    onPress={() => handleInterestPress(interest.id, interest.name)}
-                  />
-                </ScaleInView>
-              </FadeInView>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    )
-  }, [searchLoading, userResults, interestResults, searchQuery, insets.bottom, handleUserPress, handleInterestPress])
+  // Render post item for the grid
+  const renderPostItem = useCallback(
+    ({ item }) => {
+      return <PostGridItem post={item} onPress={handlePostPress} />
+    },
+    [handlePostPress],
+  )
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -563,22 +474,39 @@ export default function ExploreScreen() {
 
         {/* Search Results or Explore Grid */}
         {isSearching ? (
-          renderSearchResults()
+          <SearchResults
+            loading={searchLoading}
+            query={searchQuery}
+            userResults={userResults}
+            interestResults={interestResults}
+            onUserPress={handleUserPress}
+            onInterestPress={handleInterestPress}
+            insets={insets}
+          />
         ) : loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#00AF9F" />
             <Text style={styles.loadingText}>Loading posts...</Text>
           </View>
         ) : (
-          <View style={{ flex: 1, marginBottom: 60 + insets.bottom }}>
-            <MasonryLayout posts={allPosts} onPostPress={handlePostPress} />
-            {allPosts.length === 0 && (
+          <FlatList
+            data={allPosts}
+            renderItem={renderPostItem}
+            keyExtractor={(item) => item.id}
+            numColumns={NUM_COLUMNS}
+            contentContainerStyle={{
+              paddingBottom: 60 + insets.bottom,
+            }}
+            columnWrapperStyle={{ justifyContent: "space-between" }}
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+            ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>No posts available</Text>
                 <Text style={styles.emptySubtext}>Check back later for new content</Text>
               </View>
-            )}
-          </View>
+            }
+          />
         )}
 
         {/* Custom Tab Bar */}
@@ -628,17 +556,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  searchResultsContainer: {
-    flex: 1,
+  // Grid Styles
+  gridItem: {
+    width: ITEM_WIDTH,
+    height: ITEM_WIDTH,
+    margin: SPACING,
+    borderRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "#f0f0f0",
+    position: "relative",
   },
-  // Masonry Layout Styles
-  masonryContainer: {
-    paddingHorizontal: MARGIN,
+  gridItemImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
-  masonryRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
+  imageLoadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  noImageContainer: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ddd",
+  },
+  noImageText: {
+    color: "#666",
+    fontSize: 12,
+    fontFamily: "geistMedium",
+  },
+  videoIndicator: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
   // Custom Search Bar Styles
   searchBarContainer: {
@@ -677,84 +637,6 @@ const styles = StyleSheet.create({
     color: "#00AF9F",
     fontSize: 16,
     fontFamily: "geistMedium",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 200,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontFamily: "geistBold",
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-  },
-  sectionHeaderText: {
-    fontSize: 18,
-    fontFamily: "geistBold",
-    color: "#333",
-    marginTop: 16,
-    marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  // Grid Styles
-  gridItem: {
-    overflow: "hidden",
-    borderRadius: 8,
-  },
-  gridItemImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  textPostContainer: {
-    width: "100%",
-    height: "100%",
-    padding: 12,
-    justifyContent: "center",
-  },
-  postTitle: {
-    fontSize: 16,
-    fontFamily: "geistBold",
-    color: "#fff",
-    marginBottom: 4,
-  },
-  postText: {
-    fontSize: 14,
-    color: "#fff",
-    opacity: 0.9,
-  },
-  videoIndicator: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   // User Card Styles
   userCard: {
@@ -823,6 +705,42 @@ const styles = StyleSheet.create({
     fontFamily: "geistBold",
     color: "#333",
   },
+  // Loading and Empty States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 200,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontFamily: "geistBold",
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+  },
+  sectionHeaderText: {
+    fontSize: 18,
+    fontFamily: "geistBold",
+    color: "#333",
+    marginTop: 16,
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
   // Custom Tab Bar
   customTabBar: {
     flexDirection: "row",
@@ -839,10 +757,5 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     padding: 8,
-  },
-  placeholderContainer: {
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
   },
 })
