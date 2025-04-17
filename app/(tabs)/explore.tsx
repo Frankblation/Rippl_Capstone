@@ -1,36 +1,15 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Image,
-  TouchableOpacity,
-  TextInput,
-  FlatList,
-  Dimensions,
-  Platform,
-} from "react-native"
-import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, TextInput, ScrollView } from "react-native"
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { useAuth } from "~/components/providers/AuthProvider"
 import { useUser } from "~/hooks/useUser"
-import { getAllPosts, searchUsers, getAllInterests } from "~/utils/data"
+import { searchUsers, getAllInterests, getSuggestedUsersByInterest, getEventsNearby } from "~/utils/data"
 import { router } from "expo-router"
 import Feather from "@expo/vector-icons/Feather"
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons"
-import * as Haptics from "expo-haptics"
-import { Colors } from "~/constants/Colors"
 import { useColorScheme } from "~/hooks/useColorScheme"
-
-// Get screen dimensions
-const { width } = Dimensions.get("window")
-const SPACING = 2
-const NUM_COLUMNS = 3
-const ITEM_WIDTH = (width - SPACING * (NUM_COLUMNS + 1)) / NUM_COLUMNS
 
 // Debounce function to prevent excessive API calls
 const debounce = (func, delay) => {
@@ -43,48 +22,11 @@ const debounce = (func, delay) => {
   }
 }
 
-// Custom Search Bar Component
-const SearchBar = ({ placeholder, onSearch, onFocus, onCancel, value }) => {
-  const [isFocused, setIsFocused] = useState(false)
-
-  const handleFocus = () => {
-    setIsFocused(true)
-    if (onFocus) onFocus()
-  }
-
-  const handleCancel = () => {
-    setIsFocused(false)
-    if (onCancel) onCancel()
-  }
-
-  return (
-    <View style={styles.searchBarContainer}>
-      <View style={[styles.searchInputContainer, isFocused && styles.searchInputFocused]}>
-        <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={placeholder}
-          placeholderTextColor="#999"
-          value={value}
-          onChangeText={onSearch}
-          onFocus={handleFocus}
-          returnKeyType="search"
-        />
-      </View>
-      {isFocused && (
-        <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  )
-}
-
-// User Card Component for search results
+// User Card Component
 const UserCard = ({ id, name, username, avatar, onPress }) => {
   return (
     <TouchableOpacity style={styles.userCard} onPress={onPress} activeOpacity={0.7}>
-      <Image source={avatar} style={styles.avatar} />
+      <Image source={{ uri: avatar }} style={styles.avatar} />
       <View style={styles.userContent}>
         <Text style={styles.name}>{name}</Text>
         {username && <Text style={styles.username}>@{username}</Text>}
@@ -94,7 +36,7 @@ const UserCard = ({ id, name, username, avatar, onPress }) => {
   )
 }
 
-// Interest Card Component for search results
+// Interest Card Component
 const InterestCard = ({ id, name, icon, onPress }) => {
   return (
     <TouchableOpacity style={styles.interestCard} onPress={onPress} activeOpacity={0.7}>
@@ -109,215 +51,120 @@ const InterestCard = ({ id, name, icon, onPress }) => {
   )
 }
 
-// Post Grid Item Component
-const PostGridItem = ({ post, onPress }) => {
-  const [imageLoading, setImageLoading] = useState(true)
-  const [imageError, setImageError] = useState(false)
-  const hasVideo = post.has_video
-
-  // Handle image loading start
-  const handleImageLoadStart = () => {
-    setImageLoading(true)
-  }
-
-  // Handle image loading success
-  const handleImageLoad = () => {
-    setImageLoading(false)
-  }
-
-  // Handle image loading error
-  const handleImageError = () => {
-    console.log("Image failed to load:", post.image_url)
-    setImageLoading(false)
-    setImageError(true)
-  }
-
-  // Debug log for image URL
-  useEffect(() => {
-    if (post.image_url) {
-      console.log(`Post ${post.id} has image URL: ${post.image_url}`)
-    } else {
-      console.log(`Post ${post.id} has no image URL`)
-    }
-  }, [post.id, post.image_url])
-
+// Event Card Component
+const EventCard = ({ id, title, date, location, image, onPress }) => {
   return (
-    <TouchableOpacity style={styles.gridItem} onPress={() => onPress(post)} activeOpacity={0.9}>
-      {/* Always try to load the image if there's an image_url */}
-      {post.image_url && post.image_url.trim() !== "" ? (
-        <>
-          <Image
-            source={{ uri: post.image_url }}
-            style={styles.gridItemImage}
-            onLoadStart={handleImageLoadStart}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
-
-          {/* Loading indicator */}
-          {imageLoading && (
-            <View style={styles.imageLoadingContainer}>
-              <ActivityIndicator size="small" color="#fff" />
-            </View>
-          )}
-        </>
+    <TouchableOpacity style={styles.eventCard} onPress={onPress} activeOpacity={0.7}>
+      {image ? (
+        <Image source={{ uri: image }} style={styles.eventImage} />
       ) : (
-        // Fallback for posts without image_url
-        <View style={styles.noImageContainer}>
-          <Text style={styles.noImageText}>No Image</Text>
+        <View style={styles.eventImagePlaceholder}>
+          <Feather name="calendar" size={24} color="#999" />
         </View>
       )}
-
-      {/* Video indicator if post has video */}
-      {hasVideo && (
-        <View style={styles.videoIndicator}>
-          <Feather name="play" size={16} color="#fff" />
-        </View>
-      )}
+      <View style={styles.eventContent}>
+        <Text style={styles.eventTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.eventDate}>{date}</Text>
+        <Text style={styles.eventLocation} numberOfLines={1}>
+          {location}
+        </Text>
+      </View>
     </TouchableOpacity>
-  )
-}
-
-// Search Results Component
-const SearchResults = ({ loading, query, userResults, interestResults, onUserPress, onInterestPress, insets }) => {
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00AF9F" />
-        <Text style={styles.loadingText}>Searching...</Text>
-      </View>
-    )
-  }
-
-  if (userResults.length === 0 && interestResults.length === 0 && query.trim() !== "") {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No results found</Text>
-        <Text style={styles.emptySubtext}>Try different keywords or check your spelling</Text>
-      </View>
-    )
-  }
-
-  if (query.trim() === "") {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Search for users and interests</Text>
-        <Text style={styles.emptySubtext}>Enter keywords to find people and topics</Text>
-      </View>
-    )
-  }
-
-  return (
-    <FlatList
-      data={[
-        ...(userResults.length > 0 ? [{ type: "header", id: "users-header", title: "Users" }] : []),
-        ...userResults.map((user) => ({ type: "user", ...user })),
-        ...(interestResults.length > 0 ? [{ type: "header", id: "interests-header", title: "Interests" }] : []),
-        ...interestResults.map((interest) => ({ type: "interest", ...interest })),
-      ]}
-      keyExtractor={(item) => `${item.type}-${item.id}`}
-      contentContainerStyle={{
-        paddingHorizontal: 16,
-        paddingBottom: 16 + insets.bottom,
-      }}
-      renderItem={({ item }) => {
-        if (item.type === "header") {
-          return <Text style={styles.sectionHeaderText}>{item.title}</Text>
-        } else if (item.type === "user") {
-          return (
-            <UserCard
-              id={item.id}
-              name={item.name}
-              username={item.username}
-              avatar={item.avatar}
-              onPress={() => onUserPress(item.id)}
-            />
-          )
-        } else if (item.type === "interest") {
-          return (
-            <InterestCard
-              id={item.id}
-              name={item.name}
-              icon={item.icon}
-              onPress={() => onInterestPress(item.id, item.name)}
-            />
-          )
-        }
-        return null
-      }}
-    />
   )
 }
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets()
   const colorScheme = useColorScheme()
-  const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [userResults, setUserResults] = useState([])
   const [interestResults, setInterestResults] = useState([])
-  const [allPosts, setAllPosts] = useState([])
+  const [suggestedUsers, setSuggestedUsers] = useState([])
+  const [trendingEvents, setTrendingEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchLoading, setSearchLoading] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-  const [allInterests, setAllInterests] = useState([])
 
   // Get authenticated user ID from auth hook
   const { user: authUser } = useAuth()
   const { user } = useUser(authUser?.id || null)
 
-  // Load all posts and interests when component mounts
+  // Load data when component mounts
   useEffect(() => {
-    loadAllPosts()
-    loadAllInterests()
-  }, [])
+    loadInitialData()
+  }, [user?.id])
 
-  // Load all interests for search functionality
-  const loadAllInterests = async () => {
+  // Load all initial data
+  const loadInitialData = async () => {
+    setLoading(true)
     try {
-      const interests = await getAllInterests()
-      setAllInterests(interests)
+      // Load data in parallel
+      await Promise.all([loadSuggestedUsers(), loadTrendingEvents()])
     } catch (error) {
-      console.error("Error loading interests:", error)
-    }
-  }
-
-  // Load all posts
-  const loadAllPosts = async (showRefreshing = false) => {
-    if (showRefreshing) {
-      setRefreshing(true)
-    } else if (!refreshing) {
-      setLoading(true)
-    }
-
-    try {
-      const posts = await getAllPosts(50)
-
-      // Log the first few posts to debug image URLs
-      if (posts.length > 0) {
-        console.log("First few posts:")
-        posts.slice(0, 3).forEach((post, index) => {
-          console.log(`Post ${index + 1}:`, {
-            id: post.id,
-            title: post.title,
-            image_url: post.image_url,
-          })
-        })
-      }
-
-      setAllPosts(posts)
-    } catch (error) {
-      console.error("Error loading posts:", error)
+      console.error("Error loading initial data:", error)
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    loadAllPosts(true)
-  }, [])
+  // Load suggested users based on user interests
+  const loadSuggestedUsers = async () => {
+    try {
+      let users = []
+
+      // If we have a function to get suggested users by interest and the user is logged in
+      if (typeof getSuggestedUsersByInterest === "function" && user?.id) {
+        users = await getSuggestedUsersByInterest(user.id)
+      } else {
+        // Fallback to regular user search
+        users = await searchUsers("")
+        users = users.slice(0, 5) // Limit to 5 users
+      }
+
+      // Format the user data
+      const formattedUsers = users.map((user) => ({
+        id: user.id,
+        name: user.name || user.full_name || "User",
+        username: user.username || "",
+        avatar: user.image || user.avatar_url || "https://randomuser.me/api/portraits/women/68.jpg",
+      }))
+
+      setSuggestedUsers(formattedUsers)
+    } catch (error) {
+      console.error("Error loading suggested users:", error)
+      setSuggestedUsers([])
+    }
+  }
+
+  // Load trending events based on location
+  const loadTrendingEvents = async () => {
+    try {
+      let events = []
+
+      // If we have a function to get events nearby
+      if (typeof getEventsNearby === "function") {
+        events = await getEventsNearby()
+      } else {
+        // Fallback to empty array if the function doesn't exist
+        events = []
+      }
+
+      // Format the event data
+      const formattedEvents = events.map((event) => ({
+        id: event.id,
+        title: event.title || event.name || "Event",
+        date: event.date || event.event_date || "Upcoming",
+        location: event.location || "Location not specified",
+        image: event.image || event.image_url || null,
+      }))
+
+      setTrendingEvents(formattedEvents)
+    } catch (error) {
+      console.error("Error loading trending events:", error)
+      setTrendingEvents([])
+    }
+  }
 
   // Perform search with debounce
   const performSearch = useCallback(
@@ -335,17 +182,18 @@ export default function ExploreScreen() {
         // Search for users
         const users = await searchUsers(query)
 
-        // Filter interests based on the query
-        const filteredInterests = allInterests
+        // Search for interests
+        const interests = await getAllInterests()
+        const filteredInterests = interests
           .filter((interest) => interest.name.toLowerCase().includes(query.toLowerCase()))
           .slice(0, 10)
 
         // Format the results
         const formattedUsers = users.map((user) => ({
           id: user.id,
-          name: user.name || "User",
+          name: user.name || user.full_name || "User",
           username: user.username || "",
-          avatar: { uri: user.image || "https://randomuser.me/api/portraits/women/68.jpg" },
+          avatar: user.image || user.avatar_url || "https://randomuser.me/api/portraits/women/68.jpg",
         }))
 
         const formattedInterests = filteredInterests.map((interest) => ({
@@ -364,7 +212,7 @@ export default function ExploreScreen() {
         setSearchLoading(false)
       }
     }, 300),
-    [allInterests],
+    [],
   )
 
   // Handle search input
@@ -372,36 +220,21 @@ export default function ExploreScreen() {
     (text) => {
       setSearchQuery(text)
       if (text.trim() === "") {
-        setIsSearching(false)
         setUserResults([])
         setInterestResults([])
       } else {
-        setIsSearching(true)
         performSearch(text)
       }
     },
     [performSearch],
   )
 
-  // Handle search focus
-  const handleSearchFocus = useCallback(() => {
-    setIsSearching(true)
-  }, [])
-
-  // Handle search cancel
-  const handleSearchCancel = useCallback(() => {
-    setSearchQuery("")
-    setIsSearching(false)
-    setUserResults([])
-    setInterestResults([])
-  }, [])
-
-  // Handle user press in search results
+  // Handle user press
   const handleUserPress = useCallback((userId) => {
     router.push(`/(tabs)/profile/${userId}`)
   }, [])
 
-  // Handle interest press in search results
+  // Handle interest press
   const handleInterestPress = useCallback((interestId, interestName) => {
     router.push({
       pathname: `/(tabs)/interest/${interestId}`,
@@ -409,130 +242,163 @@ export default function ExploreScreen() {
     })
   }, [])
 
-  // Handle post press
-  const handlePostPress = useCallback((post) => {
-    router.push({
-      pathname: `/(tabs)/post/${post.id}`,
-      params: {
-        userId: post.user_id,
-        interestId: post.interest_id,
-      },
-    })
-  }, [])
-
-  // Navigation functions with haptic feedback
-  const navigateToHome = useCallback(() => {
-    Haptics.selectionAsync()
-    router.push("/(tabs)/home")
-  }, [])
-
-  const navigateToAddPost = useCallback(() => {
-    Haptics.selectionAsync()
-    router.push("/(tabs)/add-post")
-  }, [])
-
-  const navigateToMatching = useCallback(() => {
-    Haptics.selectionAsync()
-    router.push("/(tabs)/matching")
-  }, [])
-
-  const navigateToProfile = useCallback(() => {
-    Haptics.selectionAsync()
-    if (user?.id) {
-      router.push(`/(tabs)/profile/${user.id}`)
+  // Handle event press
+  const handleEventPress = useCallback((eventId) => {
+    // Navigate to event details page if available
+    if (typeof eventId === "string") {
+      router.push(`/(tabs)/event/${eventId}`)
     }
-  }, [user?.id])
+  }, [])
 
-  // Render post item for the grid
-  const renderPostItem = useCallback(
-    ({ item }) => {
-      return <PostGridItem post={item} onPress={handlePostPress} />
-    },
-    [handlePostPress],
-  )
-
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="dark" />
-
-        {/* Header with title */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Explore</Text>
+  // Render search results
+  const renderSearchResults = () => {
+    if (searchLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00AF9F" />
+          <Text style={styles.loadingText}>Searching...</Text>
         </View>
+      )
+    }
 
-        {/* Custom Search Bar */}
-        <View style={styles.searchContainer}>
-          <SearchBar
-            placeholder="Search users and interests"
-            onSearch={handleSearch}
-            onFocus={handleSearchFocus}
-            onCancel={handleSearchCancel}
-            value={searchQuery}
-          />
+    if (searchQuery.trim() === "") {
+      return null
+    }
+
+    if (userResults.length === 0 && interestResults.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No results found</Text>
+          <Text style={styles.emptySubtext}>Try different keywords or check your spelling</Text>
         </View>
+      )
+    }
 
-        {/* Search Results or Explore Grid */}
-        {isSearching ? (
-          <SearchResults
-            loading={searchLoading}
-            query={searchQuery}
-            userResults={userResults}
-            interestResults={interestResults}
-            onUserPress={handleUserPress}
-            onInterestPress={handleInterestPress}
-            insets={insets}
-          />
-        ) : loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#00AF9F" />
-            <Text style={styles.loadingText}>Loading posts...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={allPosts}
-            renderItem={renderPostItem}
-            keyExtractor={(item) => item.id}
-            numColumns={NUM_COLUMNS}
-            contentContainerStyle={{
-              paddingBottom: 60 + insets.bottom,
-            }}
-            columnWrapperStyle={{ justifyContent: "space-between" }}
-            onRefresh={handleRefresh}
-            refreshing={refreshing}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No posts available</Text>
-                <Text style={styles.emptySubtext}>Check back later for new content</Text>
-              </View>
-            }
-          />
+    return (
+      <View style={styles.searchResultsContainer}>
+        {interestResults.length > 0 && (
+          <>
+            <Text style={styles.sectionHeaderText}>Interests</Text>
+            {interestResults.map((interest) => (
+              <InterestCard
+                key={`interest-${interest.id}`}
+                id={interest.id}
+                name={interest.name}
+                icon={interest.icon}
+                onPress={() => handleInterestPress(interest.id, interest.name)}
+              />
+            ))}
+          </>
         )}
 
-        {/* Custom Tab Bar */}
-        <View style={[styles.customTabBar, { paddingBottom: insets.bottom || 16 }]}>
-          <TouchableOpacity style={styles.tabButton} onPress={navigateToHome}>
-            <Feather name="home" size={24} color={Colors[colorScheme ?? "light"].text} />
-          </TouchableOpacity>
+        {userResults.length > 0 && (
+          <>
+            <Text style={styles.sectionHeaderText}>Users</Text>
+            {userResults.map((user) => (
+              <UserCard
+                key={`user-${user.id}`}
+                id={user.id}
+                name={user.name}
+                username={user.username}
+                avatar={user.avatar}
+                onPress={() => handleUserPress(user.id)}
+              />
+            ))}
+          </>
+        )}
+      </View>
+    )
+  }
 
-          <TouchableOpacity style={styles.tabButton} activeOpacity={1}>
-            <Feather name="search" size={24} color={Colors[colorScheme ?? "light"].tint} />
-          </TouchableOpacity>
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
 
-          <TouchableOpacity style={styles.tabButton} onPress={navigateToAddPost}>
-            <Feather name="plus" size={24} color={Colors[colorScheme ?? "light"].text} />
-          </TouchableOpacity>
+      {/* Header with title */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Explore</Text>
+      </View>
 
-          <TouchableOpacity style={styles.tabButton} onPress={navigateToMatching}>
-            <MaterialCommunityIcons name="cards-outline" size={24} color={Colors[colorScheme ?? "light"].text} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.tabButton} onPress={navigateToProfile}>
-            <Feather name="user" size={24} color={Colors[colorScheme ?? "light"].text} />
-          </TouchableOpacity>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search users and interests"
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => handleSearch("")} style={styles.clearButton}>
+              <Feather name="x" size={18} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
-      </SafeAreaView>
-    </GestureHandlerRootView>
+      </View>
+
+      {/* Main Content */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00AF9F" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{
+            paddingBottom: 20 + insets.bottom,
+          }}
+        >
+          {/* Search Results */}
+          {renderSearchResults()}
+
+          {/* Default Content (when no search is active) */}
+          {searchQuery.trim() === "" && (
+            <>
+              {/* Trending Events */}
+              {trendingEvents.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Events Near You</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.eventsContainer}>
+                    {trendingEvents.map((event) => (
+                      <EventCard
+                        key={`event-${event.id}`}
+                        id={event.id}
+                        title={event.title}
+                        date={event.date}
+                        location={event.location}
+                        image={event.image}
+                        onPress={() => handleEventPress(event.id)}
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Suggested Users */}
+              {suggestedUsers.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>People You Might Like</Text>
+                  {suggestedUsers.map((user) => (
+                    <UserCard
+                      key={`suggested-${user.id}`}
+                      id={user.id}
+                      name={user.name}
+                      username={user.username}
+                      avatar={user.avatar}
+                      onPress={() => handleUserPress(user.id)}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+        </ScrollView>
+      )}
+    </SafeAreaView>
   )
 }
 
@@ -555,69 +421,18 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  // Grid Styles
-  gridItem: {
-    width: ITEM_WIDTH,
-    height: ITEM_WIDTH,
-    margin: SPACING,
-    borderRadius: 4,
-    overflow: "hidden",
-    backgroundColor: "#f0f0f0",
-    position: "relative",
-  },
-  gridItemImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  imageLoadingContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  noImageContainer: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#ddd",
-  },
-  noImageText: {
-    color: "#666",
-    fontSize: 12,
-    fontFamily: "geistMedium",
-  },
-  videoIndicator: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  // Custom Search Bar Styles
-  searchBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
   searchInputContainer: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    height: 40,
+    height: 48,
     backgroundColor: "#f2f2f2",
-    borderRadius: 20,
-    paddingHorizontal: 12,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: "#e0e0e0",
-  },
-  searchInputFocused: {
-    borderColor: "#00AF9F",
   },
   searchIcon: {
     marginRight: 8,
@@ -629,16 +444,69 @@ const styles = StyleSheet.create({
     color: "#333",
     padding: 0,
   },
-  cancelButton: {
-    marginLeft: 10,
-    paddingVertical: 8,
+  clearButton: {
+    padding: 4,
   },
-  cancelText: {
-    color: "#00AF9F",
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: "geistBold",
+    color: "#333",
+    marginBottom: 12,
+  },
+  eventsContainer: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  eventCard: {
+    width: 200,
+    marginRight: 12,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+    overflow: "hidden",
+  },
+  eventImage: {
+    width: "100%",
+    height: 120,
+    resizeMode: "cover",
+  },
+  eventImagePlaceholder: {
+    width: "100%",
+    height: 120,
+    backgroundColor: "#f2f2f2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  eventContent: {
+    padding: 12,
+  },
+  eventTitle: {
     fontSize: 16,
-    fontFamily: "geistMedium",
+    fontFamily: "geistBold",
+    color: "#333",
+    marginBottom: 4,
   },
-  // User Card Styles
+  eventDate: {
+    fontSize: 14,
+    color: "#00AF9F",
+    marginBottom: 4,
+  },
+  eventLocation: {
+    fontSize: 14,
+    color: "#666",
+  },
   userCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -670,7 +538,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  // Interest Card Styles
   interestCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -705,7 +572,6 @@ const styles = StyleSheet.create({
     fontFamily: "geistBold",
     color: "#333",
   },
-  // Loading and Empty States
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -719,7 +585,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
     justifyContent: "center",
-    height: 200,
+    marginTop: 40,
   },
   emptyText: {
     fontSize: 18,
@@ -731,31 +597,15 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
+  searchResultsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
   sectionHeaderText: {
     fontSize: 18,
     fontFamily: "geistBold",
     color: "#333",
     marginTop: 16,
     marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  // Custom Tab Bar
-  customTabBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    paddingTop: 12,
-    position: Platform.OS === "ios" ? "absolute" : "relative",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  tabButton: {
-    padding: 8,
   },
 })
